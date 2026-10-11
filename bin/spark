@@ -332,6 +332,16 @@ class Warn(str):
     """
 
 
+def fan_control_enabled(cluster: dict) -> bool:
+    """Whether the site runs the fan-floor control (host.fan_control, default true).
+
+    The driver binds NVIDIA's P4242 board only. Sites on other GB10 boards set
+    host.fan_control false: doctor then records the absence instead of erroring,
+    and benchmarks skip the curve instead of refusing to measure.
+    """
+    return cluster.get("host", {}).get("fan_control", True) is not False
+
+
 def local_doctor(cluster: dict, nodes: dict, upstreams: dict) -> list[str]:
     problems: list[str] = topology.problems(cluster, nodes)
     problems.extend(kernel_backend.problems(cluster))
@@ -347,6 +357,8 @@ def local_doctor(cluster: dict, nodes: dict, upstreams: dict) -> list[str]:
         value = host.get(key)
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
             problems.append(f"host.{key} must be a positive integer")
+    if not isinstance(host.get("fan_control", True), bool):
+        problems.append("host.fan_control must be a boolean")
     for key in ("memguard_interval_seconds", "startup_memguard_interval_seconds"):
         value = host.get(key)
         if (
@@ -797,7 +809,8 @@ def nvme_coalescing_warnings(node_name: str, facts: dict[str, str]) -> list[str]
     return warnings
 
 
-def fan_control_problems(node_name: str, facts: dict[str, str]) -> list[str]:
+def fan_control_problems(node_name: str, facts: dict[str, str],
+                         fan_control: bool = True) -> list[str]:
     """The first missing layer of the DGX Spark additive fan-floor control.
 
     Each layer needs the one before it: the signed DKMS module for the running
@@ -809,6 +822,8 @@ def fan_control_problems(node_name: str, facts: dict[str, str]) -> list[str]:
     policy. Whether the service also runs while serving is the site's choice,
     so only its installation is checked.
     """
+    if not fan_control:
+        return []
     kernel = facts.get("kernel") or "the running kernel"
     if "installed" not in facts.get("fan_dkms", ""):
         return [
@@ -990,7 +1005,8 @@ def live_doctor(cluster: dict, nodes: dict) -> list[str]:
         problems.extend(splash_problems(node["name"], facts))
         problems.extend(idle_service_warnings(node["name"], facts))
         problems.extend(nvme_coalescing_warnings(node["name"], facts))
-        problems.extend(fan_control_problems(node["name"], facts))
+        problems.extend(fan_control_problems(
+            node["name"], facts, fan_control=fan_control_enabled(cluster)))
         gid_index, hcas = roce_gid_setting(cluster, node)
         gids = remote_shell(nodes, node, roce_gid_query(hcas))
         problems.extend(roce_gid_problems(node["name"], gid_index, hcas, gids.stdout))
@@ -3837,6 +3853,7 @@ def cool_nodes(
     below_c: float,
     timeout_s: float,
     poll_s: float = COOL_POLL_S,
+    fan_control: bool = True,
 ) -> list[dict]:
     """Bring every target node's hottest zone below below_c, cooling them together.
 
@@ -3846,7 +3863,7 @@ def cool_nodes(
     cannot be read or does not cool within timeout_s; the fans are restored on
     every path.
     """
-    if below_c <= 0 or not targets:
+    if below_c <= 0 or not targets or not fan_control:
         return []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(targets)) as pool:
         def readings() -> list[float | None]:
@@ -3901,8 +3918,12 @@ def cool_nodes(
 # dgx-fan-control service's performance curve, started where it is installed but
 # not running and stopped again afterwards. A node that cannot run it stops the
 # benchmark, because its numbers would not be comparable.
-def start_fan_curve(nodes: dict, targets: list[dict]) -> list[dict]:
+def start_fan_curve(nodes: dict, targets: list[dict],
+                    fan_control: bool = True) -> list[dict]:
     """Run the dgx-fan-control performance curve on every target for a benchmark."""
+    if not fan_control:
+        return []
+
     def start(node: dict) -> dict:
         record = {"node": node["name"], "service": "active", "started": False}
         if run_ssh(nodes, node, "systemctl", "is-active", "--quiet", FAN_SERVICE).returncode == 0:
@@ -5150,10 +5171,12 @@ def command_bench(args: argparse.Namespace) -> int:
     fan_failures: list[str] = []
     try:
         try:
-            report["cooling"] = cool_nodes(nodes, nodes["nodes"], args.cool_below, args.cool_timeout)
+            report["cooling"] = cool_nodes(nodes, nodes["nodes"], args.cool_below,
+                                           args.cool_timeout, fan_control=fan_control_enabled(cluster))
         except RuntimeError as error:
             raise BenchAbort(f"cooling failed: {error}") from error
-        report["fan_curve"] = start_fan_curve(nodes, nodes["nodes"])
+        report["fan_curve"] = start_fan_curve(nodes, nodes["nodes"],
+                                              fan_control=fan_control_enabled(cluster))
         save()
         missing_curve = fan_curve_problems(report["fan_curve"])
         if missing_curve:
@@ -5176,7 +5199,8 @@ def command_bench(args: argparse.Namespace) -> int:
         bench.halt("interrupted")
         report["aborted"] = "interrupted"
     finally:
-        fan_failures = stop_fan_curve(nodes, nodes["nodes"], report.get("fan_curve", []))
+        fan_failures = stop_fan_curve(nodes, nodes["nodes"], report.get("fan_curve", []),
+                                      fan_control=fan_control_enabled(cluster))
         report["thermal"] = bench.memory.thermal_summary()
         report["memory"] = bench.memory.close()
         report["discarded_samples"] = bench.discarded
