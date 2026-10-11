@@ -5199,8 +5199,7 @@ def command_bench(args: argparse.Namespace) -> int:
         bench.halt("interrupted")
         report["aborted"] = "interrupted"
     finally:
-        fan_failures = stop_fan_curve(nodes, nodes["nodes"], report.get("fan_curve", []),
-                                      fan_control=fan_control_enabled(cluster))
+        fan_failures = stop_fan_curve(nodes, nodes["nodes"], report.get("fan_curve", []))
         report["thermal"] = bench.memory.thermal_summary()
         report["memory"] = bench.memory.close()
         report["discarded_samples"] = bench.discarded
