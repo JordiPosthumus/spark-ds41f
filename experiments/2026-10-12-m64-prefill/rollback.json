@@ -1,0 +1,19 @@
+{
+  "status": "prepared-not-executed",
+  "accepted_commit": "9ff535dc68ddbf248f52c4eb41f4d6fccbbd9efa",
+  "accepted_profile": "config/site-ring2-baseline.local.json",
+  "accepted_profile_sha256": "9309ad55b33bb884096c7df70eb6c2de450aeb500744a1bfe5c010b466aa5073",
+  "accepted_adapter_sha256": "999c937450a1038b0de528335a74c56d33de0c0c2364d4263eeda5beb7657e2d",
+  "origin_restoration": "Restore each controller/rank exact saved original Git origin fetch/push URLs and .git/config before the accepted profile's origin check.",
+  "actual_original_origin_values": null,
+  "git_metadata_backup_receipt": null,
+  "sequence": [
+    "Drain new Ring2 arrivals and wait for active requests to finish",
+    "Use the existing authorized coordinated controller; stop all three ranks only when idle",
+    "Restore recorded original Git origins on controller and ranks",
+    "Use published accepted commit and the exact original profile through bin/spark coordinated sync/start",
+    "Validate original runtime identities, seven overlays, 113 env values, argv, costs, cache backing and actual inference before admission"
+  ],
+  "no_replacement_baseline": true,
+  "ring1_changed": false
+}

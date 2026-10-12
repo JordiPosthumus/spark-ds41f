@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "promotion_allowed": false,
+  "owner_accepted_exact_change": null,
+  "private_fork_remote": "https://github.com/JordiPosthumus/spark-ds41f.git",
+  "publication_branch": "codex/m64-prefill",
+  "publication_commit": null,
+  "pending": {
+    "complete_three_rank_logs_and_memory_review": null,
+    "repeated_controlled_performance_and_soak": null,
+    "final_committed_adapter_path_with_normal_cache_backing": null,
+    "recipe_doctor_and_affected_source_series_verification": null,
+    "complete_recipe_bench_report": null,
+    "owner_acceptance_of_memory_and_restart_tradeoff": null,
+    "exact_original_git_origins_and_config_backed_up_for_rollback": null,
+    "owner_branch_publication_and_three_rank_source_identity": null
+  },
+  "rule": "Null means unproven. Never fill a gate from process startup, source inspection or CPU unit tests alone.",
+  "memory": "Keep startup5GiB/steady3GiB production guards and existing4GiB lab cancellation floor. Do not resolve a capacity failure by reducing context/concurrency or relaxing a guard.",
+  "capacity_aggregate": "experiments/2026-10-12-m64-prefill/evidence/capacity-aggregate.json",
+  "observed": {
+    "full_524288_context_actual_usage_and_native_ids_both_arms": {
+      "actual_aggregate": "experiments/2026-10-12-m64-prefill/evidence/capacity-aggregate.json",
+      "baseline": "baseline-full-context-a",
+      "candidate": "candidate-full-context-a"
+    },
+    "eight_concurrent_representative_requests_both_arms": {
+      "actual_aggregate": "experiments/2026-10-12-m64-prefill/evidence/capacity-aggregate.json",
+      "baseline": "baseline-eight-a",
+      "candidate": "candidate-eight-a"
+    },
+    "thirteen_image_overlap_capacity_and_memory_both_arms": {
+      "actual_aggregate": "experiments/2026-10-12-m64-prefill/evidence/capacity-aggregate.json",
+      "baseline": "baseline-images-b",
+      "candidate": "candidate-images-a"
+    }
+  },
+  "phase": "canary-only; production promotion remains separate",
+  "immutable_baseline_manifests_included": false
+}

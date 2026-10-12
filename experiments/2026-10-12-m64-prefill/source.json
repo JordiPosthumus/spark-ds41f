@@ -1,0 +1,98 @@
+{
+  "schema": 3,
+  "status": "unpromoted-canary-experiment",
+  "recipe_base_commit": "9ff535dc68ddbf248f52c4eb41f4d6fccbbd9efa",
+  "publication_base_commit": "2a1d91cdf40612704881d2a40ff7b97f63616bb4",
+  "publication_repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
+  "publication_branch": "codex/m64-prefill",
+  "publication_commit": null,
+  "publication_metadata_delta": {
+    "deployment.repository": {
+      "before": "https://github.com/christopherowen/spark-ds41f.git",
+      "after": "https://github.com/JordiPosthumus/spark-ds41f.git"
+    },
+    "deployment.branch": {
+      "before": "main",
+      "after": "codex/m64-prefill"
+    }
+  },
+  "runtime_image_id": "sha256:5a5c06fb5ad934db546dcde5b2268c70c7c73238eadaa6dea09dabdd3754a864",
+  "runtime_image_tag": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
+  "upstreams_config_unchanged": "experiments/2026-10-11-r6f/upstreams.lock.json",
+  "accepted_profile_sha256": "9309ad55b33bb884096c7df70eb6c2de450aeb500744a1bfe5c010b466aa5073",
+  "accepted_adapter_sha256": "999c937450a1038b0de528335a74c56d33de0c0c2364d4263eeda5beb7657e2d",
+  "candidate_adapter_sha256": "072d2a99d1cbdb538ce5fbba6c0ca66935f234bb9f9e33e0d2e9ded860e73526",
+  "post_accepted_overlay_series": "experiments/2026-10-12-m64-prefill/patches/series",
+  "tracked_runtime_adapter": "experiments/2026-10-12-m64-prefill/overlay/vllm/model_executor/layers/fused_moe/tilelang.py",
+  "upstream_series_note": "This post-accepted-overlay series is not silently appended to upstreams.lock.json; it requires the exact accepted source snapshot bundled here.",
+  "unchanged_overlays": [
+    {
+      "path": "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+      "destination": "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+      "sha256": "98df0f97db6e9ba0c25f9cdad75b9b89f4142dbe790246830480ce209eaac5c1"
+    },
+    {
+      "path": "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+      "destination": "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+      "sha256": "6b8d13e2031a8b45177479ce9bf6c6d8039e9d408031471de4ede3ab583e9aec"
+    },
+    {
+      "path": "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+      "destination": "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+      "sha256": "7859c0e8882e3771a7b8aa69ecdc9a38dce1efe43e00da7529c5b007af25940a"
+    },
+    {
+      "path": "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+      "destination": "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+      "sha256": "c3e4ab1184dd5f5b52c1aca04a9541487ae704bf23382b3c7cec29a7e6ec6f11"
+    },
+    {
+      "path": "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+      "destination": "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+      "sha256": "29f81a111ae2fd5ef8dae6c966b31af4ad93fae25fb44782d8b9b6cc76c4e7e5"
+    },
+    {
+      "path": "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
+      "destination": "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+      "sha256": "074e313afa1b689132d0b7162fb8bfe9b17b11a68d9021a0ab3523f550e72ea5"
+    }
+  ],
+  "runtime_environment": {
+    "Spark": {
+      "count": 113,
+      "comparison_passed": true,
+      "value_mismatches": [],
+      "restoration_receipt_sha256": "cef720ddaab2b3f3b204ec72b7ff53427058dda885c91f19dfd8558101e87668",
+      "note": "Full values were compared remotely by the pinned verifier; the earlier active-baseline inventory retains only76 selected env values and is not a113-value hash."
+    },
+    "Spark2": {
+      "count": 113,
+      "comparison_passed": true,
+      "value_mismatches": [],
+      "restoration_receipt_sha256": "cef720ddaab2b3f3b204ec72b7ff53427058dda885c91f19dfd8558101e87668",
+      "note": "Full values were compared remotely by the pinned verifier; the earlier active-baseline inventory retains only76 selected env values and is not a113-value hash."
+    },
+    "Spark3": {
+      "count": 113,
+      "comparison_passed": true,
+      "value_mismatches": [],
+      "restoration_receipt_sha256": "cef720ddaab2b3f3b204ec72b7ff53427058dda885c91f19dfd8558101e87668",
+      "note": "Full values were compared remotely by the pinned verifier; the earlier active-baseline inventory retains only76 selected env values and is not a113-value hash."
+    }
+  },
+  "cache_policy": {
+    "host": "/home/jordi/spark-ds41f/cache/kkref/jit/tilelang",
+    "container": "/cache/kkref/jit/tilelang",
+    "environment_changed": false,
+    "nested_mount_added": false,
+    "qualified_private_source": "/home/jordi/spark-lab/2026-10-12-ring2-baseline/wave7-prefill-model/cache/tilelang",
+    "copy_policy": "Optional hash-verified append-only seeding of missing compiler-cache files after timestamped backup; never overwrite, move or delete an existing cache entry.",
+    "qualification_required": "Final committed adapter path plus original normal cache backing on all3 ranks must pass startup, native fingerprints, image cold/warm cache and memory checks before admission."
+  },
+  "canary_profile": "experiments/2026-10-12-m64-prefill/canary.json",
+  "canary_profile_sha256": "84dbe5709590e423dbe0e8cb2b34515f941d8e81d2278a7239495dfec61f9ccb",
+  "accepted_promoted_baseline": "2026-10-05-karmic-kraken-r6",
+  "selected_upstreams_config": "experiments/2026-10-11-r6f/upstreams.lock.json",
+  "selected_upstreams_sha256": "43588ad8655d8761d7eb0a83ee301cf05f2839ad9974e42fb823402d02246089",
+  "production_promotion_included": false
+}

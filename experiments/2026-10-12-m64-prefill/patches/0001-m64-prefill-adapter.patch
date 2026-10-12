@@ -1,0 +1,95 @@
+Subject: [PATCH] Select M64 expert row tiles for large native TP3 prefill
+
+Upstream image base: vLLM19f2c20ed4d64ae22bd009ceacadd85e2a81e354,
+r6f image tree4127ff975d84320923471c9cad770a69aeec41f3.
+Effective source base: accepted seven-overlay recipe9ff535dc68ddbf248f52c4eb41f4d6fccbbd9efa.
+This delta applies to the accepted served adapter SHA256999c937450a1038b0de528335a74c56d33de0c0c2364d4263eeda5beb7657e2d,
+NOT directly to an unmodified upstream vLLM checkout.
+Result SHA256: 072d2a99d1cbdb538ce5fbba6c0ca66935f234bb9f9e33e0d2e9ded860e73526.
+
+Rationale: improve the native384-expert/6-route/H5120/I768 prefill path at
+rows>=2048. Keep M32 for smaller/other shapes, N128 weight packing once,
+three pipeline stages, FP32 ordered combine and existing BF16 output fold.
+Quality: same-input byte equality observed in1300 isolated replays and8100
+actual model shadow comparisons; this is not a universal mathematical proof.
+Capacity/memory qualification and final normal-cache layout remain pending.
+Upstream status: owner's private fork change; no upstream submission planned.
+Tests: existing wave7 native receipts; pending capacity receipts enumerated
+in the accompanying qualification-gates.json. No sampling changes.
+
+--- a/vllm/model_executor/layers/fused_moe/tilelang.py
++++ b/vllm/model_executor/layers/fused_moe/tilelang.py
+@@ -44,6 +44,10 @@
+ _BLOCK_N = 128
+ _K_ALIGN = 64
+ 
++# Unpromoted lab prototype. Threshold awaits the isolated screen and boundary
++# qualification; this file is never installed by its builder.
++_PREFILL_MIN_ROWS = 2048
++
+ 
+ def _kernels():
+     from vllm.models.deepseek_v4_1.tilelang import moe
+@@ -67,6 +71,7 @@
+     ):
+         super().__init__(moe_config, quant_config)
+         self._plan = None
++        self._prefill_plan = None
+         # The 64-wide K tails of each GEMM's tile-major weights (None without one).
+         self._tails: tuple[torch.Tensor | None, ...] = (None, None)
+ 
+@@ -187,6 +192,24 @@
+             swiglu_limit=self.moe_config.swiglu_limit if limit is None else limit,
+             out_dtype=self.output_dtype,
+         )
++        # Build only the tested three-Spark target shape. Both plans consume
++        # the original N128 weight layout, which is packed exactly once below.
++        self._prefill_plan = None
++        if (w13.shape[0], self.moe_config.experts_per_token,
++                w2.shape[1], w2.shape[2] * 2) == (384, 6, 5120, 768):
++            import tile_kernels
++
++            alignment = tile_kernels.config.get_token_alignment()
++            try:
++                self._prefill_plan = moe.MoeExpertsV41Plan(
++                    w13.shape[0], self.moe_config.experts_per_token,
++                    w2.shape[1], w2.shape[2] * 2,
++                    swiglu_limit=self.moe_config.swiglu_limit if limit is None else limit,
++                    block_M=64, block_N=128, num_stages=3,
++                    out_dtype=self.output_dtype,
++                )
++            finally:
++                tile_kernels.config.set_token_alignment(alignment)
+         # Tile-major copies replace the checkpoint layout, so each GEMM tile's
+         # weights and scales are contiguous. A K that ends 64 past a multiple
+         # of 128 (TP4's 576-wide rows) keeps its last 64 columns as compact tails.
+@@ -205,6 +228,11 @@
+         self.quant_config._w2.scale = layer.w2_weight_scale
+ 
+     # -- execution ----------------------------------------------------------
++
++    def _plan_for_rows(self, rows: int):
++        if self._prefill_plan is not None and rows >= _PREFILL_MIN_ROWS:
++            return self._prefill_plan
++        return self._plan
+ 
+     def moe_problem_size(
+         self,
+@@ -236,7 +264,7 @@
+         activation: MoEActivation,
+     ) -> tuple[tuple[int, ...], tuple[int, ...], tuple[int, ...]]:
+         del N, topk, global_num_experts, local_num_experts, expert_tokens_meta
+-        nbytes = _kernels().workspace_bytes(self._plan.workspace_specs(M))
++        nbytes = _kernels().workspace_bytes(self._plan_for_rows(M).workspace_specs(M))
+         itemsize = self.moe_config.in_dtype.itemsize
+         return (0,), ((nbytes + itemsize - 1) // itemsize,), (M, K)
+ 
+@@ -274,7 +302,7 @@
+         if self.fold_shared:
+             assert self.combine_addend is not None, "the shared output must be given"
+             shared = self.combine_addend
+-        self._plan.run(
++        self._plan_for_rows(int(hidden_states.shape[0])).run(
+             hidden_states, topk_ids, topk_weights, weights, output, workspace, shared
+         )
+ 

@@ -1,0 +1,682 @@
+{
+  "schema": 1,
+  "captured_at_utc": "2026-10-12T19:56:15.478020+00:00",
+  "status": "capacity-artifacts-qualified",
+  "reviewer_sha256": "942192e5d5ac0670672d15d48c1a5e903672031c6ad1dda11654c7cdd639773d",
+  "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+  "runs": [
+    {
+      "status": "passed",
+      "kind": "baseline",
+      "mode": "eight-streams",
+      "summary_ok": true,
+      "summary_sha256": "d48df6ad867c12ee54a2171ebcf304d26832076535a093c71f86f5a462c22774",
+      "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+      "model_evidence_source_hashes": {
+        "benchmark.py": "79be1e74f3394c43402dc6f1e97559d43fbc531c2ce40994b75f61b86e9b8dac",
+        "proposed-prefill-capacity/trial.py": "df0e1a5875337e20671f71cb80e93a67936c33e2279c11b0ebd7f403c6251412",
+        "proposed-prefill-capacity/workload.py": "e26aa9ff61ec86f661793b45c03b6e7a5839ef59506f37d29d933cee8f5ed9cc",
+        "proposed-attribution/workloads.py": "556bca04ab3df684c100b3aa9b5c912555fa651c824770a18f6ac4f8ae3631a2",
+        "proposed-attribution/stream_probe.py": "1500cfd801fc6d53d134d81a005e54b8f5832f11f89dc41b80f5492ad7109b51"
+      },
+      "memory": {
+        "minimum_available_gib": {
+          "Spark": 5.2330322265625,
+          "Spark2": 6.90069580078125,
+          "Spark3": 6.9403076171875
+        },
+        "samples": 62,
+        "maximum_sample_gap_seconds": 4.721497058868408,
+        "scope": "Sampled host MemAvailable, not a continuous allocation measurement"
+      },
+      "generating_overlap": {
+        "streams": 8,
+        "seconds": 74.37775870898622,
+        "start_monotonic": 206700.315439916,
+        "end_monotonic": 206774.693198625
+      },
+      "engine_occupancy": {
+        "maximum_running": 8,
+        "observed_samples": 1,
+        "samples_with_eight_running": 1,
+        "transient_own_queueing_samples": 0
+      },
+      "generation_identities": {
+        "background-0": "83f99548962f623b8369f243b7cca1d4a2180706a9790116ee7e0d72de7ab7c0",
+        "background-1": "572f895caeb9fcd196a600794ff8b6ff6bb5447124acd38e62dd96e7f65ae1e7",
+        "background-2": "1c8755b981cc581ea674079d8f2a70a56650020a01cb58b5ed61a15f0f31ba56",
+        "background-3": "301b5e796e291ba1e17098567084d6e62d78ce9bccb9573e69fe5512905f1127",
+        "background-4": "24e362951c8c0362477238ad54f5feb1eb315e86fe073cf4fe335609f31e5fb9",
+        "background-5": "add4516e4cedbf8772768bd7097ba4bcfcdf6ef319f05a5a89c6fc2a220ad56c",
+        "background-6": "9749987dcdb3c9d64e32722173617608fdea302533a57d0f9e9451db34dbd84f",
+        "background-7": "4b4b0756b1f0be65c71b3369cc32a72f0d8900378dc768471b8fa6dd17eb0328"
+      },
+      "timings": {
+        "wall_seconds": 107.3113988339901,
+        "aggregate_completion_tokens_per_wall_second": 152.67716363800196
+      },
+      "completion_tokens": 16384,
+      "speculation": {
+        "drafts": 6307.0,
+        "draft_tokens": 18915.0,
+        "accepted_tokens": 10062.0,
+        "accepted_fraction": 0.5319587628865979,
+        "note": "Variation changes engine step counts; sampled aggregate TPS is not a pure kernel comparison"
+      },
+      "cache_evidence": [
+        {
+          "queries": 547082.0,
+          "hits": 0.0,
+          "expected_background_prompt_tokens": 547082,
+          "warm": false
+        },
+        {
+          "queries": 547082.0,
+          "hits": 544768.0,
+          "expected_background_prompt_tokens": 547082,
+          "warm": true
+        }
+      ],
+      "request_count": 16,
+      "sampled_output_identity_claim": false,
+      "case": "baseline-eight-a",
+      "operator_source_version": {
+        "version": "v1",
+        "manifest_sha256": "13a40fdabda55be8abd9063409952b06aa0f4fa0524273d8d2d7a5e098197725",
+        "operator_sha256": "5b082ffaa7e4e037d17a7055b32b96287666624bcd4f47029a0625e03b459f69",
+        "dependencies_verified": 17
+      }
+    },
+    {
+      "status": "passed",
+      "kind": "baseline",
+      "mode": "full-context",
+      "summary_ok": true,
+      "summary_sha256": "225c83472d932c01c53d134f8e61af260397764f78239673659608de280eb5cf",
+      "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+      "model_evidence_source_hashes": {
+        "benchmark.py": "79be1e74f3394c43402dc6f1e97559d43fbc531c2ce40994b75f61b86e9b8dac",
+        "proposed-prefill-capacity/trial.py": "df0e1a5875337e20671f71cb80e93a67936c33e2279c11b0ebd7f403c6251412",
+        "proposed-prefill-capacity/workload.py": "e26aa9ff61ec86f661793b45c03b6e7a5839ef59506f37d29d933cee8f5ed9cc",
+        "proposed-attribution/workloads.py": "556bca04ab3df684c100b3aa9b5c912555fa651c824770a18f6ac4f8ae3631a2",
+        "proposed-attribution/stream_probe.py": "1500cfd801fc6d53d134d81a005e54b8f5832f11f89dc41b80f5492ad7109b51"
+      },
+      "memory": {
+        "minimum_available_gib": {
+          "Spark": 5.148681640625,
+          "Spark2": 6.91046142578125,
+          "Spark3": 6.95013427734375
+        },
+        "samples": 41,
+        "maximum_sample_gap_seconds": 4.5850911140441895,
+        "scope": "Sampled host MemAvailable, not a continuous allocation measurement"
+      },
+      "generation_identities": {
+        "boundary": "8dae839ebe0ef0d31a0160b1af5e9c174823d5fa8851e38f5802a978e583dfbb"
+      },
+      "timings": {
+        "cold_wall_seconds": 153.91120720899198,
+        "warm_wall_seconds": 3.3714327499910723
+      },
+      "cache_evidence": [
+        {
+          "queries": 524160.0,
+          "hits": 0.0,
+          "expected_background_prompt_tokens": 524160,
+          "warm": false
+        },
+        {
+          "queries": 524160.0,
+          "hits": 524032.0,
+          "expected_background_prompt_tokens": 524160,
+          "warm": true
+        }
+      ],
+      "request_count": 2,
+      "boundary_native_output_sha256": "57a4cd0a2d67b0a5bdbb478d3d5a1dcf963b22380df0363e080e8725995a840c",
+      "sampled_output_identity_claim": false,
+      "case": "baseline-full-context-a",
+      "operator_source_version": {
+        "version": "v1",
+        "manifest_sha256": "13a40fdabda55be8abd9063409952b06aa0f4fa0524273d8d2d7a5e098197725",
+        "operator_sha256": "5b082ffaa7e4e037d17a7055b32b96287666624bcd4f47029a0625e03b459f69",
+        "dependencies_verified": 17
+      }
+    },
+    {
+      "status": "untested-preflight-interruption",
+      "kind": "baseline",
+      "mode": "mixed-images",
+      "summary_ok": false,
+      "summary_sha256": "3d37278c838452babc40400e5e064265991831c66ccdf26b86e61aa7debdfb88",
+      "fixture_manifest_sha256": null,
+      "model_evidence_source_hashes": {
+        "benchmark.py": "79be1e74f3394c43402dc6f1e97559d43fbc531c2ce40994b75f61b86e9b8dac",
+        "proposed-prefill-capacity/trial.py": "df0e1a5875337e20671f71cb80e93a67936c33e2279c11b0ebd7f403c6251412",
+        "proposed-prefill-capacity/workload.py": "e26aa9ff61ec86f661793b45c03b6e7a5839ef59506f37d29d933cee8f5ed9cc",
+        "proposed-attribution/workloads.py": "556bca04ab3df684c100b3aa9b5c912555fa651c824770a18f6ac4f8ae3631a2",
+        "proposed-attribution/stream_probe.py": "1500cfd801fc6d53d134d81a005e54b8f5832f11f89dc41b80f5492ad7109b51"
+      },
+      "model_test_failure": false,
+      "submitted_requests": 0,
+      "case": "baseline-images-a",
+      "operator_source_version": {
+        "version": "v1",
+        "manifest_sha256": "13a40fdabda55be8abd9063409952b06aa0f4fa0524273d8d2d7a5e098197725",
+        "operator_sha256": "5b082ffaa7e4e037d17a7055b32b96287666624bcd4f47029a0625e03b459f69",
+        "dependencies_verified": 17
+      },
+      "classification": "HTTP503 before preflight/request submission; no GPU/model test occurred"
+    },
+    {
+      "status": "passed",
+      "kind": "baseline",
+      "mode": "mixed-images",
+      "summary_ok": true,
+      "summary_sha256": "770b12d8b9b8ec7a694965e88b416b4e56b047355ace2b43d3472032c110daf0",
+      "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+      "model_evidence_source_hashes": {
+        "benchmark.py": "79be1e74f3394c43402dc6f1e97559d43fbc531c2ce40994b75f61b86e9b8dac",
+        "proposed-prefill-capacity/trial.py": "df0e1a5875337e20671f71cb80e93a67936c33e2279c11b0ebd7f403c6251412",
+        "proposed-prefill-capacity/workload.py": "e26aa9ff61ec86f661793b45c03b6e7a5839ef59506f37d29d933cee8f5ed9cc",
+        "proposed-attribution/workloads.py": "556bca04ab3df684c100b3aa9b5c912555fa651c824770a18f6ac4f8ae3631a2",
+        "proposed-attribution/stream_probe.py": "1500cfd801fc6d53d134d81a005e54b8f5832f11f89dc41b80f5492ad7109b51"
+      },
+      "memory": {
+        "minimum_available_gib": {
+          "Spark": 5.0787353515625,
+          "Spark2": 6.83740234375,
+          "Spark3": 6.901123046875
+        },
+        "samples": 64,
+        "maximum_sample_gap_seconds": 4.550039768218994,
+        "scope": "Sampled host MemAvailable, not a continuous allocation measurement"
+      },
+      "generating_overlap": {
+        "streams": 7,
+        "seconds": 112.88985170799424,
+        "start_monotonic": 206993.802569833,
+        "end_monotonic": 207106.692421541
+      },
+      "engine_occupancy": {
+        "maximum_running": 8,
+        "observed_samples": 6,
+        "samples_with_eight_running": 1,
+        "transient_own_queueing_samples": 0
+      },
+      "generation_identities": {
+        "background-0": "83f99548962f623b8369f243b7cca1d4a2180706a9790116ee7e0d72de7ab7c0",
+        "background-1": "572f895caeb9fcd196a600794ff8b6ff6bb5447124acd38e62dd96e7f65ae1e7",
+        "background-2": "1c8755b981cc581ea674079d8f2a70a56650020a01cb58b5ed61a15f0f31ba56",
+        "background-3": "301b5e796e291ba1e17098567084d6e62d78ce9bccb9573e69fe5512905f1127",
+        "background-4": "24e362951c8c0362477238ad54f5feb1eb315e86fe073cf4fe335609f31e5fb9",
+        "background-5": "add4516e4cedbf8772768bd7097ba4bcfcdf6ef319f05a5a89c6fc2a220ad56c",
+        "background-6": "9749987dcdb3c9d64e32722173617608fdea302533a57d0f9e9451db34dbd84f",
+        "injected": "7b4d60c760667a5d09727c4b411522517693b74d0677d7a77a8d4bfb0f23f914"
+      },
+      "timings": {
+        "wall_seconds": 133.9489798329887,
+        "aggregate_completion_tokens_per_wall_second": 107.57080806412667
+      },
+      "completion_tokens": 14409,
+      "speculation": {
+        "drafts": 5886.0,
+        "draft_tokens": 18266.0,
+        "accepted_tokens": 8484.0,
+        "accepted_fraction": 0.4644695061863572,
+        "note": "Variation changes engine step counts; sampled aggregate TPS is not a pure kernel comparison"
+      },
+      "cache_evidence": [
+        {
+          "queries": 478696.0,
+          "hits": 0.0,
+          "expected_background_prompt_tokens": 478696,
+          "warm": false
+        },
+        {
+          "queries": 583311.0,
+          "hits": 476672.0,
+          "expected_background_prompt_tokens": 478696,
+          "warm": true
+        }
+      ],
+      "request_count": 15,
+      "sampled_output_identity_claim": false,
+      "image_prefill_seconds": 33.407247374998406,
+      "image_cache_scope": "Independent never-warmed salt and aggregate hit upper bound; no per-request native cache counter is available",
+      "case": "baseline-images-b",
+      "operator_source_version": {
+        "version": "v1",
+        "manifest_sha256": "13a40fdabda55be8abd9063409952b06aa0f4fa0524273d8d2d7a5e098197725",
+        "operator_sha256": "5b082ffaa7e4e037d17a7055b32b96287666624bcd4f47029a0625e03b459f69",
+        "dependencies_verified": 17
+      }
+    },
+    {
+      "status": "passed",
+      "kind": "candidate",
+      "mode": "eight-streams",
+      "summary_ok": true,
+      "summary_sha256": "658fd2b7df2038876e563b13acf540fde797828481e6fcc3642aeb5653fab63a",
+      "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+      "model_evidence_source_hashes": {
+        "benchmark.py": "79be1e74f3394c43402dc6f1e97559d43fbc531c2ce40994b75f61b86e9b8dac",
+        "proposed-prefill-capacity/trial.py": "df0e1a5875337e20671f71cb80e93a67936c33e2279c11b0ebd7f403c6251412",
+        "proposed-prefill-capacity/workload.py": "e26aa9ff61ec86f661793b45c03b6e7a5839ef59506f37d29d933cee8f5ed9cc",
+        "proposed-attribution/workloads.py": "556bca04ab3df684c100b3aa9b5c912555fa651c824770a18f6ac4f8ae3631a2",
+        "proposed-attribution/stream_probe.py": "1500cfd801fc6d53d134d81a005e54b8f5832f11f89dc41b80f5492ad7109b51"
+      },
+      "memory": {
+        "minimum_available_gib": {
+          "Spark": 5.3720703125,
+          "Spark2": 6.57281494140625,
+          "Spark3": 6.6339111328125
+        },
+        "samples": 59,
+        "maximum_sample_gap_seconds": 4.375956773757935,
+        "scope": "Sampled host MemAvailable, not a continuous allocation measurement"
+      },
+      "generating_overlap": {
+        "streams": 8,
+        "seconds": 71.37682762500481,
+        "start_monotonic": 207845.339340916,
+        "end_monotonic": 207916.716168541
+      },
+      "engine_occupancy": {
+        "maximum_running": 8,
+        "observed_samples": 1,
+        "samples_with_eight_running": 1,
+        "transient_own_queueing_samples": 0
+      },
+      "generation_identities": {
+        "background-0": "83f99548962f623b8369f243b7cca1d4a2180706a9790116ee7e0d72de7ab7c0",
+        "background-1": "572f895caeb9fcd196a600794ff8b6ff6bb5447124acd38e62dd96e7f65ae1e7",
+        "background-2": "1c8755b981cc581ea674079d8f2a70a56650020a01cb58b5ed61a15f0f31ba56",
+        "background-3": "301b5e796e291ba1e17098567084d6e62d78ce9bccb9573e69fe5512905f1127",
+        "background-4": "24e362951c8c0362477238ad54f5feb1eb315e86fe073cf4fe335609f31e5fb9",
+        "background-5": "add4516e4cedbf8772768bd7097ba4bcfcdf6ef319f05a5a89c6fc2a220ad56c",
+        "background-6": "9749987dcdb3c9d64e32722173617608fdea302533a57d0f9e9451db34dbd84f",
+        "background-7": "4b4b0756b1f0be65c71b3369cc32a72f0d8900378dc768471b8fa6dd17eb0328"
+      },
+      "timings": {
+        "wall_seconds": 101.24071454099612,
+        "aggregate_completion_tokens_per_wall_second": 161.83212528952973
+      },
+      "completion_tokens": 16384,
+      "speculation": {
+        "drafts": 5770.0,
+        "draft_tokens": 17848.0,
+        "accepted_tokens": 10571.0,
+        "accepted_fraction": 0.5922792469744509,
+        "note": "Variation changes engine step counts; sampled aggregate TPS is not a pure kernel comparison"
+      },
+      "cache_evidence": [
+        {
+          "queries": 547082.0,
+          "hits": 0.0,
+          "expected_background_prompt_tokens": 547082,
+          "warm": false
+        },
+        {
+          "queries": 547082.0,
+          "hits": 544768.0,
+          "expected_background_prompt_tokens": 547082,
+          "warm": true
+        }
+      ],
+      "request_count": 16,
+      "sampled_output_identity_claim": false,
+      "case": "candidate-eight-a",
+      "operator_source_version": {
+        "version": "v2",
+        "manifest_sha256": "5411379fb84fdee15ca1e508baa63086ed8ffb12ac64ae0160597919c20b93f0",
+        "operator_sha256": "5790dddd93b5befecc5adfa82166f87d1ebf7fdca7d3ff90639159a8fc868fd5",
+        "dependencies_verified": 17
+      }
+    },
+    {
+      "status": "passed",
+      "kind": "candidate",
+      "mode": "full-context",
+      "summary_ok": true,
+      "summary_sha256": "b65d0207d54886fb0f140d3a9e5d6eac00ba5b3bc6f9a186da94ca557c2c90c4",
+      "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+      "model_evidence_source_hashes": {
+        "benchmark.py": "79be1e74f3394c43402dc6f1e97559d43fbc531c2ce40994b75f61b86e9b8dac",
+        "proposed-prefill-capacity/trial.py": "df0e1a5875337e20671f71cb80e93a67936c33e2279c11b0ebd7f403c6251412",
+        "proposed-prefill-capacity/workload.py": "e26aa9ff61ec86f661793b45c03b6e7a5839ef59506f37d29d933cee8f5ed9cc",
+        "proposed-attribution/workloads.py": "556bca04ab3df684c100b3aa9b5c912555fa651c824770a18f6ac4f8ae3631a2",
+        "proposed-attribution/stream_probe.py": "1500cfd801fc6d53d134d81a005e54b8f5832f11f89dc41b80f5492ad7109b51"
+      },
+      "memory": {
+        "minimum_available_gib": {
+          "Spark": 5.29656982421875,
+          "Spark2": 6.52740478515625,
+          "Spark3": 6.59588623046875
+        },
+        "samples": 40,
+        "maximum_sample_gap_seconds": 4.3502137660980225,
+        "scope": "Sampled host MemAvailable, not a continuous allocation measurement"
+      },
+      "generation_identities": {
+        "boundary": "8dae839ebe0ef0d31a0160b1af5e9c174823d5fa8851e38f5802a978e583dfbb"
+      },
+      "timings": {
+        "cold_wall_seconds": 149.92448779198457,
+        "warm_wall_seconds": 3.41540412500035
+      },
+      "cache_evidence": [
+        {
+          "queries": 524160.0,
+          "hits": 0.0,
+          "expected_background_prompt_tokens": 524160,
+          "warm": false
+        },
+        {
+          "queries": 524160.0,
+          "hits": 524032.0,
+          "expected_background_prompt_tokens": 524160,
+          "warm": true
+        }
+      ],
+      "request_count": 2,
+      "boundary_native_output_sha256": "57a4cd0a2d67b0a5bdbb478d3d5a1dcf963b22380df0363e080e8725995a840c",
+      "sampled_output_identity_claim": false,
+      "case": "candidate-full-context-a",
+      "operator_source_version": {
+        "version": "v2",
+        "manifest_sha256": "5411379fb84fdee15ca1e508baa63086ed8ffb12ac64ae0160597919c20b93f0",
+        "operator_sha256": "5790dddd93b5befecc5adfa82166f87d1ebf7fdca7d3ff90639159a8fc868fd5",
+        "dependencies_verified": 17
+      }
+    },
+    {
+      "status": "passed",
+      "kind": "candidate",
+      "mode": "mixed-images",
+      "summary_ok": true,
+      "summary_sha256": "fd865b1bf5364fd958068682eee6ab60ca2dd8aa05814ed069dbd234f6c866c8",
+      "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+      "model_evidence_source_hashes": {
+        "benchmark.py": "79be1e74f3394c43402dc6f1e97559d43fbc531c2ce40994b75f61b86e9b8dac",
+        "proposed-prefill-capacity/trial.py": "df0e1a5875337e20671f71cb80e93a67936c33e2279c11b0ebd7f403c6251412",
+        "proposed-prefill-capacity/workload.py": "e26aa9ff61ec86f661793b45c03b6e7a5839ef59506f37d29d933cee8f5ed9cc",
+        "proposed-attribution/workloads.py": "556bca04ab3df684c100b3aa9b5c912555fa651c824770a18f6ac4f8ae3631a2",
+        "proposed-attribution/stream_probe.py": "1500cfd801fc6d53d134d81a005e54b8f5832f11f89dc41b80f5492ad7109b51"
+      },
+      "memory": {
+        "minimum_available_gib": {
+          "Spark": 4.72491455078125,
+          "Spark2": 6.3790283203125,
+          "Spark3": 6.36358642578125
+        },
+        "samples": 59,
+        "maximum_sample_gap_seconds": 5.013105869293213,
+        "scope": "Sampled host MemAvailable, not a continuous allocation measurement"
+      },
+      "generating_overlap": {
+        "streams": 7,
+        "seconds": 109.83028379100142,
+        "start_monotonic": 208074.546018875,
+        "end_monotonic": 208184.376302666
+      },
+      "engine_occupancy": {
+        "maximum_running": 8,
+        "observed_samples": 6,
+        "samples_with_eight_running": 1,
+        "transient_own_queueing_samples": 0
+      },
+      "generation_identities": {
+        "background-0": "83f99548962f623b8369f243b7cca1d4a2180706a9790116ee7e0d72de7ab7c0",
+        "background-1": "572f895caeb9fcd196a600794ff8b6ff6bb5447124acd38e62dd96e7f65ae1e7",
+        "background-2": "1c8755b981cc581ea674079d8f2a70a56650020a01cb58b5ed61a15f0f31ba56",
+        "background-3": "301b5e796e291ba1e17098567084d6e62d78ce9bccb9573e69fe5512905f1127",
+        "background-4": "24e362951c8c0362477238ad54f5feb1eb315e86fe073cf4fe335609f31e5fb9",
+        "background-5": "add4516e4cedbf8772768bd7097ba4bcfcdf6ef319f05a5a89c6fc2a220ad56c",
+        "background-6": "9749987dcdb3c9d64e32722173617608fdea302533a57d0f9e9451db34dbd84f",
+        "injected": "7b4d60c760667a5d09727c4b411522517693b74d0677d7a77a8d4bfb0f23f914"
+      },
+      "timings": {
+        "wall_seconds": 122.91822687501553,
+        "aggregate_completion_tokens_per_wall_second": 117.22427475830101
+      },
+      "completion_tokens": 14409,
+      "speculation": {
+        "drafts": 5150.0,
+        "draft_tokens": 17402.0,
+        "accepted_tokens": 9238.0,
+        "accepted_fraction": 0.5308585220089644,
+        "note": "Variation changes engine step counts; sampled aggregate TPS is not a pure kernel comparison"
+      },
+      "cache_evidence": [
+        {
+          "queries": 478696.0,
+          "hits": 0.0,
+          "expected_background_prompt_tokens": 478696,
+          "warm": false
+        },
+        {
+          "queries": 583311.0,
+          "hits": 476672.0,
+          "expected_background_prompt_tokens": 478696,
+          "warm": true
+        }
+      ],
+      "request_count": 15,
+      "sampled_output_identity_claim": false,
+      "image_prefill_seconds": 32.57900754199363,
+      "image_cache_scope": "Independent never-warmed salt and aggregate hit upper bound; no per-request native cache counter is available",
+      "case": "candidate-images-a",
+      "operator_source_version": {
+        "version": "v2",
+        "manifest_sha256": "5411379fb84fdee15ca1e508baa63086ed8ffb12ac64ae0160597919c20b93f0",
+        "operator_sha256": "5790dddd93b5befecc5adfa82166f87d1ebf7fdca7d3ff90639159a8fc868fd5",
+        "dependencies_verified": 17
+      }
+    },
+    {
+      "status": "fixture-preparation",
+      "kind": "baseline",
+      "mode": "prepare-fixtures",
+      "summary_ok": true,
+      "summary_sha256": "97caf12bcf298740e3e0babe72baece8ca8b3f0c2cddf9f044bd2a4073fdd11c",
+      "fixture_manifest_sha256": "b24af0d6831db692cda6dcaf51332b1e19fdd34a0f9fdd3e409b2f41b01a2577",
+      "case": "fixtures-a"
+    }
+  ],
+  "pairs": [
+    {
+      "baseline": "baseline-full-context-a",
+      "candidate": "candidate-full-context-a",
+      "mode": "full-context",
+      "paired": true,
+      "operator_versions": {
+        "baseline": "v1",
+        "candidate": "v2"
+      },
+      "boundary_native_token_ids_equal": true,
+      "observed_timing_deltas": {
+        "cold_wall_seconds": {
+          "baseline": 153.91120720899198,
+          "candidate": 149.92448779198457,
+          "candidate_value_change_percent": -2.5902723325364807,
+          "preferred_direction": "lower"
+        },
+        "warm_wall_seconds": {
+          "baseline": 3.3714327499910723,
+          "candidate": 3.41540412500035,
+          "candidate_value_change_percent": 1.304234082954614,
+          "preferred_direction": "lower"
+        }
+      },
+      "observed_memory_gib_change": {
+        "Spark": 0.14788818359375,
+        "Spark2": -0.383056640625,
+        "Spark3": -0.354248046875
+      },
+      "interpretation": "One matched comparison is an observation, not a confidence interval or robust speed gain. Retain adverse deltas; sampled TPS also depends on speculative acceptance and output variation."
+    },
+    {
+      "baseline": "baseline-eight-a",
+      "candidate": "candidate-eight-a",
+      "mode": "eight-streams",
+      "paired": true,
+      "operator_versions": {
+        "baseline": "v1",
+        "candidate": "v2"
+      },
+      "observed_timing_deltas": {
+        "wall_seconds": {
+          "baseline": 107.3113988339901,
+          "candidate": 101.24071454099612,
+          "candidate_value_change_percent": -5.657073115210509,
+          "preferred_direction": "lower"
+        },
+        "aggregate_completion_tokens_per_wall_second": {
+          "baseline": 152.67716363800196,
+          "candidate": 161.83212528952973,
+          "candidate_value_change_percent": 5.996287482281382,
+          "preferred_direction": "higher"
+        }
+      },
+      "observed_memory_gib_change": {
+        "Spark": 0.1390380859375,
+        "Spark2": -0.327880859375,
+        "Spark3": -0.306396484375
+      },
+      "interpretation": "One matched comparison is an observation, not a confidence interval or robust speed gain. Retain adverse deltas; sampled TPS also depends on speculative acceptance and output variation."
+    },
+    {
+      "baseline": "baseline-images-b",
+      "candidate": "candidate-images-a",
+      "mode": "mixed-images",
+      "paired": true,
+      "operator_versions": {
+        "baseline": "v1",
+        "candidate": "v2"
+      },
+      "observed_timing_deltas": {
+        "wall_seconds": {
+          "baseline": 133.9489798329887,
+          "candidate": 122.91822687501553,
+          "candidate_value_change_percent": -8.23504066378603,
+          "preferred_direction": "lower"
+        },
+        "aggregate_completion_tokens_per_wall_second": {
+          "baseline": 107.57080806412667,
+          "candidate": 117.22427475830101,
+          "candidate_value_change_percent": 8.974057988315543,
+          "preferred_direction": "higher"
+        }
+      },
+      "observed_memory_gib_change": {
+        "Spark": -0.35382080078125,
+        "Spark2": -0.4583740234375,
+        "Spark3": -0.53753662109375
+      },
+      "interpretation": "One matched comparison is an observation, not a confidence interval or robust speed gain. Retain adverse deltas; sampled TPS also depends on speculative acceptance and output variation."
+    }
+  ],
+  "missing": [],
+  "unresolved_attempts": [],
+  "infrastructure_events": [
+    "HTTP503 baseline-images-a preflight interruption retained; retry baseline-images-b independently qualified",
+    "First V1 reservation backup failed on non-head before stop; original sources retained; V2 limits reservation requirement to head"
+  ],
+  "limits": [
+    "No missing or failed attempt is discarded or replaced by a fabricated receipt.",
+    "Capacity qualification covers one full524288 boundary and eight representative65K..72K histories, not eight simultaneous512K contexts.",
+    "No aggregate temperature1 token-identity claim; deterministic boundary arrays are compared separately.",
+    "Single-run timings and sampled memory observations do not establish stable production speed or continuous memory safety.",
+    "Final normal-cache layout, complete logs, stability, full recipe checks and owner acceptance remain separate promotion gates."
+  ],
+  "promotion_ready": false,
+  "independent_audit": {
+    "source_sha256": "3a9b22408b7692e9736fa830d084887d459309e501f4517e5609fc72edd74695",
+    "checked_at_utc": "2026-10-12T19:54:52.534571+00:00",
+    "completed_runs": 6,
+    "preflights_checked": 24,
+    "boundary_native_sequences_identical": true,
+    "source_dependencies_match": 17,
+    "mixed_image_checks": {
+      "baseline-images-b": {
+        "image_count": 13,
+        "image_temperature": 1.0,
+        "prefill_seconds": 33.407247374998406,
+        "interval_recomputed": {
+          "background-0": {
+            "useful_chunks": 38,
+            "max_crossing_gap_seconds": 2.465023458003998
+          },
+          "background-1": {
+            "useful_chunks": 37,
+            "max_crossing_gap_seconds": 2.568937416013796
+          },
+          "background-2": {
+            "useful_chunks": 39,
+            "max_crossing_gap_seconds": 2.4345088750123978
+          },
+          "background-3": {
+            "useful_chunks": 39,
+            "max_crossing_gap_seconds": 2.4355223329912405
+          },
+          "background-4": {
+            "useful_chunks": 38,
+            "max_crossing_gap_seconds": 2.4353017500252463
+          },
+          "background-5": {
+            "useful_chunks": 38,
+            "max_crossing_gap_seconds": 2.4351997499761637
+          },
+          "background-6": {
+            "useful_chunks": 38,
+            "max_crossing_gap_seconds": 2.4352081660181284
+          }
+        },
+        "tool_calls_semantic_sha256": "727e77095c209707d63b1c6cb39b016289a3137ccc62aabc80551bc4c7d2b2d9"
+      },
+      "candidate-images-a": {
+        "image_count": 13,
+        "image_temperature": 1.0,
+        "prefill_seconds": 32.57900754199363,
+        "interval_recomputed": {
+          "background-0": {
+            "useful_chunks": 38,
+            "max_crossing_gap_seconds": 2.4018210000067484
+          },
+          "background-1": {
+            "useful_chunks": 39,
+            "max_crossing_gap_seconds": 3.443177207984263
+          },
+          "background-2": {
+            "useful_chunks": 39,
+            "max_crossing_gap_seconds": 2.400421250000363
+          },
+          "background-3": {
+            "useful_chunks": 40,
+            "max_crossing_gap_seconds": 2.4018193750234786
+          },
+          "background-4": {
+            "useful_chunks": 39,
+            "max_crossing_gap_seconds": 2.4018535419891123
+          },
+          "background-5": {
+            "useful_chunks": 39,
+            "max_crossing_gap_seconds": 2.400600332999602
+          },
+          "background-6": {
+            "useful_chunks": 39,
+            "max_crossing_gap_seconds": 2.401886209001532
+          }
+        },
+        "tool_calls_semantic_sha256": "727e77095c209707d63b1c6cb39b016289a3137ccc62aabc80551bc4c7d2b2d9"
+      }
+    },
+    "semantic_injected_tool_calls_identical": true
+  },
+  "adverse_observations": [
+    "Boundary warm wall time increased from3.37143275s to3.415404125s in this one pair.",
+    "Maximum mixed-image background inter-chunk gap increased from2.568937416s to3.443177208s for one stream. Stochastic single-pair result; not a proven kernel regression and not a blanket latency win."
+  ],
+  "privacy": "Aggregate timings/counters/hashes only; excludes input/output text, images, request bodies, native token arrays, private transcripts and credentials"
+}

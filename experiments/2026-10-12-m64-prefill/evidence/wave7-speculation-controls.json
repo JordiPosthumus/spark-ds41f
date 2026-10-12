@@ -1,0 +1,62 @@
+{
+  "at": "2026-10-12T18:43:15.074605+00:00",
+  "counters": {
+    "baseline-a": {
+      "steady": {
+        "spec_decode_num_drafts_total": 3446.0,
+        "spec_decode_num_draft_tokens_total": 9460.0,
+        "spec_decode_num_accepted_tokens_total": 4721.0,
+        "generation_tokens_total": 8192.0,
+        "accepted_fraction": 0.49904862579281184
+      },
+      "mixed-text": {
+        "spec_decode_num_drafts_total": 4074.0,
+        "spec_decode_num_draft_tokens_total": 11893.0,
+        "spec_decode_num_accepted_tokens_total": 6117.0,
+        "generation_tokens_total": 10240.0,
+        "accepted_fraction": 0.5143361641301606
+      }
+    },
+    "candidate": {
+      "steady": {
+        "spec_decode_num_drafts_total": 3435.0,
+        "spec_decode_num_draft_tokens_total": 9628.0,
+        "spec_decode_num_accepted_tokens_total": 4742.0,
+        "generation_tokens_total": 8192.0,
+        "accepted_fraction": 0.4925218113834649
+      },
+      "mixed-text": {
+        "spec_decode_num_drafts_total": 3835.0,
+        "spec_decode_num_draft_tokens_total": 11713.0,
+        "spec_decode_num_accepted_tokens_total": 6366.0,
+        "generation_tokens_total": 10240.0,
+        "accepted_fraction": 0.5434986766840263
+      }
+    },
+    "baseline-b": {
+      "steady": {
+        "spec_decode_num_drafts_total": 3494.0,
+        "spec_decode_num_draft_tokens_total": 9552.0,
+        "spec_decode_num_accepted_tokens_total": 4681.0,
+        "generation_tokens_total": 8192.0,
+        "accepted_fraction": 0.4900544388609715
+      },
+      "mixed-text": {
+        "spec_decode_num_drafts_total": 4066.0,
+        "spec_decode_num_draft_tokens_total": 11701.0,
+        "spec_decode_num_accepted_tokens_total": 6136.0,
+        "generation_tokens_total": 10240.0,
+        "accepted_fraction": 0.5243996239637638
+      }
+    }
+  },
+  "evidence_sha256": {
+    "runs/wave7-model/baseline-a/steady/summary.json": "880287b3bf82c0136e9032bf64e6ab38ec888b44bf53f92618472d8e11276a21",
+    "runs/wave7-model/baseline-a/mixed-text/summary.json": "627a0a501edf3a25366ce69272d4c9b15e1b06a3a0c48161de613de20ddc99a3",
+    "runs/wave7-model/candidate/steady/summary.json": "90a5ccdaf256a942932897c98d3bb4e8ee7672fe271aaafae6058453ab4af4bd",
+    "runs/wave7-model/candidate/mixed-text/summary.json": "ac09c3a91b9495c70ec17ad22c39e6cd5367ee93f9cbaf5279ad11a9aed95415",
+    "runs/wave7-model/baseline-b/steady/summary.json": "fc9af1dd432331be36ff4d2039000bb70b558163d3bee3f69e3145a3119dfe6a",
+    "runs/wave7-model/baseline-b/mixed-text/summary.json": "f6340bc932ba4b4f144cf0998683857eb3bc8cc692bcd9d38d511f921e5325b1"
+  },
+  "interpretation": "Concurrent sampled output and speculative acceptance vary. The measured mixed-workload speed difference cannot be wholly attributed to the kernel change. No configuration was changed to improve acceptance."
+}

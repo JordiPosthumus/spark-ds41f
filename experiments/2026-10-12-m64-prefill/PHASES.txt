@@ -1,0 +1,58 @@
+Two separate phases: experimental canary, then an accepted production baseline
+
+Phase 1 — the only payload prepared here
+Every tracked payload file is under experiments/2026-10-12-m64-prefill/.
+canary.json retains the accepted promoted_baseline and selected r6f upstream
+lock exactly. It has no benchmark_reference. Those fields describe the inherited
+source/build baseline; they do not claim the experimental adapter is promoted.
+The only profile changes are the one tested adapter source, the owner's exact
+repository, and codex/m64-prefill publication branch. All 113 effective env
+values, serve arguments, capacity, image, precision, costs, six other overlays,
+normal cache backing, topology and memory guards remain unchanged.
+
+Root may review and publish this experiment to the owner branch after its usual
+source checks. Publishing an experiment is not production acceptance. Main stays
+untouched. Root alone owns coordinated idle Ring2 lifecycle and the real metadata
+backups. No normal launcher selector is changed by this package. There is no
+placeholder file in manifests/baselines or manifests/benchmarks to publish.
+Use fresh exact Git/profile hashes, backups and actual normal-cache canary checks
+to qualify the future committed layout. A successful local_doctor is a source
+configuration check, not proof of startup, GPU correctness, speed or stability.
+
+Rollback restores exact saved original origins/configs, accepted commit
+9ff535dc68ddbf248f52c4eb41f4d6fccbbd9efa, and byte-exact original Ring2 profile
+SHA256 9309ad55b33bb884096c7df70eb6c2de450aeb500744a1bfe5c010b466aa5073.
+Retain the baseline image, original seven source overlays, costs, normal cache
+entries and archived evidence. No substitute baseline is silently created.
+
+Phase 2 — explicitly NOT included or authorized here
+After actual final-layout canary evidence and exact owner acceptance, prepare a
+separate production commit. It must contain the chosen production configuration,
+documentation, and actual new immutable baseline/benchmark evidence. Give that
+profile a new promoted_baseline and a dedicated copied upstream lock whose ONLY
+content change from the accepted selected lock is generated_from_baseline.
+Update the profile's upstreams_config to that dedicated copy. All source URLs,
+revisions, patch series, source manifests and image identity remain identical.
+Confirm the copy differs only in that one lock field and run actual doctor with
+the real nodes map. Point benchmark_reference only at an actual appropriate
+completed report; no guessed shapes, fabricated identity or placeholder report.
+
+Write new baseline/benchmark manifests once, with evidence already available,
+and publish them together with the final configuration/documentation. Never
+publish empty immutable manifests with a plan to fill them later. Reference the
+actual tested canary commit in evidence; record the final deployment commit in
+a separate receipt when known rather than trying to embed a commit's own hash
+in itself. Keep current v1/v2 production proposals separate and unpublished.
+
+Observed qualification already available
+All three private-layout capacity pairs passed: the exact 524288-token boundary,
+eight representative 65K–72K histories, and 13 images alongside seven warm chats.
+Keep the slower warm boundary (3.371→3.415s) and worse single-stream maximum
+chunk gap (2.569→3.443s) visible. These stochastic single comparisons do not
+prove a blanket latency gain or a kernel regression. Semantic image tool calls
+matched; no aggregate temperature-1 token-identity claim is made. Final committed
+path/normal-cache measurements and owner acceptance remain separate gates.
+
+No SSH, endpoint, GPU, live deployment, remote creation or push is performed by
+this preparation. The only Git operations in validation are an isolated local
+copy/index and read-only source checks needed by the real local_doctor.

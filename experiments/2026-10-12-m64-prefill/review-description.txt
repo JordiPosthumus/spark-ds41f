@@ -1,0 +1,42 @@
+M64 prefill for the owner's Ring2 fork — review proposal, not deployed
+
+Large native MoE prefill batches currently use32-row tiles. This change selects
+64-row tiles only for E384/K6/H5120/I768 with at least2048 rows; smaller and other
+shapes keep32. It preserves weight packing, three pipeline stages, FP32 ordered
+combine, the BF16 output fold and shared experts. The deployed adapter bytes
+remain the exact tested072d2a99... source. Existing precision and sampling stay
+unchanged. Measured extra pooled workspace at4096 rows is about165.4MiB, not
+that amount multiplied by every layer.
+
+The only extra publication fields point to JordiPosthumus/spark-ds41f on branch
+codex/m64-prefill, based on existing owner main2a1d91c. This preserves the owner's
+history and avoids an upstream push. Main is untouched. All113 effective env
+values, full context524288, concurrency8, KV allocation, image support, DSpark,
+graphs, asynchronous scheduling, six other overlays and normal cache backing
+remain unchanged. A coordinated idle Ring2 restart is required; Ring1 is outside
+this change.
+
+Evidence includes1300 isolated exact replays and8100 actual model shadow
+comparisons. Actual capacity pairs now include the524288 boundary and eight
+representative65K..72K contexts. Boundary cold wall time153.91->149.92seconds;
+warm3.371->3.415seconds (slower). Eight-stream aggregate152.68->161.83tokens/sec.
+These are one matched comparison each, not robust speed guarantees. Earlier
+controlled large-prefill results suggested roughly7-10%; decode and warm-cache
+workloads need not improve. No aggregate T1 token-identity claim is made.
+
+The13-image injection also completed with104615prompt tokens alongside seven
+active warm chats, native engine peak8 and zero preemptions. Candidate minimum
+sampled head memory was4.7249GiB (other ranks6.3790/6.3636GiB), above the unchanged
+4GiB test floor. Functional tool-call name/arguments matched semantically.
+Retain the adverse latency observation: one background stream's maximum gap was
+3.443seconds versus baseline maximum2.569seconds. This stochastic single pair
+does not establish a kernel regression, but forbids a blanket latency-win claim.
+The independent audit validates24preflights and all17frozen source dependencies.
+Final committed-path/normal-cache canaries, log/memory review, recipe checks and
+owner acceptance remain mandatory. CPU tests and successful startup do not
+prove losslessness or production readiness. Preserve all failed/interrupted
+attempts. Rollback restores original Git origins plus exact9ff535d and the
+original profile SHA9309ad55..., never a silently modified baseline.
+
+This package contains source, aggregate counters/timings/hashes and manifests.
+No raw prompts, image bytes, generated transcripts or credentials are included.

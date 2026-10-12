@@ -1,0 +1,172 @@
+{
+  "at": "2026-10-12T18:43:15.074605+00:00",
+  "status": "Wave 7 complete; accepted baseline restored and serving; candidate retained for further research",
+  "candidate": "M64 expert row tile only for native large-prefill batches >=2048 rows, original M32 for small/decode rows",
+  "kernel_delta_only": true,
+  "promoted_changes": [],
+  "isolated_exact_replays": 1300,
+  "actual_model_shadow_exact_comparisons": 8100,
+  "candidate_successful_requests": 31,
+  "baseline_a_successful_requests": 27,
+  "baseline_b_successful_requests": 27,
+  "native_fingerprints_equal": 6,
+  "measurements": {
+    "cold_ttft_median_seconds": {
+      "baseline_a": 19.962129790976178,
+      "candidate": 19.405749541998375,
+      "baseline_b": 19.68099333299324,
+      "direction": "lower",
+      "candidate_speed_ratio_percent_vs_a": 2.867089713662807,
+      "candidate_speed_ratio_percent_vs_b": 1.4183620704738775,
+      "baseline_b_value_change_percent_vs_a": -1.4083490134906618
+    },
+    "cold_completion_median_seconds": {
+      "baseline_a": 20.96560841597966,
+      "candidate": 20.3580610420031,
+      "baseline_b": 20.676549499999965,
+      "direction": "lower",
+      "candidate_speed_ratio_percent_vs_a": 2.984308636873889,
+      "candidate_speed_ratio_percent_vs_b": 1.5644341439970733,
+      "baseline_b_value_change_percent_vs_a": -1.3787289652866908
+    },
+    "steady_completion_tokens_per_wall_second": {
+      "baseline_a": 113.75237795240672,
+      "candidate": 113.0864515051086,
+      "baseline_b": 111.49030265639776,
+      "direction": "higher",
+      "candidate_speed_ratio_percent_vs_a": -0.585417605578975,
+      "candidate_speed_ratio_percent_vs_b": 1.431648143991504,
+      "baseline_b_value_change_percent_vs_a": -1.988596051113234
+    },
+    "mixed-text_completion_tokens_per_wall_second": {
+      "baseline_a": 101.26463467084217,
+      "candidate": 106.09400891962753,
+      "baseline_b": 100.51221254179966,
+      "direction": "higher",
+      "candidate_speed_ratio_percent_vs_a": 4.769063024305664,
+      "candidate_speed_ratio_percent_vs_b": 5.5533514153880414,
+      "baseline_b_value_change_percent_vs_a": -0.7430255700701882
+    },
+    "mixed_injected_ttft_seconds": {
+      "baseline_a": 21.050613833009265,
+      "candidate": 20.037565375008853,
+      "baseline_b": 20.656650332995923,
+      "direction": "lower",
+      "candidate_speed_ratio_percent_vs_a": 5.055746239829628,
+      "candidate_speed_ratio_percent_vs_b": 3.089621650139196,
+      "baseline_b_value_change_percent_vs_a": -1.8715059956853741
+    },
+    "mixed_largest_background_chunk_gap_seconds": {
+      "baseline_a": 1.0716442089760676,
+      "candidate": 1.0002409579756204,
+      "baseline_b": 2.042444082995644,
+      "direction": "lower",
+      "candidate_speed_ratio_percent_vs_a": 7.138604996236064,
+      "candidate_speed_ratio_percent_vs_b": 104.1952058361347,
+      "baseline_b_value_change_percent_vs_a": 90.5897559925373
+    }
+  },
+  "sampled_output_controls": "runs/wave7-model/output-and-memory-controls.json",
+  "speculation_controls": "runs/wave7-model/speculation-controls.json",
+  "memory_controls": {
+    "baseline-a": {
+      "fingerprint": {
+        "Spark": 5.20086669921875,
+        "Spark2": 6.8778076171875,
+        "Spark3": 6.9107666015625
+      },
+      "cold": {
+        "Spark": 5.2037353515625,
+        "Spark2": 6.85595703125,
+        "Spark3": 6.9361572265625
+      },
+      "steady": {
+        "Spark": 5.19085693359375,
+        "Spark2": 6.86492919921875,
+        "Spark3": 6.919189453125
+      },
+      "mixed-text": {
+        "Spark": 5.171875,
+        "Spark2": 6.87274169921875,
+        "Spark3": 6.91900634765625
+      }
+    },
+    "candidate": {
+      "images": {
+        "Spark": 4.0321044921875,
+        "Spark2": 6.27032470703125,
+        "Spark3": 6.3389892578125
+      },
+      "fingerprint": {
+        "Spark": 4.62213134765625,
+        "Spark2": 6.41412353515625,
+        "Spark3": 6.450927734375
+      },
+      "cold": {
+        "Spark": 4.8765869140625,
+        "Spark2": 6.4503173828125,
+        "Spark3": 6.48883056640625
+      },
+      "steady": {
+        "Spark": 4.92059326171875,
+        "Spark2": 6.48480224609375,
+        "Spark3": 6.50982666015625
+      },
+      "mixed-text": {
+        "Spark": 4.94403076171875,
+        "Spark2": 6.53216552734375,
+        "Spark3": 6.431640625
+      }
+    },
+    "baseline-b": {
+      "fingerprint": {
+        "Spark": 5.31134033203125,
+        "Spark2": 6.87615966796875,
+        "Spark3": 6.7432861328125
+      },
+      "cold": {
+        "Spark": 5.400146484375,
+        "Spark2": 6.843994140625,
+        "Spark3": 6.7808837890625
+      },
+      "steady": {
+        "Spark": 5.39013671875,
+        "Spark2": 6.85137939453125,
+        "Spark3": 6.82794189453125
+      },
+      "mixed-text": {
+        "Spark": 5.4132080078125,
+        "Spark2": 6.86724853515625,
+        "Spark3": 6.782958984375
+      }
+    }
+  },
+  "interpretation": [
+    "Isolated large uniform expert workloads improve approximately 7% in native adapter tests and 9-10% in earlier raw-kernel tests; these are not whole-model speedups.",
+    "Serial long-prompt first token took 19.406s against baseline medians 19.962s and 19.681s: modest positive evidence; one bracketed comparison is not a confidence interval.",
+    "Mixed throughput 106.094 TPS versus 101.265 and 100.512 TPS is 4.77-5.55% higher, but changed concurrent sampled outputs and speculative acceptance confound attributing this entire gain to kernels.",
+    "Measured mixed speculative drafts: 4074 baseline A, 3835 candidate, 4066 baseline B; accepted fractions approximately 51.43%,54.35%,52.44%.",
+    "Steady chat throughput 113.086 TPS sits between baselines 113.752 and 111.490: no demonstrated decode improvement.",
+    "Concurrent reasoning outputs differ even between unchanged baselines; candidate warm mixed lanes 1/2 also differ. Do not claim global seeded sampled-output identity. Serial cold sampled outputs and six native deterministic fingerprints match.",
+    "Maximum background chunk gap baseline B 2.042s versus A 1.072s and candidate 1.000s is an unstable tail statistic; not a reliable 2x latency win.",
+    "Candidate adds approximately 166 MiB workspace in isolated tests. Host available memory fell to 4.032 GiB during candidate images versus 5.291 GiB in restored normal image tests; host-memory variation is not a causal allocation measurement.",
+    "Full512K boundary, eight-request capacity, repeated controlled trials and candidate soak remain required before a promotion proposal.",
+    "Normal baseline effective settings, all113 environment values, three physical runtimes, uncapped thirteen-image cold/warm cache hits and overlap validated after restoration. Ring1 unchanged."
+  ],
+  "retained_failures": [
+    "Old observer rejected null offline gateway context; physical stopped state separately revalidated before continuing, no GPU rerun.",
+    "First private-cache export denied read access; confined read-only privileged export completed, cache files preserved.",
+    "First private model launch rejected alternate in-container TileLang path before any rank changed; corrected private host backing at accepted container path with all baseline environment values preserved."
+  ],
+  "evidence_limitations": [
+    "Candidate full Docker logs were not copied before successful coordinated replacement removed the old container. Startup/runtime summaries and error scans exist, but absence of JIT warnings is not established. Capture full rank logs and cache manifests before every future stop.",
+    "Shadow runtime timings are excluded because it computes both implementations.",
+    "No thirty-percent overall improvement demonstrated."
+  ],
+  "next_priorities": [
+    "During a5 forty-minute service, prepare a bounded N64 output-tile screen for small decode batches with unchanged N128-packed weights and three pipeline stages. No GPU work during service.",
+    "Require compilation, resource checks, identical-input intermediate/final byte comparisons, routing variations and drift-controlled timings before full-model use.",
+    "Prepare manual profiler stop only after complete engine idle; prior automatic-stop collective failure makes another active auto-stop unsuitable.",
+    "Qualify M64 capacity and memory before proposing promotion; use controlled repeated workloads to separate prefill gain from speculative-decoding variation."
+  ]
+}
