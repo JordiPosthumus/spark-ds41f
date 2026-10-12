@@ -1,0 +1,8 @@
+{
+  "README.md": "3775e3dc388fe22e8bca574f1f81f1f7504950d9244505909f81abd90641cede",
+  "overlay/vllm/entrypoints/openai/chat_completion/phrase_blocking/__init__.py": "e9bcb7928cb5a38f007656aef9879f40034a99373a49774cfc7b5cbb165a6df7",
+  "overlay/vllm/entrypoints/openai/chat_completion/phrase_blocking/integration.py": "1dffffd79bf50e80a924402bdac04a432a5ed167aa6dbfe93fb3a906bb67c4c0",
+  "overlay/vllm/entrypoints/openai/chat_completion/phrase_blocking/phrases.py": "c02fe7c5576aad2e5a5123b2caf5c95596a76d0d2799ceb91426d77b076c85f2",
+  "overlay/vllm/entrypoints/openai/chat_completion/serving.py": "415848d46ff8e5383379d40e1916ce7b7ed8bd9ed85312782270e018e9a4a5d7",
+  "receipt.json": "284c95abe14a0c804f84e7ef0713d04588c4d7fa706dfda02a4c90def4646bce"
+}

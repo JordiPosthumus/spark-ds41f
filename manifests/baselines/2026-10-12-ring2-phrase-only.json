@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-12-ring2-phrase-only",
+  "status": "owner-accepted-change-pending-live-validation",
+  "captured_at": "2026-10-12T22:19:10.677272+00:00",
+  "base_commit": "c50c9cf6b505cc46d46dc02605bdf75ae6505b41",
+  "runtime_delta": "Native exact multiword phrase bans only; no detector, retry, seed, temperature or GPU-kernel change.",
+  "phrases": [
+    "Let me go",
+    "Let me write the command"
+  ],
+  "case_variants": [
+    "original",
+    "lower",
+    "upper"
+  ],
+  "preserved": "All prior Ring2 M64 environment, serve args, host settings and mounts retained; two API source mounts added.",
+  "live_validation": "Recorded separately after boot; not yet claimed.",
+  "profile_sha256": "8aa52a20c984e5a94753684985e99656e07ef7aaa960ad2e3fe3b5c118adf468"
+}

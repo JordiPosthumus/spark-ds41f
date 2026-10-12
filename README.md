@@ -1,3 +1,5 @@
+Owner fork: [permanent phrase blocking](docs/phrase-blocking.md) is selected for Ring 2; its existing M64 configuration is retained.
+
 # spark-ds41f
 
 Owner fork: Ring 2 uses the [M64 production trial](docs/ring2-m64-production.md) through config/cluster.json. Its [immutable qualification record](manifests/baselines/2026-10-12-ring2-m64-warm.json) captures the evidence and limitations. Ring 1 is unchanged. The upstream history below is retained for reference.

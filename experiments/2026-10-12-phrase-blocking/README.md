@@ -1,0 +1,9 @@
+# Permanent native phrase blocklist
+
+The only added strings are “Let me go” and “Let me write the command”, with explicit original/lower/upper-case variants. These are multiword token sequences; their individual words remain available. Native bad_words applies for the full generated response, including final text. No loop detector, retry, temporary word mask or custom worker kernel is included.
+
+Set SPARK_DS41F_PHRASE_BLOCKLIST=1 and add the two read-only mounts in receipt.json to each ring's own accepted profile. Preserve each ring's existing image, kernels, capacities and unrelated settings. Remove prior loop-recovery mode and experimental worker mounts when restoring the accepted baseline; do not copy Ring2's complete profile onto Ring1. Original serving source must match the receipt hash before overlaying it.
+
+Caller bad_words are merged without mutation; all other sampling parameters and native generate arguments are preserved. Native tokenization validates the phrase sequence count/vocabulary, and the wrapper checks the native total token cap before submitting. Trace-decode, structured-output and allowed-token constraints bypass the internal additions with a reason. The separate native beam-search path remains unchanged. Default is off and model scope is hf_config.model_type=deepseek_v41; no parser-class-name assumption is used.
+
+Six CPU tests pass. Actual native API and sampler validation on each ring remains the operator's responsibility. Absence of a phrase in one sampled answer alone does not prove masking. The frozen actual-tokenizer reconstruction of the latest failure contains 11,855 banned completions (first at generated token126); this demonstrates exact pattern coverage, not proof the model will never loop differently. Productive responses sometimes use these phrases too, so the permanent policy intentionally changes output possibilities.

@@ -1,0 +1,30 @@
+{
+  "cpu_tests": 6,
+  "cpu_tests_sha256": "ff6554bac2e8ae23d98f5f9911184881b526fc283e82ef593064f075bda0e19e",
+  "detector": false,
+  "enable_environment": {
+    "SPARK_DS41F_PHRASE_BLOCKLIST": "1"
+  },
+  "mounts": [
+    [
+      "{home}/spark-ds41f/experiments/2026-10-12-phrase-blocking/overlay/vllm/entrypoints/openai/chat_completion/serving.py",
+      "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-12-phrase-blocking/overlay/vllm/entrypoints/openai/chat_completion/phrase_blocking",
+      "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/phrase_blocking",
+      "ro"
+    ]
+  ],
+  "native_encoding": {
+    "phrase_case_variants": 6,
+    "token_sequences": 10,
+    "total_tokens": 42
+  },
+  "retries": false,
+  "scope": "DeepSeek V4.1 sampled chat; streaming/final-only, thinking/nonthinking. Native beam search remains unchanged. Trace/structured/allowed-token constraints pass through unchanged with aggregate skip reason.",
+  "source_serving_sha256": "ea1f76074a9587c8054f54d30a6ba748b6a5fc4d90dd82c801504505c1da1f92",
+  "temporary_individual_word_bans": false,
+  "worker_patch": false
+}

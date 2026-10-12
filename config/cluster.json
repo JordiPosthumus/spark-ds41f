@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-12-ring2-m64-warm",
+  "promoted_baseline": "2026-10-12-ring2-phrase-only",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -77,6 +77,16 @@
       [
         "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
         "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-12-phrase-blocking/overlay/vllm/entrypoints/openai/chat_completion/serving.py",
+        "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-12-phrase-blocking/overlay/vllm/entrypoints/openai/chat_completion/phrase_blocking",
+        "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/phrase_blocking",
         "ro"
       ]
     ]
@@ -181,7 +191,8 @@
     "VLLM_USE_V2_MODEL_RUNNER": "1",
     "XDG_CACHE_HOME": "/cache/kkref/jit",
     "SPARKNET_ROCE_ALLREDUCE_DISPATCH_MAX_BYTES": "2097152",
-    "VLLM_GREEDY_VERIFICATION": "1"
+    "VLLM_GREEDY_VERIFICATION": "1",
+    "SPARK_DS41F_PHRASE_BLOCKLIST": "1"
   },
   "serve_args": [
     "/models",
@@ -259,7 +270,7 @@
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "ring2-m64-production",
+    "branch": "ring2-loop-autorecover",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
@@ -268,6 +279,6 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring2-m64-upstreams.lock.json",
+  "upstreams_config": "config/ring2-phrase-upstreams.lock.json",
   "nodes_config": "config/nodes.json"
 }
