@@ -655,9 +655,124 @@ class AnalysisTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             self.assertFalse(lab.summarize_analysis(Path(directory))["passed"])
 
+    def test_an_analysis_file_without_records_is_not_a_pass(self) -> None:
+        """``analyze`` opens every analysis file before it runs the analyzer, so the file exists
+        even when the analyzer produced nothing. An empty file is an analysis that did not run,
+        and it must not pass: the differences it would have found are unknown, not absent."""
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            (out / "analysis4-scenarios-dgx1.jsonl").write_text("")
+            summary = lab.summarize_analysis(out)
+            self.assertEqual(summary["analysis4-scenarios-dgx1"]["records"], 0)
+            self.assertFalse(summary["passed"])
+
+    def test_a_crashed_analysis_is_not_a_pass(self) -> None:
+        """The analyzer's own stdout and stderr land in the arm's file. A docker failure or a
+        traceback is not a record, so the file holds none and the run must not pass."""
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            (out / "analysis4-scenarios-dgx1.jsonl").write_text(
+                "docker: Error response from daemon: pull access denied for the image\n"
+                "Traceback (most recent call last):\n"
+                '  File "/a.py", line 334, in <module>\n'
+                "    main(sys.argv)\n")
+            self.assertFalse(lab.summarize_analysis(out)["passed"])
+
+    def test_a_named_file_that_is_missing_is_not_a_pass(self) -> None:
+        """A step's own file must be there: analyze() opens each one before it runs the analyzer."""
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            (out / "analysis4-scenarios-dgx1.jsonl").write_text(
+                json.dumps({"request": "a-r0", "against": "a-r1", "rows_compared": 5,
+                            "rows_differing": 0, "outputs_equal": True}) + "\n")
+            self.assertFalse(lab.summarize_analysis(
+                out, paths=[out / "analysis4-scenarios-dgx1.jsonl",
+                            out / "analysis4-scenarios-dgx2.jsonl"])["passed"])
+
+    def test_files_of_another_run_do_not_judge_this_one(self) -> None:
+        """A previous run of the same job name leaves its files in the same directory. A quick
+        validation must be judged on the files it was to write, not on a full validation's
+        leftovers: the full tier adds the mixes directory, the quick tier does not."""
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            record = json.dumps({"request": "a-r0", "against": "a-r1", "rows_compared": 5,
+                                 "rows_differing": 0, "outputs_equal": True}) + "\n"
+            current = [out / f"analysis4-{kind}-{node}.jsonl"
+                       for node in ("dgx1", "dgx2", "dgx3") for kind in ("c8", "scenarios")]
+            for path in current:
+                path.write_text(record)
+            (out / "analysis4-mixes-dgx1.jsonl").write_text("")  # a full run's dying mixes arm
+            summary = lab.summarize_analysis(out, paths=current)
+            self.assertTrue(summary["passed"])
+            self.assertNotIn("analysis4-mixes-dgx1", summary)
+            # Without the names, the same directory does not pass: the guard is the file's record.
+            self.assertFalse(lab.summarize_analysis(out)["passed"])
+
+    def test_one_empty_analysis_file_fails_the_whole_summary(self) -> None:
+        """One node's analysis dying must not be masked by the other nodes' records."""
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            record = {"request": "a-r0", "against": "a-r1", "rows_compared": 5, "rows_differing": 0,
+                      "outputs_equal": True}
+            (out / "analysis4-scenarios-dgx1.jsonl").write_text(json.dumps(record) + "\n")
+            (out / "analysis4-scenarios-dgx2.jsonl").write_text("")
+            self.assertFalse(lab.summarize_analysis(out)["passed"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AnalyzeCallSiteTest(unittest.TestCase):
+    """analyze() must hand summarize_analysis the files its own step was to write: the arm's
+    directory is never cleaned between runs, so a stale file of another run must not judge this
+    one, and a file of this run that came back with no record must fail it."""
+
+    def _analyze(self, directory, dirs, stdout="", returncode=0):
+        config = Path(directory) / "experiment" / "config.json"
+        config.parent.mkdir(parents=True, exist_ok=True)
+        config.write_text(json.dumps({"container": {"image": "img"}}))
+        (Path(directory) / "out").mkdir(parents=True, exist_ok=True)
+        step = {"kind": "analyze", "out": str(Path(directory) / "out"), "dirs": dirs, "config": str(config)}
+        completed = subprocess.CompletedProcess([], returncode, stdout, "")
+        with mock.patch.object(lab, "container_running", return_value=False), \
+                mock.patch.object(lab, "ROOT", Path(directory)), \
+                mock.patch.object(lab, "nodes_config",
+                                  return_value={"nodes": [{"name": "dgx1"}, {"name": "dgx2"}]}), \
+                mock.patch.object(lab.subprocess, "run", return_value=completed):
+            return lab.analyze(step), Path(directory) / "out"
+
+    def test_analyze_reports_only_the_files_of_the_step(self) -> None:
+        """A leftover mixes file, which the quick tier never writes, must not decide the result."""
+        with tempfile.TemporaryDirectory() as directory:
+            record = json.dumps({"request": "a-r1", "against": "a-r0", "rows_compared": 5,
+                                 "rows_differing": 0, "outputs_equal": True})
+            out = Path(directory) / "out"
+            out.mkdir(parents=True)
+            (out / "analysis4-mixes-dgx1.jsonl").write_text("")   # a full run's dying mixes arm
+            summary, out = self._analyze(directory, ["c8"], stdout=record + "\n")
+            self.assertTrue(summary["passed"])
+            self.assertNotIn("analysis4-mixes-dgx1", summary)
+
+    def test_analyze_fails_when_the_analyzer_wrote_no_record(self) -> None:
+        """The analyzer's empty output leaves a recordless file, and the step must fail."""
+        with tempfile.TemporaryDirectory() as directory:
+            summary, _ = self._analyze(directory, ["c8", "scenarios"], stdout="")
+            self.assertFalse(summary["passed"])
+
+    def test_one_recordless_file_of_a_step_fails_it(self) -> None:
+        """One node's analyzer dying must not be masked by the node that compared rows: analyze()
+        writes a file per node, and a recordless one of those fails the step. Here the files are
+        written by analyze() and dgx2's is then emptied, which is what a crashed analyzer leaves."""
+        with tempfile.TemporaryDirectory() as directory:
+            record = json.dumps({"request": "a-r1", "against": "a-r0", "rows_compared": 5,
+                                 "rows_differing": 0, "outputs_equal": True})
+            summary, out = self._analyze(directory, ["c8"], stdout=record + "\n")
+            self.assertTrue(summary["passed"])
+            self.assertTrue((out / "analysis4-c8-dgx2.jsonl").is_file())
+            (out / "analysis4-c8-dgx2.jsonl").write_text("")     # dgx2's analyzer wrote nothing
+            self.assertFalse(lab.summarize_analysis(
+                out, paths=[out / f"analysis4-c8-{n}.jsonl" for n in ("dgx1", "dgx2")])["passed"])
 
 
 class TransferRouteTest(unittest.TestCase):

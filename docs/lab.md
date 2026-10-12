@@ -113,6 +113,10 @@ window if none of ours is open.
     - boot A runs the mixed, chunked, chunked_end, cache_long and distinct scenarios;
     - the restart runs cache_long and distinct only.
   - `analysis-summary.json` reports rows, differences, cross-restart pairs and a pass flag.
+    A pass needs at least one record in every analysis file the step was to write: the file
+    is created before the analyzer runs, so one that holds no record is a missing analysis,
+    not a clean comparison. Files a previous run of the same job name left behind are not
+    read, so a quick validation is not judged on a full validation's leftovers.
 - **`kernel`:** runs kernel-lab bundles on the named nodes concurrently, with the cluster
   stopped. It writes `results/private/lab/<run>/verdicts.json` and checks that the
   nodes agree.

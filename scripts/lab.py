@@ -734,7 +734,10 @@ def analyze(step: dict) -> dict:
     names = [node["name"] for node in nodes_config()["nodes"]]
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(names)) as pool:
         list(pool.map(one_node, names))
-    summary = summarize_analysis(out)
+    # Only this step's files: a previous run of the same job name leaves its own files behind,
+    # and a quick validation must not be judged on a full validation's leftovers.
+    summary = summarize_analysis(out, paths=[out / f"analysis4-{d}-{node}.jsonl"
+                                             for node in names for d in step["dirs"]])
     write_json_atomic(out / "analysis-summary.json", summary)
     return summary
 
@@ -916,15 +919,23 @@ def curves_table(paths: list[str]) -> str:
             "routed MoE, real rows include it):\n" + "\n".join(rows))
 
 
-def summarize_analysis(out: Path) -> dict:
+def summarize_analysis(out: Path, paths: list[Path] | None = None) -> dict:
+    """Summarize the analysis files of one run. ``paths`` names the files this step was to write;
+    without it, every file in the directory (the caller may be inspecting an older run).
+
+    Every named file must exist and carry at least one record: ``analyze`` opens each file before
+    it runs the analyzer, so a file that holds no record is an analysis that produced nothing
+    (a crashed analyzer, a trace directory with no target to compare), not a comparison that
+    found nothing to report."""
     totals = {}
-    for path in sorted(out.glob("analysis4-*.jsonl")):
-        entry = {"pairs": 0, "rows": 0, "differing": 0, "outputs_differ": 0, "cross_boot_pairs": 0,
-                 "cross_boot_rows": 0, "recompute_mismatches": 0}
-        for line in path.read_text().splitlines():
+    for path in sorted(paths if paths is not None else out.glob("analysis4-*.jsonl")):
+        entry = {"records": 0, "pairs": 0, "rows": 0, "differing": 0, "outputs_differ": 0,
+                 "cross_boot_pairs": 0, "cross_boot_rows": 0, "recompute_mismatches": 0}
+        for line in (path.read_text() if path.is_file() else "").splitlines():
             if not line.startswith("{"):
                 continue
             record = json.loads(line)
+            entry["records"] += 1
             if "rows_compared" in record:
                 entry["pairs"] += 1
                 entry["rows"] += record["rows_compared"]
@@ -935,8 +946,10 @@ def summarize_analysis(out: Path) -> dict:
                     entry["cross_boot_rows"] += record["rows_compared"]
             entry["recompute_mismatches"] += len(record.get("recomputed_mismatch") or [])
         totals[path.stem] = entry
-    totals["passed"] = all(e["differing"] == 0 and e["outputs_differ"] == 0 and e["recompute_mismatches"] == 0
-                           for k, e in totals.items() if k != "passed") and len(totals) > 0
+    totals["passed"] = (all(e["records"] and e["differing"] == 0 and e["outputs_differ"] == 0
+                            and e["recompute_mismatches"] == 0
+                            for k, e in totals.items() if k != "passed")
+                        and len(totals) > 0)
     return totals
 
 
