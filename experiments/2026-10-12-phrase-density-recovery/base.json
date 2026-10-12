@@ -1,0 +1,7 @@
+{
+  "base_commit": "cf76d70c557ba1cb865c73b21cbee774303cf2c3",
+  "profile_sha256": "8aa52a20c984e5a94753684985e99656e07ef7aaa960ad2e3fe3b5c118adf468",
+  "created_utc": "2026-10-12T23:30:58.697214+00:00",
+  "status": "local-only; launch disabled; native validation pending",
+  "delta": "Replace two recipe API mounts and blocklist-enable environment with phrase-density recovery. No other serving or host settings change."
+}
