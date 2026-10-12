@@ -5,7 +5,10 @@ not private reasoning. Policy needs representative production validation.
 """
 from collections import Counter
 import hashlib
-from collapse import CollapseDetector, CollapseConfig, Detection
+try:
+    from .collapse import CollapseDetector, CollapseConfig, Detection
+except ImportError:
+    from collapse import CollapseDetector, CollapseConfig, Detection
 
 
 def hashed(word):
