@@ -1,0 +1,26 @@
+--- a/vllm/entrypoints/openai/chat_completion/serving.py
++++ b/vllm/entrypoints/openai/chat_completion/serving.py
+@@ -63,6 +63,13 @@
+ from vllm.parser.abstract_parser import Parser
+ from vllm.renderers.online_renderer import OnlineRenderer
+ from vllm.sampling_params import BeamSearchParams, SamplingParams
++try:
++    from vllm.entrypoints.openai.chat_completion.ds41f_mechanism_wiring.entry import make_plan_gate as _ds41f_make_plan_gate
++    _ds41f_mechanism_generate = _ds41f_make_plan_gate("ec1b13f30a1d2eafd0b6149726e276f4bc70e1a1ffbe27eb99237fdf080fa30a")
++except Exception:
++    init_logger(__name__).warning("DS41F mechanism helper unavailable; all requests remain native")
++    def _ds41f_mechanism_generate(server, prompt, params, request_id, **kwargs):
++        return server.engine_client.generate(prompt, params, request_id, **kwargs)
+ from vllm.tokenizers import TokenizerLike
+ from vllm.utils.collection_utils import as_list
+ from vllm.utils.serial_utils import numpy2base64
+@@ -365,7 +372,8 @@
+                 else:
+                     reasoning_ended = None
+ 
+-                generator = self.engine_client.generate(
++                generator = _ds41f_mechanism_generate(
++                    self,
+                     engine_input,
+                     sampling_params,
+                     sub_request_id,

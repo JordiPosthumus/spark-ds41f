@@ -1,0 +1,174 @@
+{
+  "cases": [
+    {
+      "body": {
+        "max_tokens": 1024,
+        "messages": [
+          {
+            "content": "Plan tests for 40 different Unicode and JSON parsing edge cases. Give each a distinct expected result. Then summarize the plan.",
+            "role": "user"
+          },
+          {
+            "content": "Produce a detailed test plan comparing 40 different constraints before your final recommendation.",
+            "role": "user"
+          }
+        ],
+        "model": "deepseek-v4.1-flash",
+        "reasoning_effort": "high",
+        "request_id": "ds41f-mechanism-d7b106cc2401-00",
+        "seed": 1729,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1.0,
+        "top_p": 0.95
+      },
+      "cancel_twice_after_first_retry_native_output": false,
+      "expected_nonempty_published_prefix_at_injection": false,
+      "headers": {
+        "X-Request-Id": "ds41f-mechanism-d7b106cc2401-00"
+      },
+      "mode": "mechanism-recover-injected",
+      "request_id": "chatcmpl-ds41f-mechanism-d7b106cc2401-00",
+      "run": "d7b106cc2401",
+      "spec": {
+        "discard_tokens": 1,
+        "expected_id": "chatcmpl-ds41f-mechanism-d7b106cc2401-00",
+        "holdback_tokens": 128,
+        "injected_retries": 1,
+        "maximum_observed_tokens": 1024,
+        "minimum_published_tokens": 0
+      }
+    },
+    {
+      "body": {
+        "max_tokens": 1024,
+        "messages": [
+          {
+            "content": [
+              {
+                "text": "List the six solid colors in these images, in order.",
+                "type": "text"
+              },
+              {
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAb0lEQVR4nO3PAQkAAAyEwO9feoshgnABdLep8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3IPanc8OLDQitxAAAAAElFTkSuQmCC"
+                },
+                "type": "image_url"
+              },
+              {
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAb0lEQVR4nO3PAQkAAAyEwO9feoshgnABdLu58QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ24Pbjs8OLsrFddAAAAAElFTkSuQmCC"
+                },
+                "type": "image_url"
+              },
+              {
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAb0lEQVR4nO3PAQkAAAyEwO9feoshgnABdNvJ8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ3I8QUNyPEFDcjxBQ2oPcf88OIhvJ6vAAAAAElFTkSuQmCC"
+                },
+                "type": "image_url"
+              },
+              {
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAdklEQVR4nO3PQQkAMAzAwPo33Yno4xgEIuAyu/N1XtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWjBsQcyl+HSnr9raQAAAABJRU5ErkJggg=="
+                },
+                "type": "image_url"
+              },
+              {
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAdklEQVR4nO3PQQkAMAzAwPo33Yno4xgEIuAyO/t1wwUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWHHtBp+HSthEAJgAAAABJRU5ErkJggg=="
+                },
+                "type": "image_url"
+              },
+              {
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAIAAAAlC+aJAAAAdklEQVR4nO3PQQkAMAzAwPo33Yno4xgEIuAys/t3XtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWhBA1rQgBY0oAUNaEEDWtCAFjSgBQ1oQQNa0IAWNKAFDWjBrQdQt+HSQM5t4gAAAABJRU5ErkJggg=="
+                },
+                "type": "image_url"
+              }
+            ],
+            "role": "user"
+          },
+          {
+            "content": "Produce a detailed test plan comparing 40 different constraints before your final recommendation.",
+            "role": "user"
+          }
+        ],
+        "model": "deepseek-v4.1-flash",
+        "reasoning_effort": "high",
+        "request_id": "ds41f-mechanism-d7b106cc2401-01",
+        "seed": 1729,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1.0,
+        "top_p": 0.95
+      },
+      "cancel_twice_after_first_retry_native_output": false,
+      "expected_nonempty_published_prefix_at_injection": true,
+      "headers": {
+        "X-Request-Id": "ds41f-mechanism-d7b106cc2401-01"
+      },
+      "mode": "mechanism-recover-injected",
+      "request_id": "chatcmpl-ds41f-mechanism-d7b106cc2401-01",
+      "run": "d7b106cc2401",
+      "spec": {
+        "discard_tokens": 8,
+        "expected_id": "chatcmpl-ds41f-mechanism-d7b106cc2401-01",
+        "holdback_tokens": 32,
+        "injected_retries": 2,
+        "maximum_observed_tokens": 1024,
+        "minimum_published_tokens": 1
+      }
+    },
+    {
+      "body": {
+        "max_tokens": 1024,
+        "messages": [
+          {
+            "content": "Plan tests for 40 different Unicode and JSON parsing edge cases. Give each a distinct expected result. Then summarize the plan.",
+            "role": "user"
+          },
+          {
+            "content": "Produce a detailed test plan comparing 40 different constraints before your final recommendation.",
+            "role": "user"
+          }
+        ],
+        "model": "deepseek-v4.1-flash",
+        "reasoning_effort": "high",
+        "request_id": "ds41f-mechanism-d7b106cc2401-02",
+        "seed": 1729,
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1.0,
+        "top_p": 0.95
+      },
+      "cancel_twice_after_first_retry_native_output": true,
+      "expected_nonempty_published_prefix_at_injection": false,
+      "headers": {
+        "X-Request-Id": "ds41f-mechanism-d7b106cc2401-02"
+      },
+      "mode": "mechanism-recover-injected",
+      "request_id": "chatcmpl-ds41f-mechanism-d7b106cc2401-02",
+      "run": "d7b106cc2401",
+      "spec": {
+        "discard_tokens": 1,
+        "expected_id": "chatcmpl-ds41f-mechanism-d7b106cc2401-02",
+        "holdback_tokens": 128,
+        "injected_retries": 1,
+        "maximum_observed_tokens": 1024,
+        "minimum_published_tokens": 0
+      }
+    }
+  ],
+  "detector_decision": "injected",
+  "mode": "mechanism-recover-injected",
+  "run": "d7b106cc2401",
+  "sends_requests": false,
+  "stage": "enabled",
+  "test_only": true
+}

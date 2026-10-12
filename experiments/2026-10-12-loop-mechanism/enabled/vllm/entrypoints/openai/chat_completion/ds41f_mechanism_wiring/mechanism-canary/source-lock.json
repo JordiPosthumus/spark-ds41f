@@ -1,0 +1,30 @@
+{
+  "current_chat_serving_matches_old_capture": true,
+  "dependencies": {
+    "adaptive-prototype/collapse.py": "40addb7826ec2d6a77fb0759a9025c3b159e7b53eb865b54369e55863a438c21",
+    "adaptive-prototype/integration.py": "f0b599088330a57129e976643a2db1465167f35f46db84e79b61f31498a7267d",
+    "adaptive-prototype/overlay-manifest.json": "110f986f6a47d8bab6b93d10037ea65c9419a3959d544f94cc90771f9b349380",
+    "adaptive-prototype/qualification.json": "038e67ce966858475e399c97a88f1ad10c447b46bb1a263f0b5bcf14daf3707e",
+    "adaptive-prototype/recovery.py": "c83b525a64789e31d813cf34eca3a9b0261f80a8938dd48316e6b7eeea3c6bbb",
+    "adaptive-prototype/suspicion.py": "ac257ccbe5c81f8cf3babb7e60ff9b61db584d36eb76b8a2295c213d51be31b8",
+    "live-canary-kit/driver.py": "645eaf528ef921b76cb147b278a4b78d62a9ac0713ad94d1f31f57df42ab51e6",
+    "live-canary-kit/overlay-manifest.json": "75b3179962d2b43bc050528dd1e82cf2341f5bb09448b07b7d103d58cb1af44c",
+    "live-canary-kit/qualification.json": "a264b6208c93a2e44868a8e42bd447640e32b8b429fc3f9d2d74c645367ef4ad",
+    "source/outputs.py": "346d1f9204a441867efc3af7c5a99d8a70ef0f69fe607dfa8a4a2557a82ca425"
+  },
+  "fresh_inherited_source_verification_required": true,
+  "identity_sources": {
+    "entrypoints/generate/base/serving.py": {
+      "capture": "2026-10-08",
+      "sha256": "35ec53f63e86a8c1725728911db0df44eb3101d8cd65e9b2f39d048956977bad"
+    },
+    "entrypoints/openai/chat_completion/serving.py": {
+      "capture": "2026-10-08",
+      "sha256": "ea1f76074a9587c8054f54d30a6ba748b6a5fc4d90dd82c801504505c1da1f92"
+    },
+    "entrypoints/serve/engine/serving.py": {
+      "capture": "2026-10-08",
+      "sha256": "70143311acc2230b925e7f3603b8b9314f029ff5e98d5af990b3bdca691331f1"
+    }
+  }
+}

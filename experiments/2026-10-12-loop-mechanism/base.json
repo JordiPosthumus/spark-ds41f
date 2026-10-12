@@ -1,0 +1,76 @@
+{
+  "accepted_profile_sha256": "9309ad55b33bb884096c7df70eb6c2de450aeb500744a1bfe5c010b466aa5073",
+  "accepted_three_rank_image_id": "sha256:5a5c06fb5ad934db546dcde5b2268c70c7c73238eadaa6dea09dabdd3754a864",
+  "baseline_overlay_sha256": {
+    "model_executor/layers/fused_moe/runner/moe_runner.py": "c3e4ab1184dd5f5b52c1aca04a9541487ae704bf23382b3c7cec29a7e6ec6f11",
+    "model_executor/layers/fused_moe/runner/shared_experts.py": "29f81a111ae2fd5ef8dae6c966b31af4ad93fae25fb44782d8b9b6cc76c4e7e5",
+    "model_executor/layers/fused_moe/tilelang.py": "999c937450a1038b0de528335a74c56d33de0c0c2364d4263eeda5beb7657e2d",
+    "models/deepseek_v4_1/tilelang/moe.py": "074e313afa1b689132d0b7162fb8bfe9b17b11a68d9021a0ab3523f550e72ea5",
+    "v1/worker/gpu/model_runner.py": "98df0f97db6e9ba0c25f9cdad75b9b89f4142dbe790246830480ce209eaac5c1",
+    "v1/worker/gpu/spec_decode/dspark/greedy.py": "7859c0e8882e3771a7b8aa69ecdc9a38dce1efe43e00da7529c5b007af25940a",
+    "v1/worker/gpu/spec_decode/greedy_verification.py": "6b8d13e2031a8b45177479ce9bf6c6d8039e9d408031471de4ede3ab583e9aec"
+  },
+  "expected_image_labels": {
+    "local.spark3.b12x.tree": "1a647a311ca55d45070ab83d60668d9c8fb8886c",
+    "local.spark3.nccl.tree": "6af10aa730a64fcee8781d62340a9c9184e79469",
+    "local.spark3.sparknet.tree": "bd4191b3241383e8ecb705ad291f2da5b064370f",
+    "local.spark3.tile_kernels.tree": "647708813ac13c2fac5bdcd252f6cb8390379b85",
+    "local.spark3.tilelang.tree": "1697ad52fab8379ce78f9abc547c7b1e02cd9c5e",
+    "local.spark3.vllm.tree": "4127ff975d84320923471c9cad770a69aeec41f3"
+  },
+  "image_id_status": "captured baseline; reverify live before start",
+  "image_tag": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
+  "kernel_candidate_included": false,
+  "native_quality_and_recovery_proven": false,
+  "no_global_output_or_image_limit_added": true,
+  "owner_repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
+  "promoted_baseline_preserved": "2026-10-05-karmic-kraken-r6",
+  "repository_base_commit": "d5b4adf04ab205e8507531112aa9df03ca0106ed",
+  "reviewed_runtime_python": {
+    "entry.py": "56596bba16d06675e4eadc3a531fab700656c8c6c6bef245bcfe563bd0feffdc",
+    "transform.py": "928a444993260fe88c2ace1feffa518a23e0815f524dbb2f000aed3cdb928db0"
+  },
+  "reviewed_wiring_qualification_sha256": "e2c06c6de78098e61fab05d9623484ca291f6f255ee8bef124e7a0c870ee2eeb",
+  "runtime_image_id_must_match_all_ranks": true,
+  "selected_source_manifest": "experiments/2026-10-11-r6f/source.json",
+  "selected_source_manifest_sha256": "93fe3ba9506855391e862dd1f97aaa3a8fdcfacdc44aec658a0ce048c7a15a0a",
+  "selected_upstreams_config": "experiments/2026-10-11-r6f/upstreams.lock.json",
+  "selected_upstreams_sha256": "43588ad8655d8761d7eb0a83ee301cf05f2839ad9974e42fb823402d02246089",
+  "settings_and_host_policy_unchanged": true,
+  "stages": {
+    "disabled": {
+      "enabled": false,
+      "full_request_ids": [
+        "chatcmpl-ds41f-mechanism-d7b106cc2400-00",
+        "chatcmpl-ds41f-mechanism-d7b106cc2400-01",
+        "chatcmpl-ds41f-mechanism-d7b106cc2400-02"
+      ],
+      "plan_sha256": "ec1b13f30a1d2eafd0b6149726e276f4bc70e1a1ffbe27eb99237fdf080fa30a",
+      "profile": "experiments/2026-10-12-loop-mechanism/disabled.json",
+      "removed_private_provenance_fields": [
+        "identity_sources/entrypoints/serve/engine/serving.py/origin",
+        "identity_sources/entrypoints/generate/base/serving.py/origin",
+        "identity_sources/entrypoints/openai/chat_completion/serving.py/origin"
+      ],
+      "run": "d7b106cc2400"
+    },
+    "enabled": {
+      "enabled": true,
+      "full_request_ids": [
+        "chatcmpl-ds41f-mechanism-d7b106cc2401-00",
+        "chatcmpl-ds41f-mechanism-d7b106cc2401-01",
+        "chatcmpl-ds41f-mechanism-d7b106cc2401-02"
+      ],
+      "plan_sha256": "675c6c230b0747e4d87d8bb1db990c90527e8222aaed3d67c1ea65430aef7607",
+      "profile": "experiments/2026-10-12-loop-mechanism/enabled.json",
+      "removed_private_provenance_fields": [
+        "identity_sources/entrypoints/serve/engine/serving.py/origin",
+        "identity_sources/entrypoints/generate/base/serving.py/origin",
+        "identity_sources/entrypoints/openai/chat_completion/serving.py/origin"
+      ],
+      "run": "d7b106cc2401"
+    }
+  },
+  "status": "unpromoted-experiment; no live results",
+  "upstream_submission_planned": false
+}

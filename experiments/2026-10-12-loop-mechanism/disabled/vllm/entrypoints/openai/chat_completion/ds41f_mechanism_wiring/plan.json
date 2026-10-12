@@ -1,0 +1,96 @@
+{
+  "baseline_overlays": {
+    "model_executor/layers/fused_moe/runner/moe_runner.py": "c3e4ab1184dd5f5b52c1aca04a9541487ae704bf23382b3c7cec29a7e6ec6f11",
+    "model_executor/layers/fused_moe/runner/shared_experts.py": "29f81a111ae2fd5ef8dae6c966b31af4ad93fae25fb44782d8b9b6cc76c4e7e5",
+    "model_executor/layers/fused_moe/tilelang.py": "999c937450a1038b0de528335a74c56d33de0c0c2364d4263eeda5beb7657e2d",
+    "models/deepseek_v4_1/tilelang/moe.py": "074e313afa1b689132d0b7162fb8bfe9b17b11a68d9021a0ab3523f550e72ea5",
+    "v1/worker/gpu/model_runner.py": "98df0f97db6e9ba0c25f9cdad75b9b89f4142dbe790246830480ce209eaac5c1",
+    "v1/worker/gpu/spec_decode/dspark/greedy.py": "7859c0e8882e3771a7b8aa69ecdc9a38dce1efe43e00da7529c5b007af25940a",
+    "v1/worker/gpu/spec_decode/greedy_verification.py": "6b8d13e2031a8b45177479ce9bf6c6d8039e9d408031471de4ede3ab583e9aec"
+  },
+  "cases": [
+    {
+      "expected_max_tokens": 1024,
+      "request_id": "chatcmpl-ds41f-mechanism-d7b106cc2400-00",
+      "spec": {
+        "discard_tokens": 1,
+        "expected_id": "chatcmpl-ds41f-mechanism-d7b106cc2400-00",
+        "holdback_tokens": 128,
+        "injected_retries": 1,
+        "maximum_observed_tokens": 1024,
+        "minimum_published_tokens": 0
+      },
+      "synthetic_body_sha256": "06e1df6fdc7aaa13d6698a6753d80a2e96b5a767bbc4499ba14b8c005802c881"
+    },
+    {
+      "expected_max_tokens": 1024,
+      "request_id": "chatcmpl-ds41f-mechanism-d7b106cc2400-01",
+      "spec": {
+        "discard_tokens": 8,
+        "expected_id": "chatcmpl-ds41f-mechanism-d7b106cc2400-01",
+        "holdback_tokens": 32,
+        "injected_retries": 2,
+        "maximum_observed_tokens": 1024,
+        "minimum_published_tokens": 1
+      },
+      "synthetic_body_sha256": "8cfaaf58888e31af9916fbee0f7ed941ef8014b3fa88f244cd1974d6b1b729fe"
+    },
+    {
+      "expected_max_tokens": 1024,
+      "request_id": "chatcmpl-ds41f-mechanism-d7b106cc2400-02",
+      "spec": {
+        "discard_tokens": 1,
+        "expected_id": "chatcmpl-ds41f-mechanism-d7b106cc2400-02",
+        "holdback_tokens": 128,
+        "injected_retries": 1,
+        "maximum_observed_tokens": 1024,
+        "minimum_published_tokens": 0
+      },
+      "synthetic_body_sha256": "d21d87b43a8fc8ecb38027c84fe2fe829b1e72dc0c01f245bca9ee113a9ca407"
+    }
+  ],
+  "enabled": false,
+  "mode": "mechanism-recover-injected",
+  "native_source_sha256": {
+    "entrypoints/generate/base/serving.py": "35ec53f63e86a8c1725728911db0df44eb3101d8cd65e9b2f39d048956977bad",
+    "entrypoints/openai/chat_completion/protocol.py": "0d85d431a4ccb56cbe45665aaa040578d707cc8c728408a72a68666ec085cab2",
+    "entrypoints/openai/chat_completion/serving.py": "ea1f76074a9587c8054f54d30a6ba748b6a5fc4d90dd82c801504505c1da1f92",
+    "entrypoints/serve/engine/serving.py": "70143311acc2230b925e7f3603b8b9314f029ff5e98d5af990b3bdca691331f1",
+    "inputs/engine.py": "b758f42397cea3f5f91f8365b87df0be7a45780c1d1335fb0b65b1b005948b42",
+    "inputs/llm.py": "a76cb30ac2aa3ef6d052d260109a38c27cdd28e77ff7cad7a3a7e500efdd82e6",
+    "model_executor/layers/fused_moe/runner/moe_runner.py": "c3e4ab1184dd5f5b52c1aca04a9541487ae704bf23382b3c7cec29a7e6ec6f11",
+    "model_executor/layers/fused_moe/runner/shared_experts.py": "29f81a111ae2fd5ef8dae6c966b31af4ad93fae25fb44782d8b9b6cc76c4e7e5",
+    "model_executor/layers/fused_moe/tilelang.py": "999c937450a1038b0de528335a74c56d33de0c0c2364d4263eeda5beb7657e2d",
+    "models/deepseek_v4_1/tilelang/moe.py": "074e313afa1b689132d0b7162fb8bfe9b17b11a68d9021a0ab3523f550e72ea5",
+    "outputs.py": "346d1f9204a441867efc3af7c5a99d8a70ef0f69fe607dfa8a4a2557a82ca425",
+    "parser/deepseek_v32.py": "3115837148ff1c617c71697efe4066373373e000a2d1badd1abc5bed6628878c",
+    "parser/deepseek_v4.py": "709f328fe3b0711c98cc76f572bee14c6342efaaf2160f010517d3fd54794cee",
+    "parser/deepseek_v41.py": "9b5293f5f72b38f9544f06fed2845e877e4dde7b303488d629cb1934b04cdac7",
+    "renderers/online_renderer.py": "6a8a44229b217209c17dca92c737ea18a80f5c2594e0fdbf08eed6a38f84804a",
+    "renderers/params.py": "6837717e82e4c322920de34bd6f3e26c9f7739dc49edf13e8c6a5c5050f87fc5",
+    "sampling_params.py": "f21efc98bf8ce8aab88eb67adb4207285e509a167d976e14d3e2e8282e024bea",
+    "tokenizers/detokenizer_utils.py": "e17ef23dae7bbb1db5875024c249567b988d8611b560d095c3f786d1e697fe11",
+    "v1/engine/async_llm.py": "030c35fe481c1bef00948effde11ed30c86caef200ee37665c6c8ec557a26014",
+    "v1/engine/core_client.py": "af02fcfd55cc1a4baf9ce90ec9211e2dd81268cce57403ea5a5aafc34220af8a",
+    "v1/engine/detokenizer.py": "213d71cf6eefcea061b28b656cf8a08af60c9f3513403e724b16876995f3de93",
+    "v1/engine/input_processor.py": "a5342c4c98e15bc823b670aa409952bdc6b88447db596537850fcf5f4f7964b7",
+    "v1/engine/output_processor.py": "0ce2680147a1ca53c33bb3071f03f29a180a5d06fabdc2f5fbcbf5e8630ed6b7",
+    "v1/worker/gpu/model_runner.py": "98df0f97db6e9ba0c25f9cdad75b9b89f4142dbe790246830480ce209eaac5c1",
+    "v1/worker/gpu/spec_decode/dspark/greedy.py": "7859c0e8882e3771a7b8aa69ecdc9a38dce1efe43e00da7529c5b007af25940a",
+    "v1/worker/gpu/spec_decode/greedy_verification.py": "6b8d13e2031a8b45177479ce9bf6c6d8039e9d408031471de4ede3ab583e9aec"
+  },
+  "payload_sha256": {
+    "__init__.py": "ef130ca7122b654bb3edc2b5b644b6c05489be8b7f96a859b51e63a483d43ae4",
+    "adaptive-prototype/collapse.py": "40addb7826ec2d6a77fb0759a9025c3b159e7b53eb865b54369e55863a438c21",
+    "adaptive-prototype/recovery.py": "c83b525a64789e31d813cf34eca3a9b0261f80a8938dd48316e6b7eeea3c6bbb",
+    "adaptive-prototype/suspicion.py": "ac257ccbe5c81f8cf3babb7e60ff9b61db584d36eb76b8a2295c213d51be31b8",
+    "entry.py": "56596bba16d06675e4eadc3a531fab700656c8c6c6bef245bcfe563bd0feffdc",
+    "mechanism-canary/mechanism.py": "f82514d2ee9d63fd4902782d642bf536144298caf9d7b858d9e6871f68d5b01a",
+    "mechanism-canary/source-lock.json": "4ce4e914ff58b24bdfef1fc94a7aa3b4df01b1758b2ce042a4889af83d72b82a",
+    "transform.py": "928a444993260fe88c2ace1feffa518a23e0815f524dbb2f000aed3cdb928db0"
+  },
+  "run": "d7b106cc2400",
+  "schema": 1,
+  "source_lock_sha256": "d5f5a20c4d994411ee55fb8386b4614ac70dd16d98c639a0f490b49df5d17679",
+  "test_only": true
+}

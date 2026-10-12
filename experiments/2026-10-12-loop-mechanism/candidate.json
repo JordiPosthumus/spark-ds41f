@@ -1,0 +1,396 @@
+{
+  "accepted_seven_overlay_bytes_changed": 0,
+  "added_readonly_mounts_per_instrumented_arm": 2,
+  "baseline_mount_source_relocations": 7,
+  "config_deltas_from_accepted": {
+    "baseline": [
+      {
+        "after": [
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/dba1be0a40aa45a94ad051997016db3960a90277",
+            "/models",
+            "ro"
+          ],
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs",
+            "/blobs",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/cache",
+            "/cache",
+            "rw"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/model_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "ro"
+          ]
+        ],
+        "before": [
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/dba1be0a40aa45a94ad051997016db3960a90277",
+            "/models",
+            "ro"
+          ],
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs",
+            "/blobs",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/cache",
+            "/cache",
+            "rw"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "ro"
+          ]
+        ],
+        "operation": "replace",
+        "path": "/container/mounts"
+      },
+      {
+        "before": "main",
+        "operation": "remove",
+        "path": "/deployment/branch"
+      },
+      {
+        "after": "https://github.com/JordiPosthumus/spark-ds41f.git",
+        "before": "https://github.com/christopherowen/spark-ds41f.git",
+        "operation": "replace",
+        "path": "/deployment/repository"
+      }
+    ],
+    "disabled": [
+      {
+        "after": [
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/dba1be0a40aa45a94ad051997016db3960a90277",
+            "/models",
+            "ro"
+          ],
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs",
+            "/blobs",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/cache",
+            "/cache",
+            "rw"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/model_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/disabled/vllm/entrypoints/openai/chat_completion/serving.py",
+            "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/disabled/vllm/entrypoints/openai/chat_completion/ds41f_mechanism_wiring",
+            "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_mechanism_wiring",
+            "ro"
+          ]
+        ],
+        "before": [
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/dba1be0a40aa45a94ad051997016db3960a90277",
+            "/models",
+            "ro"
+          ],
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs",
+            "/blobs",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/cache",
+            "/cache",
+            "rw"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "ro"
+          ]
+        ],
+        "operation": "replace",
+        "path": "/container/mounts"
+      },
+      {
+        "before": "main",
+        "operation": "remove",
+        "path": "/deployment/branch"
+      },
+      {
+        "after": "https://github.com/JordiPosthumus/spark-ds41f.git",
+        "before": "https://github.com/christopherowen/spark-ds41f.git",
+        "operation": "replace",
+        "path": "/deployment/repository"
+      }
+    ],
+    "enabled": [
+      {
+        "after": [
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/dba1be0a40aa45a94ad051997016db3960a90277",
+            "/models",
+            "ro"
+          ],
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs",
+            "/blobs",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/cache",
+            "/cache",
+            "rw"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/model_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/accepted/overlay/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/enabled/vllm/entrypoints/openai/chat_completion/serving.py",
+            "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/experiments/2026-10-12-loop-mechanism/enabled/vllm/entrypoints/openai/chat_completion/ds41f_mechanism_wiring",
+            "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_mechanism_wiring",
+            "ro"
+          ]
+        ],
+        "before": [
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/dba1be0a40aa45a94ad051997016db3960a90277",
+            "/models",
+            "ro"
+          ],
+          [
+            "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs",
+            "/blobs",
+            "ro"
+          ],
+          [
+            "{home}/spark-ds41f/cache",
+            "/cache",
+            "rw"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+            "ro"
+          ],
+          [
+            "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+            "ro"
+          ]
+        ],
+        "operation": "replace",
+        "path": "/container/mounts"
+      },
+      {
+        "before": "main",
+        "operation": "remove",
+        "path": "/deployment/branch"
+      },
+      {
+        "after": "https://github.com/JordiPosthumus/spark-ds41f.git",
+        "before": "https://github.com/christopherowen/spark-ds41f.git",
+        "operation": "replace",
+        "path": "/deployment/repository"
+      }
+    ]
+  },
+  "production_files_modified": [],
+  "removed_private_metadata_only": true,
+  "source_patches": [
+    "disabled-serving.patch",
+    "enabled-serving.patch"
+  ]
+}
