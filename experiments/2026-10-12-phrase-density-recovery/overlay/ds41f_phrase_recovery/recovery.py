@@ -204,6 +204,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
     retry_number = 0
     observed_generated = 0
     discarded_generated = 0
+    unpublished_discarded = 0
     attempted_prompt_tokens = 0
     original_metadata = None
     current_id = request_id
@@ -225,7 +226,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
         # never count the retained completion as a new user prompt.
         result = copy.copy(raw)
         result.request_id = request_id
-        result.ds41f_discarded_completion_tokens = discarded_generated
+        result.ds41f_discarded_completion_tokens = unpublished_discarded
         result.outputs = [copy.copy(raw.outputs[0])]
         if retry_number:
             for name, value in original_metadata.items():
@@ -371,10 +372,10 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                     safe_start = max((k for k in checkpoints if k <= detected.start_token), default=None)
                     matching = (checkpoints.get(safe_start) if auto_recover else
                                 next((p for p in pending if p.start == detected.start_token), None))
-                    # A retry must never contradict already-published parser
-                    # state. Clamp rewind to the oldest still-buffered chunk.
-                    if auto_recover:
-                        matching = next((p for p in pending if p.start >= max(published, safe_start or 0) and p.start in checkpoints), None)
+                    # The parser remains in reasoning, guarded against all
+                    # answer/tool boundaries. Rewind model context to the early
+                    # suspicious checkpoint even if some reasoning was already
+                    # shown; SSE text cannot be retracted. Never replay tools.
                     unavailable = matching is None
                     budget_exhausted = auto_recover and observed_generated >= params.max_tokens
                     exhausted = config.mode == "guard" or retry_number >= config.max_retries or budget_exhausted
@@ -393,6 +394,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                         result.finished = True
                         if matching is not None:
                             boundary = matching.start
+                            unpublished_discarded += sum(p.end-p.start for p in pending if p.start >= boundary)
                             discarded_generated += len(accepted_ids) - boundary
                             accepted_ids = accepted_ids[:boundary]
                             pending = deque(p for p in pending if p.end <= boundary and p is not matching)
@@ -421,7 +423,11 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                     emitted = accept_public(p.output)
                     if emitted is not None:
                         yield emitted
-                checkpoints = {k: v for k, v in checkpoints.items() if k >= published}
+                # Retain bounded historical token/fence checkpoints, not text.
+                # Missing old checkpoints fail closed rather than fabricating
+                # a restart inside a control marker.
+                while len(checkpoints) > config.holdback_chunks:
+                    checkpoints.pop(next(iter(checkpoints)))
                 # Retained state AFTER processing one indivisible native delta.
                 # Arrival can transiently include one larger upstream delta;
                 # no token/text slicing is used to manufacture a smaller chunk.
@@ -436,6 +442,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
             if retry_checkpoint is not None:
                 await close_attempt(True)
                 boundary = retry_checkpoint.start
+                unpublished_discarded += sum(p.end-p.start for p in pending if p.start >= boundary)
                 discarded_generated += len(accepted_ids)-boundary
                 accepted_ids = accepted_ids[:boundary]
                 checkpoints = {k: v for k, v in checkpoints.items() if k < boundary}
@@ -446,7 +453,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 current_prompt = retry_prompt(prompt, accepted_ids)
                 work_params = copy.deepcopy(params)
                 work_params.output_kind = type(params.output_kind).DELTA
-                # Retries discard only unpublished reasoning.
+                # Model context rewinds; already streamed reasoning stays visible.
                 # Charge all observed attempt tokens to the original request
                 # budget; never silently extend it for discarded model history.
                 work_params.max_tokens = params.max_tokens - (observed_generated if auto_recover else len(accepted_ids))
@@ -494,6 +501,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                   budget_policy="observed_attempt_tokens" if auto_recover else "retained_completion_tokens",
                   observed_generated_tokens=observed_generated,
                   discarded_generated_tokens=discarded_generated,
+                  unpublished_discarded_tokens=unpublished_discarded,
                   attempted_prompt_tokens=attempted_prompt_tokens,
                   aborted_inflight_tokens_unknown=aborts > 0,
                   buffer_expansions=holdback.expansions,

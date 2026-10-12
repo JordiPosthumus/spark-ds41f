@@ -25,6 +25,7 @@ class PhraseDensity(CollapseDetector):
         self.next_evaluation = 200
         self.required_hits = consecutive
         self.density = density
+        self.weak_start = None
 
     def _flush(self):
         if self.word is None:
@@ -47,13 +48,18 @@ class PhraseDensity(CollapseDetector):
         unique = len(counts) / len(prose) if prose else 1
         # All three are evidence, never banned words. Require repeated bursts
         # plus low diversity; ordinary self-correction alone is insufficient.
+        weak = len(prose) >= 160 and total >= 16 and total / len(prose) >= .08 and unique <= .55
+        if weak and self.weak_start is None:
+            self.weak_start = rows[0][2]
+        elif not weak:
+            self.weak_start = None
         match = (len(prose) >= 160 and total >= 16 and total / len(prose) >= self.density
                  and unique <= .55)
         if not match:
             self.hits, self.suspect_start = 0, None
             return
         if not self.hits:
-            self.suspect_start = rows[0][2]
+            self.suspect_start = self.weak_start if self.weak_start is not None else rows[0][2]
         self.hits += 1
         if self.hits >= self.required_hits:
             self.detected = Detection(self.suspect_start, {

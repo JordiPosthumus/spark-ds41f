@@ -8,9 +8,10 @@ Normal launcher is unchanged. This profile is an isolated Ring 2 canary.
 All unrelated serving arguments, host guards, image, M64, context, concurrency,
 image handling and kernel settings are inherited unchanged.
 
-The canary API seam injects a detection only for four exact synthetic request
-IDs. It tests abort/restart plumbing, not detector accuracy. The native
-checkpoint is held for these synthetic cases. Production recovery does not
+The canary API seam injects a detection only for five exact synthetic request
+IDs. It tests abort/restart plumbing, not detector accuracy. The first four native
+checkpoints are held; the fifth explicitly validates rewinding model context
+after reasoning has already streamed. Displayed reasoning cannot be retracted. Production recovery does not
 hold normal output; only suspected loops are buffered.
 
 Acceptance: real native retries, fresh seeds, preserved sampler and multimodal

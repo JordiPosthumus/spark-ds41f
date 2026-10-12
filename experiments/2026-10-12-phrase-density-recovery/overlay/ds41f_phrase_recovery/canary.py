@@ -7,7 +7,7 @@ from .collapse import Detection
 from .recovery import RecoveryConfig,PhaseGuard,eligibility,generate_with_recovery
 from .integration import generate_for_ds41f as production_generate
 RUN='density-20261012t233616z'
-IDS={f'chatcmpl-ds41f-loopbuster-{RUN}-{n:02d}':(2 if n==1 else 1) for n in range(4)}
+IDS={f'chatcmpl-ds41f-loopbuster-{RUN}-{n:02d}':(2 if n==1 else 1) for n in range(5)}
 SEEN=set()
 LOG=logging.getLogger(__name__)
 
@@ -77,6 +77,6 @@ def generate_for_ds41f(server,prompt,params,request_id,**kwargs):
             await server.engine_client.abort(rid);self.aborted.add(rid)
             emit({'event':'native_abort_completed','native_request_id':rid})
     boundaries=[tuple(server.renderer.tokenizer.encode(m,add_special_tokens=False)) for m in PhaseGuard.MARKERS]
-    return generate_with_recovery(Proxy(),prompt,params,request_id,config=RecoveryConfig(mode='auto-recover'),
+    return generate_with_recovery(Proxy(),prompt,params,request_id,config=RecoveryConfig(mode='auto-recover',normal_holdback_tokens=0 if request_id.endswith('-04') else 128),
            detector_factory=factory,boundary_token_sequences=boundaries,on_event=emit,
            **kwargs)
