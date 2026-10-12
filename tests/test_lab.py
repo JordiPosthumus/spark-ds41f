@@ -687,6 +687,34 @@ class StepFailureTest(unittest.TestCase):
         close.assert_called_once()
         self.assertIn("raised RuntimeError: cannot read dgx3", close.call_args.args[0])
 
+    def test_the_failure_log_prints_the_traceback_on_every_python_the_runner_uses(self) -> None:
+        """The handler that reports a failed step must not itself raise.
+
+        It logged the traceback with the single-argument ``format_exception``, which only
+        exists from 3.10; on 3.9 that call raises TypeError from inside the ``except``
+        block, so ``execute`` never returns, the window is never closed and the queue's
+        caller sees an unhandled TypeError instead of the run's failure. The three-argument
+        form is what 3.9 to 3.14 all accept, so the failure is reported as intended.
+        """
+        spec = {"run": "r", "experiment": "experiments/x", "jobs": []}
+        step = {"kind": "kernel", "bundles": [], "out": "results/private/lab/r"}
+        output = io.StringIO()
+        with mock.patch.object(lab, "plan", return_value=[step]), \
+                mock.patch.object(lab, "read_hold", return_value={"holder": "test"}), \
+                mock.patch.object(lab, "hold_is_ours", return_value=True), \
+                mock.patch.object(lab, "window_should_close", return_value=None), \
+                mock.patch.object(lab, "beat"), \
+                mock.patch.object(lab, "production_configuration",
+                                  return_value=({"host": {"home": "/h"}}, [], None)), \
+                mock.patch.object(lab, "run_kernel_bundles", side_effect=RuntimeError("cannot read dgx3")), \
+                mock.patch.object(lab, "window_close", return_value=True), \
+                contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
+            code = lab.execute(spec, dry=False, keep_open=True)
+        self.assertEqual(code, 1)
+        logged = output.getvalue()
+        self.assertIn("RuntimeError: cannot read dgx3", logged)
+        self.assertIn("Traceback (most recent call last)", logged)
+
 
 class FabricTest(unittest.TestCase):
     def test_plan_stops_serving_then_runs_on_every_node(self):

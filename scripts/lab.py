@@ -1214,7 +1214,8 @@ def execute(spec: dict, dry: bool, keep_open: bool, close_on_failure: bool = Tru
                         f"{'pass' if verdict.get('passed') else 'FAIL'} ({verdict.get('seconds', '?')} s)")
                 log(f"kernel verdicts {'agree' if verdicts_agree(verdicts) else 'DISAGREE'} across nodes")
         except Exception as error:  # a step that raises fails the run; the window still closes
-            log("".join(traceback.format_exception(error)).rstrip())
+            log("".join(traceback.format_exception(
+                type(error), error, error.__traceback__)).rstrip())
             failed = f"{describe_step(step)} raised {type(error).__name__}: {error}"
             break
     stop_beating.set()
