@@ -1,0 +1,19 @@
+{
+  "model": "deepseek-v4.1-flash",
+  "request_id": "ds41f-loopbuster-ordinary-normal",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain in three sentences why UTF-8 can split emoji bytes. Include caf\u00e9, \u676d\u5dde and \ud83d\ude00."
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "seed": 1729,
+  "reasoning_effort": "high",
+  "max_tokens": 1024
+}

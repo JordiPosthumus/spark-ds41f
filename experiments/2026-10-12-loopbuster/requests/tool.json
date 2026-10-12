@@ -1,0 +1,44 @@
+{
+  "model": "deepseek-v4.1-flash",
+  "request_id": "ds41f-loopbuster-ordinary-tool",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Use the report_result tool once with city \u676d\u5dde and count 3. Do not call any other tool."
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "seed": 1729,
+  "reasoning_effort": "high",
+  "max_tokens": 1024,
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "report_result",
+        "description": "Record this synthetic canary result without external effects.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "city",
+            "count"
+          ]
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto"
+}

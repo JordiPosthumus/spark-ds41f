@@ -1,0 +1,25 @@
+{
+  "run": "a71012c0ffee",
+  "identity_rule": "chatcmpl- + X-Request-Id header if present; otherwise body request_id",
+  "exact_id_allowlist": [
+    {
+      "file": "requests/mechanism-00.json",
+      "request_id": "chatcmpl-ds41f-loopbuster-a71012c0ffee-00",
+      "expected_injected_retries": 1,
+      "http_disconnect_test": false
+    },
+    {
+      "file": "requests/mechanism-01.json",
+      "request_id": "chatcmpl-ds41f-loopbuster-a71012c0ffee-01",
+      "expected_injected_retries": 2,
+      "http_disconnect_test": false
+    },
+    {
+      "file": "requests/mechanism-02.json",
+      "request_id": "chatcmpl-ds41f-loopbuster-a71012c0ffee-02",
+      "expected_injected_retries": 1,
+      "http_disconnect_test": true
+    }
+  ],
+  "ordinary": "requests/normal.json and requests/tool.json are not allowlisted"
+}

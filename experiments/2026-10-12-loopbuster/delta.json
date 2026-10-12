@@ -1,0 +1,13 @@
+{
+  "base_commit": "c50c9cf6b505cc46d46dc02605bdf75ae6505b41",
+  "base_profile_sha256": "2c8d13b13881b4475cd0d8958409ebcfd094862ef6ec90b751adb4dfdc0331e4",
+  "delta": "three readonly mounts (API serving, helper package, native temporary bad_words expiry); one mode env; all other fields identical",
+  "deployment_metadata": "unchanged ring2-m64-production branch; operator must choose coordinated publication ref explicitly",
+  "live_validation_completed": false,
+  "original_environment_entries": 86,
+  "original_mounts": 10,
+  "original_serve_arg_entries": 67,
+  "private_content_or_token_arrays_in_payload": false,
+  "serving_original_sha256": "ea1f76074a9587c8054f54d30a6ba748b6a5fc4d90dd82c801504505c1da1f92",
+  "temporary_words": "retry only,48 generated tokens maximum, early expiry at reasoning/tool control token; no temperature change"
+}

@@ -1,0 +1,28 @@
+{
+  "auto_max_retries": 10,
+  "cpu_tests": {
+    "core": 17,
+    "final_canary_package": 2,
+    "kernel_AST_and_word_policy": 8
+  },
+  "early_expiry": "reasoning-end or DSML token, including speculative-prefix rows",
+  "evidence_hashes": {
+    "private-ttl-replay.json": "e29b2484cceeb1a574c7a402c35af6a085de9862a34fff622057964492099272",
+    "tests-auto-ttl-final.log": "0f756ea90143d40a4361d2815fb4ae00b43ab58002f1e187e4c83adfdd08c1d8",
+    "tests-canary-ttl.log": "ccd6ba22c6ee04bcd56c2bfb8b561f721ed29041f3d0a621ec47a85755fe0c85",
+    "tests-temporary.log": "e47ffe4af3f5c963ab75fb8b5784c9e4dfbe1ce2829ffd8c36e2509c3abc0250"
+  },
+  "gpu_test_completed": false,
+  "older_54870_char_failure_missed": true,
+  "private_latest_replay": {
+    "aborts": 1,
+    "attempts": 2,
+    "candidate_words": 10,
+    "case_forms": 30,
+    "native_bad_word_sequences": 57,
+    "retry_response_synthetic": true,
+    "sha256": "5a9a0eae01ed6bfca7fa97c3d0e6e6caedb617df0274ba839e0574fee170edd2"
+  },
+  "private_raw_text_in_payload": false,
+  "temporary_mask_generated_tokens": 48
+}

@@ -1,0 +1,17 @@
+{
+  "files": {
+    "vllm/entrypoints/openai/chat_completion/ds41f_loopbuster/__init__.py": "a11d383dcec8b9c66cf175577b942eec9f6bd048108cb35aab57d2608617a1c1",
+    "vllm/entrypoints/openai/chat_completion/ds41f_loopbuster/collapse.py": "40addb7826ec2d6a77fb0759a9025c3b159e7b53eb865b54369e55863a438c21",
+    "vllm/entrypoints/openai/chat_completion/ds41f_loopbuster/integration.py": "2a62b596149a8fbe4b61484f986e42f1ba79ce905f1155c02f7474a21448d7e2",
+    "vllm/entrypoints/openai/chat_completion/ds41f_loopbuster/policy.py": "7c243465a7dade2fbf33dcb1bc7151a40a1d7a511aa229bc64bfe102dc74e7ea",
+    "vllm/entrypoints/openai/chat_completion/ds41f_loopbuster/recovery.py": "3741243a74a8fc220e8ed7a5baf0131784d3c32a9371a065c9d87e89cc7a5fbe",
+    "vllm/entrypoints/openai/chat_completion/ds41f_loopbuster/retry_words.py": "f849cf68e2c5cfae62c24e1da95eec19edd69dc0082ca9f29e66c6187d798a92",
+    "vllm/entrypoints/openai/chat_completion/ds41f_loopbuster/suspicion.py": "ac257ccbe5c81f8cf3babb7e60ff9b61db584d36eb76b8a2295c213d51be31b8",
+    "vllm/entrypoints/openai/chat_completion/serving.py": "6ed7cc27b8fab588b9848137aeb15d21f5b3e6e2a41357dfd3538c62235f227c"
+  },
+  "installed": false,
+  "mode_default": "off",
+  "recovery_delta": "Explicit auto-recover resumes model from native reasoning checkpoint including published reasoning; visible text stays; at most ten retries, original output budget across observed attempts, zero holdback. Guard remains optional. Owned read/abort cleanup unchanged.",
+  "serving_original_sha256": "ea1f76074a9587c8054f54d30a6ba748b6a5fc4d90dd82c801504505c1da1f92",
+  "trigger": "SustainedCollapse real detector; no injected trigger"
+}

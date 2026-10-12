@@ -1,0 +1,19 @@
+{
+  "model": "deepseek-v4.1-flash",
+  "request_id": "ds41f-loopbuster-a71012c0ffee-02",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Explain 100 distinct graph algorithms, their purpose and complexity, in numbered order."
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "temperature": 1.0,
+  "top_p": 0.95,
+  "seed": 1729,
+  "reasoning_effort": "high",
+  "max_tokens": 1024
+}

@@ -1,0 +1,19 @@
+{
+  "files": {
+    "entrypoints/generate/base/serving.py": "35ec53f63e86a8c1725728911db0df44eb3101d8cd65e9b2f39d048956977bad",
+    "entrypoints/openai/chat_completion/serving.py": "ea1f76074a9587c8054f54d30a6ba748b6a5fc4d90dd82c801504505c1da1f92",
+    "entrypoints/serve/engine/serving.py": "70143311acc2230b925e7f3603b8b9314f029ff5e98d5af990b3bdca691331f1",
+    "outputs.py": "346d1f9204a441867efc3af7c5a99d8a70ef0f69fe607dfa8a4a2557a82ca425",
+    "sampling_params.py": "f21efc98bf8ce8aab88eb67adb4207285e509a167d976e14d3e2e8282e024bea",
+    "v1/engine/async_llm.py": "030c35fe481c1bef00948effde11ed30c86caef200ee37665c6c8ec557a26014",
+    "v1/engine/core_client.py": "af02fcfd55cc1a4baf9ce90ec9211e2dd81268cce57403ea5a5aafc34220af8a",
+    "v1/engine/output_processor.py": "0ce2680147a1ca53c33bb3071f03f29a180a5d06fabdc2f5fbcbf5e8630ed6b7",
+    "v1/worker/gpu/sample/bad_words.py": "8d3cbd5613398260314d94739d8ee0e1ac0c22abf2f960f541d3c0d4e39d360b",
+    "v1/worker/gpu/sample/sampler.py": "832c9945d201a1e730ff9b4b52076aa83bd4a5064e1e4cfea952cf84d4a8d1f0",
+    "v1/worker/gpu/spec_decode/rejection_sampler.py": "9c5ade51a5f84724216c70f239c7ed49b118124e8a6da7abfb40b7566ffadc5b",
+    "v1/worker/gpu/states.py": "99418f5df43ca612ded72609fee011620b065b2cab2f249ccb387096bf4ae71a"
+  },
+  "fresh_native_read_verification_required": true,
+  "root": "/opt/spark3/candidate/vllm/vllm",
+  "tokenizer_sha256": "c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b"
+}
