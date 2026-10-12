@@ -1,8 +1,8 @@
-Owner fork: [permanent phrase blocking](docs/phrase-blocking.md) is selected for Ring 2; its existing M64 configuration is retained.
+Owner fork: [permanent phrase blocking](docs/phrase-blocking.md) is selected for Ring 1 on branch `ring1-phrase-production`.
 
 # spark-ds41f
 
-Owner fork: Ring 2 uses the [M64 production trial](docs/ring2-m64-production.md) through config/cluster.json. Its [immutable qualification record](manifests/baselines/2026-10-12-ring2-m64-warm.json) captures the evidence and limitations. Ring 1 is unchanged. The upstream history below is retained for reference.
+This branch selects Ring 1 through [config/cluster.json](config/cluster.json). It preserves Ring 1's captured r6g/greedy runtime and adds only the phrase policy; it does not adopt Ring 2's M64 kernel. The [new immutable record](manifests/baselines/2026-10-12-ring1-phrase-only.json) distinguishes observed state from pending live validation. Ring 2's configuration and earlier upstream descriptions below are historical references, not this branch's runtime authority.
 
 Reproducible Docker/vLLM deployment, tuning, and benchmarks for DeepSeek V4.1
 Flash on a switchless three-node DGX Spark fabric, and the same deployment on

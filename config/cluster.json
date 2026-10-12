@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-12-ring2-phrase-only",
+  "promoted_baseline": "2026-10-12-ring1-phrase-only",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -45,37 +45,37 @@
         "rw"
       ],
       [
-        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+        "{home}/r6g-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
         "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
         "ro"
       ],
       [
-        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+        "{home}/r6g-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
         "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
         "ro"
       ],
       [
-        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+        "{home}/r6g-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
         "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-12-m64-prefill/overlay/vllm/model_executor/layers/fused_moe/tilelang.py",
+        "{home}/r6g-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/tilelang.py",
         "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
         "ro"
       ],
       [
-        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+        "{home}/r6g-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
         "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
         "ro"
       ],
       [
-        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+        "{home}/r6g-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
         "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
         "ro"
       ],
       [
-        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
+        "{home}/r6g-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
         "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
         "ro"
       ],
@@ -264,13 +264,13 @@
     "0"
   ],
   "distributed": {
-    "master_addr": "192.168.100.245",
+    "master_addr": "192.168.100.215",
     "master_port": "9999"
   },
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "ring2-loop-autorecover",
+    "branch": "ring1-phrase-production",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
@@ -279,6 +279,5 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring2-phrase-upstreams.lock.json",
-  "nodes_config": "config/nodes.json"
+  "upstreams_config": "config/ring1-phrase-upstreams.lock.json"
 }

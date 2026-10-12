@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-12-ring1-phrase-only",
+  "status": "owner-accepted-change-pending-live-validation",
+  "captured_at": "2026-10-12T22:21:39.248017+00:00",
+  "integration_parent_commit": "cf76d70c557ba1cb865c73b21cbee774303cf2c3",
+  "observed_ring1_commit": "9ff535dc68ddbf248f52c4eb41f4d6fccbbd9efa",
+  "observed_profile": "config/site-r6g.local.json",
+  "observed_profile_sha256": "07dd2e293cdee4ef90d201d75076bad062c1c9347485a93ecaf4c9e75adaa086",
+  "profile_sha256": "fa93162e149178ab90a0a01d46bb90578fee7b627fab86a33c5c5b02522ba81f",
+  "upstreams_config": "config/ring1-phrase-upstreams.lock.json",
+  "upstreams_sha256": "97a80bc54f8157683e607aa1709e5f4fdb5f394d371f181dd298fa418b1aee1f",
+  "previous_upstreams_sha256": "43588ad8655d8761d7eb0a83ee301cf05f2839ad9974e42fb823402d02246089",
+  "upstreams_delta": "Only generated_from_baseline metadata; all source URLs, revisions, patch series, image and build identities retained.",
+  "payload": "experiments/2026-10-12-phrase-blocking",
+  "payload_manifest_sha256": "ec25474c784e0e6e03908b8db0e1c0c2c6d3e53bba4edb40ce94ec655f2bc3f1",
+  "source_serving_sha256": "ea1f76074a9587c8054f54d30a6ba748b6a5fc4d90dd82c801504505c1da1f92",
+  "runtime_delta": "Add the two read-only API mounts and SPARK_DS41F_PHRASE_BLOCKLIST=1 for native multiword phrase blocking. No detector, retries or kernel change.",
+  "phrases": [
+    "Let me go",
+    "Let me write the command"
+  ],
+  "case_variants": [
+    "original",
+    "lower",
+    "upper"
+  ],
+  "preserved": "All original 113 effective environment entries, exact serve arguments, seven r6g overlays, normal caches, context, concurrency, images, DSpark, graphs, host and memory policy. One new environment entry makes 114 effective entries. Ring1 does not adopt M64.",
+  "publication_metadata": {
+    "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
+    "branch": "ring1-phrase-production"
+  },
+  "image_tag": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
+  "observed_image_ids_by_rank": {
+    "0": "sha256:5a5c06fb5ad934db546dcde5b2268c70c7c73238eadaa6dea09dabdd3754a864",
+    "1": "sha256:5a5c06fb5ad934db546dcde5b2268c70c7c73238eadaa6dea09dabdd3754a864",
+    "2": "sha256:8ff807632c79a49ae64175ec73f73fdaf36d4bc18e6de010f884abd81ae23e0c"
+  },
+  "image_identity_exception": "Existing rank2 image ID differs. Image Config, RootFS layers, twelve relevant installed sources and all seven overlay hashes matched across ranks. Preserve each rank image/tag identity; no pull, normalization or image replacement.",
+  "live_validation": "Pending; record actual deployment and native validation separately. No completed benchmark or universal loop-recovery claim.",
+  "benchmark_reference": null,
+  "rollback": "Coordinated rollback to observed 9ff535dc68ddbf248f52c4eb41f4d6fccbbd9efa with exact captured site-r6g.local.json, original Git origins, node map, seven overlays and per-rank image identities; retain all model and cache files."
+}
