@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-12-ring2-m64-warm",
+  "captured_at": "2026-10-12T21:46:35.721021+00:00",
+  "status": "owner-accepted-ring2-live-trial",
+  "tested_commit": "d5b4adf04ab205e8507531112aa9df03ca0106ed",
+  "accepted_original_commit": "9ff535dc68ddbf248f52c4eb41f4d6fccbbd9efa",
+  "image_id": "sha256:5a5c06fb5ad934db546dcde5b2268c70c7c73238eadaa6dea09dabdd3754a864",
+  "production_profile": "config/cluster.json",
+  "profile_sha256": "2c8d13b13881b4475cd0d8958409ebcfd094862ef6ec90b751adb4dfdc0331e4",
+  "adapter_sha256": "072d2a99d1cbdb538ce5fbba6c0ca66935f234bb9f9e33e0d2e9ded860e73526",
+  "owner_acceptance": "Owner requested Ring 2 production with the modest M64 speed improvement if checks pass; compare real traffic against unchanged Ring 1 before any Ring 1 adoption.",
+  "runtime_delta": "Only native384/6/H5120/I768 routed-expert rows>=2048 use M64; original M32 otherwise. Serving arguments, environment, mounts, image and kernels are identical to the tested canary.",
+  "preserved": {
+    "context": 524288,
+    "max_num_seqs": 8,
+    "batch_tokens": 4096,
+    "kv_bytes_per_rank": 3758096384,
+    "image_limit": "uncapped",
+    "effective_environment_values": 113,
+    "startup_guard_gib": 5,
+    "steady_guard_gib": 3,
+    "lab_guard_gib": 4,
+    "sampling_precision_graphs_async_DSpark_cache": "unchanged"
+  },
+  "warm_start": {
+    "passed": true,
+    "logged_tilelang_compilations_per_rank": [
+      0,
+      0,
+      0
+    ]
+  },
+  "native_output_checks": {
+    "passed": true,
+    "requests": 6,
+    "all_128_native_ids_match_paired_references": true,
+    "minimum_available_gib": {
+      "Spark": 5.53338623046875,
+      "Spark2": 6.572021484375,
+      "Spark3": 6.50067138671875
+    }
+  },
+  "image_checks": {
+    "passed": true,
+    "requests": 4,
+    "image_count": 13,
+    "cold_hits": 0,
+    "warm_hits": 104448,
+    "minimum_available_gib": {
+      "Spark": 4.6439208984375,
+      "Spark2": 6.4886474609375,
+      "Spark3": 6.4888916015625
+    }
+  },
+  "evidence_sha256": {
+    "warm-start.json": "6965381f1c14d48f81ce0c772694a6994b6b02e11480255d26b9ed36b35f3dc0",
+    "fingerprint-canary/qualification.json": "4b849dae5df3feed3a3964d94304ae8d44ccac0fbfb49342405832c91815965b",
+    "images-canary/qualification.json": "ce494f9066cdd7fd068b7a8d9ab13e614982cd1e320d9165515f60f9c9c77782",
+    "fingerprint-canary/runtime-after.json": "fbdb60dbd31daa23762b364ad05de653fa171a21288429ffb3c22173f53bb658",
+    "images-canary/runtime-after.json": "b5053cb8fc2e3fcf92fbd93669402d9f8f278f4af494266960643e6ed7349d2a",
+    "bind-order-verifier-correction/correction.json": "d54cd0078b09c62f620041e1254862ae53d06a16b6b6be8067fa199705663c1b"
+  },
+  "limitations": [
+    "Real-traffic comparison and long-term stability are still to be measured.",
+    "Earlier uncached normal-layout startup breached the unchanged 5 GiB startup memory guard; the actual warm-cache startup passed. Preserve current qualified caches; a cold-cache rebuild is not qualified.",
+    "No bin/spark bench reference is invented; actual native output/image/cache/memory checks are qualification evidence."
+  ],
+  "ring1_changed": false
+}

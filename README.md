@@ -1,5 +1,7 @@
 # spark-ds41f
 
+Owner fork: Ring 2 uses the [M64 production trial](docs/ring2-m64-production.md) through config/cluster.json. Its [immutable qualification record](manifests/baselines/2026-10-12-ring2-m64-warm.json) captures the evidence and limitations. Ring 1 is unchanged. The upstream history below is retained for reference.
+
 Reproducible Docker/vLLM deployment, tuning, and benchmarks for DeepSeek V4.1
 Flash on a switchless three-node DGX Spark fabric, and the same deployment on
 a four-node ring.

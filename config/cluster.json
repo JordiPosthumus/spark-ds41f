@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-11-karmic-kraken-r6f",
+  "promoted_baseline": "2026-10-12-ring2-m64-warm",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -40,14 +40,49 @@
         "ro"
       ],
       [
-        "{home}/projects/spark-ds41f/cache",
+        "{home}/spark-ds41f/cache",
         "/cache",
         "rw"
+      ],
+      [
+        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+        "ro"
+      ],
+      [
+        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/greedy_verification.py",
+        "ro"
+      ],
+      [
+        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/spec_decode/dspark/greedy.py",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-12-m64-prefill/overlay/vllm/model_executor/layers/fused_moe/tilelang.py",
+        "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/tilelang.py",
+        "ro"
+      ],
+      [
+        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+        "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/moe_runner.py",
+        "ro"
+      ],
+      [
+        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+        "/opt/spark3/candidate/vllm/vllm/model_executor/layers/fused_moe/runner/shared_experts.py",
+        "ro"
+      ],
+      [
+        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
+        "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
+        "ro"
       ]
     ]
   },
   "host": {
-    "home": "/home/swank",
+    "home": "/home/jordi",
     "memguard_gib": 3,
     "memguard_interval_seconds": 2,
     "startup_memguard_gib": 5,
@@ -57,7 +92,8 @@
       "release": "7.0.0-1019-nvidia-64k",
       "page_size": 65536,
       "memory_saver_required": true
-    }
+    },
+    "fan_control": false
   },
   "environment": {
     "B12X_AUTOTUNE": "0",
@@ -126,13 +162,14 @@
     "VLLM_DISABLE_PYNCCL": "0",
     "VLLM_DS41_ATTENTION_COMPUTE": "auto",
     "VLLM_DS41_DRAFT_NVFP4_HEAD": "0",
+    "VLLM_DS41_HEAD_DTYPE": "float32",
     "VLLM_DS41_KERNEL_BACKEND": "tilelang",
     "VLLM_DS41_MARKOV_NVFP4": "0",
     "VLLM_DS41_PACKED_BF16_LM_HEAD": "1",
     "VLLM_ENABLE_PCIE_ALLREDUCE": "0",
     "VLLM_ENGINE_READY_TIMEOUT_S": "3600",
     "VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS": "900",
-    "VLLM_L2_PREFETCH_GRID": "4",
+    "VLLM_L2_PREFETCH_GRID": "2",
     "VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS": "1",
     "VLLM_MULTI_STREAM_GEMM_TOKEN_THRESHOLD": "1024",
     "VLLM_PLUGINS": "b12x_loader",
@@ -144,7 +181,7 @@
     "VLLM_USE_V2_MODEL_RUNNER": "1",
     "XDG_CACHE_HOME": "/cache/kkref/jit",
     "SPARKNET_ROCE_ALLREDUCE_DISPATCH_MAX_BYTES": "2097152",
-    "VLLM_DS41_HEAD_DTYPE": "float32"
+    "VLLM_GREEDY_VERIFICATION": "1"
   },
   "serve_args": [
     "/models",
@@ -212,25 +249,25 @@
     "3",
     "--no-scheduler-reserve-full-isl",
     "--no-enable-flashinfer-autotune",
-    "--limit-mm-per-prompt",
-    "{\"image\":4}",
     "--mm-processor-cache-gb",
     "0"
   ],
   "distributed": {
-    "master_addr": "10.0.1.71",
+    "master_addr": "192.168.100.245",
     "master_port": "9999"
   },
   "deployment": {
     "launch_enabled": true,
-    "repository": "https://github.com/christopherowen/spark-ds41f.git",
-    "branch": "main",
-    "path": "{home}/projects/spark-ds41f",
+    "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
+    "branch": "ring2-m64-production",
+    "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
   },
   "fabric": {
     "transport": "oneshot-direct"
   },
-  "kernel_backend": "tilelang"
+  "kernel_backend": "tilelang",
+  "upstreams_config": "config/ring2-m64-upstreams.lock.json",
+  "nodes_config": "config/nodes.json"
 }
