@@ -1,8 +1,6 @@
-"""Source-verified opt-in chat-serving seam. Real-detector proposal. No code here is installed live.
+"""Native chat-serving integration for the owner-approved phrase-density recovery.
 
-The package produced by prepare_overlay.py is mounted only for a separately
-approved Ring 2 canary. Normal environment default is off, using the original
-engine iterator directly, with zero tokenizer/detector work.
+Enabled by SPARK_DS41F_LOOP_RECOVERY_MODE; the unset default uses native serving.
 """
 import importlib.metadata
 import json

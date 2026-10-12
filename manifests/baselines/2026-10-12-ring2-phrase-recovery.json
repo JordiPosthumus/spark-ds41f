@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-12-ring2-phrase-recovery",
+  "status": "owner-authorized-native-qualified-awaiting-live-observation",
+  "captured_at": "2026-10-12T23:54:36.542798+00:00",
+  "base_commit": "cf76d70c557ba1cb865c73b21cbee774303cf2c3",
+  "qualified_canary_commit": "7ce8472bbe64003c3d18666f4d4590118d1c43c2",
+  "runtime_delta": "Replace permanent phrase bans with phrase-density detection and <=10 fresh-seed retries; two API mounts and one feature flag only.",
+  "preserved": "M64, image, kernels, all other environment/arguments/resources/cache/context/image settings",
+  "evidence": "experiments/2026-10-12-phrase-density-recovery/results.json",
+  "limitations": "docs/phrase-density-recovery.md",
+  "profile_sha256": "98bd6816cf2d9f786a6b2aab2bb4994e79b0f5573885c3d60098f15d42553753"
+}

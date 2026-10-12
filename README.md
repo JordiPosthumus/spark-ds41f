@@ -1,4 +1,4 @@
-Owner fork: [permanent phrase blocking](docs/phrase-blocking.md) is selected for Ring 2; its existing M64 configuration is retained.
+Owner fork: [server-side phrase-density recovery](docs/phrase-density-recovery.md) replaces permanent phrase bans on Ring 2; its accepted M64 speed improvement and all unrelated settings are retained.
 
 # spark-ds41f
 
