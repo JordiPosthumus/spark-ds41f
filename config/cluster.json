@@ -280,5 +280,5 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring1-recovery-upstreams.lock.json"
+  "upstreams_config": "config/ring1-temporary-upstreams.lock.json"
 }
