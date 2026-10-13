@@ -280,6 +280,6 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring2-recovery-upstreams.lock.json",
+  "upstreams_config": "config/ring2-temporary-upstreams.lock.json",
   "nodes_config": "config/nodes.json"
 }
