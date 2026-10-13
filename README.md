@@ -1,4 +1,4 @@
-Owner fork: [server-side phrase-density recovery](docs/phrase-density-recovery.md) replaces permanent phrase bans on Ring 2; its accepted M64 speed improvement and all unrelated settings are retained.
+Owner fork: [Ring 1 phrase-density recovery](docs/ring1-phrase-density-recovery.md) selects the same API recovery package validated on Ring 2. Ring 1 keeps its existing GPU kernels; Ring 2 retains M64.
 
 # spark-ds41f
 

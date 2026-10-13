@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-13-ring1-phrase-recovery",
+  "status": "owner-authorized-awaiting-ring2-live-gate-and-ring1-validation",
+  "captured_at": "2026-10-13T00:01:46.810610+00:00",
+  "base_ring1_commit": "df21e337199541bf37993f31ecc15cf51bcf6518",
+  "qualified_ring2_recipe": "b338c70580444220751b4a4c627af496a938a597",
+  "runtime_delta": "Same recovery API source as Ring2; replace two API mounts and feature flag, preserve all GPU kernels and other capabilities.",
+  "gate": "docs/ring1-phrase-density-recovery.md",
+  "profile_sha256": "2d1f8ada2f4629ad2b3e0fcf9b1d4840debb9d4ccf07837928741464bd2220a6",
+  "same_api_source_sha256": {
+    "experiments/2026-10-12-phrase-density-recovery/overlay/serving.py": "74b4122ebe1d4259a8ae9538e9c4cbef50c58ae54ede9d9a6d9ba4067d7a44c4",
+    "experiments/2026-10-12-phrase-density-recovery/overlay/ds41f_phrase_recovery/phrase_detector.py": "e24960d55a4cec1a7b94b0c6cd25814486420aa6de25e08ea60dbe3aaaaf8ec5",
+    "experiments/2026-10-12-phrase-density-recovery/overlay/ds41f_phrase_recovery/recovery.py": "84fb91098617e3a8143c2e54a226ce8a9f38645eedddfd7dc79d82a3dc6ec407",
+    "experiments/2026-10-12-phrase-density-recovery/overlay/ds41f_phrase_recovery/collapse.py": "40addb7826ec2d6a77fb0759a9025c3b159e7b53eb865b54369e55863a438c21",
+    "experiments/2026-10-12-phrase-density-recovery/overlay/ds41f_phrase_recovery/__init__.py": "c175940d42add3b0eab0fb3dca94b312e32c763ce187079a95a6ca4ea146dd7d",
+    "experiments/2026-10-12-phrase-density-recovery/overlay/ds41f_phrase_recovery/integration.py": "b8186430aab15e33bc506a589de11a380764a50f2c83888349e83979a2c4e55f",
+    "experiments/2026-10-12-phrase-density-recovery/overlay/ds41f_phrase_recovery/suspicion.py": "ac257ccbe5c81f8cf3babb7e60ff9b61db584d36eb76b8a2295c213d51be31b8"
+  }
+}
