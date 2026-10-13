@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-13-ring2-token-aware-suppression",
+  "status": "owner-authorized-staged-trial",
+  "previous_baseline": "2026-10-13-ring2-temporary-phrases",
+  "base_commit": "3d50f9499a28f118cf0486c82fe2bd58a108401b",
+  "runtime_delta": "Replace temporary canonical-token bad_words with token-byte matcher, native60-word expiry, request-local accepted-prefix state and control-prefix handling. Read-only source/table mounts and one table-path environment variable.",
+  "preserved": "Ring2 M64 prefill overlay, original image/model identities and every unrelated runtime setting.",
+  "validation": {
+    "api_cpu_tests": 21,
+    "isolated_cuda_cases": 25,
+    "cuda_result": "experiments/2026-10-13-token-aware-suppression/runs/native-cuda.json",
+    "remaining": "Deployment forbidden before full one-hour Ring1 live qualification; afterward verify Ring2 all-rank identity and actual chat output, tool/cancellation, cache and admission. No new full benchmark or organic rescue claimed."
+  },
+  "source_patch": "experiments/2026-10-13-token-aware-suppression/native-changes.patch",
+  "source_identity": "experiments/2026-10-13-token-aware-suppression/source-identity.json",
+  "rollback": "3d50f9499a28f118cf0486c82fe2bd58a108401b",
+  "experiment": "experiments/2026-10-13-token-aware-suppression"
+}

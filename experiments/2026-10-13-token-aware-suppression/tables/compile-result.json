@@ -1,0 +1,82 @@
+{
+  "archive_sha256": "cfdd78aa300edb3fe1f50ebb131bd4b0e2b2c4a967f904d10ceb60227e63d0ca",
+  "format_version": 1,
+  "tokenizer_sha256": "c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b",
+  "unicode_version": "15.0.0",
+  "unicode_policy_sha256": "0becf11cb79cd1d79e8ba76b4ed133b2c2d8de53ac397a99fe508777b9f9f928",
+  "vocab_size": 129280,
+  "body_count": 34575,
+  "prefix_count": 162,
+  "unicode_states": 323,
+  "tables": {
+    "lex_table": {
+      "shape": [
+        31,
+        13
+      ],
+      "dtype": "int32",
+      "bytes": 1612
+    },
+    "unicode_table": {
+      "shape": [
+        323,
+        256
+      ],
+      "dtype": "int32",
+      "bytes": 330752
+    },
+    "bridge_table": {
+      "shape": [
+        323,
+        162
+      ],
+      "dtype": "int32",
+      "bytes": 209304
+    },
+    "body_table": {
+      "shape": [
+        31,
+        34575
+      ],
+      "dtype": "int32",
+      "bytes": 4287300
+    },
+    "token_prefix_id": {
+      "shape": [
+        129280
+      ],
+      "dtype": "int32",
+      "bytes": 517120
+    },
+    "token_body_id": {
+      "shape": [
+        129280
+      ],
+      "dtype": "int32",
+      "bytes": 517120
+    },
+    "body_nonempty": {
+      "shape": [
+        34575
+      ],
+      "dtype": "uint8",
+      "bytes": 34575
+    },
+    "body_tail": {
+      "shape": [
+        34575
+      ],
+      "dtype": "int32",
+      "bytes": 138300
+    },
+    "special": {
+      "shape": [
+        129280
+      ],
+      "dtype": "uint8",
+      "bytes": 129280
+    }
+  },
+  "bytes_total": 6165363,
+  "compile_seconds": 2.3146108749788254
+}

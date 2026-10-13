@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "kind": "synthetic-live-chat-qualification",
+  "deployed_ring1_commit": "42e858db8b181059a9c779132d732a09ed76710d",
+  "default_detector_thresholds": true,
+  "actual_generated_token_oracle": true,
+  "control_boundary_case": {
+    "protected_token_start": 1212,
+    "protected_token_end": 1268,
+    "protected_words": 36,
+    "mask_violations": 0,
+    "release": "reasoning_boundary",
+    "output_tokens": 1882,
+    "finish": "tool_calls",
+    "valid_tool_call": true
+  },
+  "sixty_word_case": {
+    "protected_token_start": 536,
+    "protected_token_end": 627,
+    "completed_words_before_last_token": 59,
+    "completed_words_after_last_token": 60,
+    "mask_violations": 0,
+    "output_tokens": 1310,
+    "finish": "tool_calls",
+    "valid_tool_call": true,
+    "ordinary_request_emitted_target_phrases_during_protection": true
+  },
+  "cache": {
+    "identical_requests": true,
+    "prompt_tokens": 660,
+    "cold_cached_tokens": 0,
+    "warm_cached_tokens": 512,
+    "source": "isolated per-request engine counters",
+    "initial_api_usage_only_check": "inconclusive: native response omitted cached token details"
+  },
+  "cancellation": {
+    "client_closed": true,
+    "native_and_gateway_idle_afterwards": true,
+    "protected_cancellation_live": "not established; covered by isolated CUDA/API tests"
+  },
+  "independent_review": "Actual token bytes, exact expiry and concurrent output checked independently of guard implementation and event violation counters. Passed.",
+  "limitations": [
+    "Synthetic activation is not evidence of organic semantic rescue.",
+    "Initial active-kernel JIT warnings occurred on first invocation.",
+    "No controlled end-to-end performance comparison.",
+    "Full admitted Ring1 hour still pending; Ring2 not yet deployed."
+  ],
+  "privacy": "Aggregate synthetic evidence only; no user prompts, responses, request IDs or private session paths."
+}

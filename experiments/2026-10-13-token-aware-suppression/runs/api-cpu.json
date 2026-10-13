@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "tests": 21,
+  "kind": "CPU engine doubles plus real tokenizer/table tracker",
+  "native_enforcement_proven": false,
+  "covers": [
+    "prefixcarry",
+    "exactwordTTL",
+    "controlprefix",
+    "cancellation",
+    "rewind",
+    "constrainedrequestpassthrough"
+  ]
+}
