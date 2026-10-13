@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-13-ring2-individual-word-policy",
+  "promoted_baseline": "2026-10-13-ring2-hm-word-policy",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -110,7 +110,7 @@
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-individual-word-policy/tables",
+        "{home}/spark-ds41f/experiments/2026-10-13-hm-word-policy/tables",
         "/opt/spark3/phrase-suppression-tables",
         "ro"
       ],
@@ -302,7 +302,7 @@
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "individual-word-policy-ring2",
+    "branch": "hm-word-policy-ring2",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
@@ -311,6 +311,6 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring2-individual-word-policy-upstreams.lock.json",
+  "upstreams_config": "config/ring2-hm-word-policy-upstreams.lock.json",
   "nodes_config": "config/nodes.json"
 }

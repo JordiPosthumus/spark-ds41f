@@ -1,0 +1,416 @@
+[
+  {
+    "text": "Let",
+    "codepoints": [
+      "U+004C LATIN CAPITAL LETTER L",
+      "U+0065 LATIN SMALL LETTER E",
+      "U+0074 LATIN SMALL LETTER T"
+    ]
+  },
+  {
+    "text": "Lеt",
+    "codepoints": [
+      "U+004C LATIN CAPITAL LETTER L",
+      "U+0435 CYRILLIC SMALL LETTER IE",
+      "U+0074 LATIN SMALL LETTER T"
+    ]
+  },
+  {
+    "text": "let",
+    "codepoints": [
+      "U+006C LATIN SMALL LETTER L",
+      "U+0065 LATIN SMALL LETTER E",
+      "U+0074 LATIN SMALL LETTER T"
+    ]
+  },
+  {
+    "text": "lеt",
+    "codepoints": [
+      "U+006C LATIN SMALL LETTER L",
+      "U+0435 CYRILLIC SMALL LETTER IE",
+      "U+0074 LATIN SMALL LETTER T"
+    ]
+  },
+  {
+    "text": "LET",
+    "codepoints": [
+      "U+004C LATIN CAPITAL LETTER L",
+      "U+0045 LATIN CAPITAL LETTER E",
+      "U+0054 LATIN CAPITAL LETTER T"
+    ]
+  },
+  {
+    "text": "LEТ",
+    "codepoints": [
+      "U+004C LATIN CAPITAL LETTER L",
+      "U+0045 LATIN CAPITAL LETTER E",
+      "U+0422 CYRILLIC CAPITAL LETTER TE"
+    ]
+  },
+  {
+    "text": "LЕT",
+    "codepoints": [
+      "U+004C LATIN CAPITAL LETTER L",
+      "U+0415 CYRILLIC CAPITAL LETTER IE",
+      "U+0054 LATIN CAPITAL LETTER T"
+    ]
+  },
+  {
+    "text": "LЕТ",
+    "codepoints": [
+      "U+004C LATIN CAPITAL LETTER L",
+      "U+0415 CYRILLIC CAPITAL LETTER IE",
+      "U+0422 CYRILLIC CAPITAL LETTER TE"
+    ]
+  },
+  {
+    "text": "Me",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0065 LATIN SMALL LETTER E"
+    ]
+  },
+  {
+    "text": "Mе",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0435 CYRILLIC SMALL LETTER IE"
+    ]
+  },
+  {
+    "text": "Мe",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0065 LATIN SMALL LETTER E"
+    ]
+  },
+  {
+    "text": "Ме",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0435 CYRILLIC SMALL LETTER IE"
+    ]
+  },
+  {
+    "text": "me",
+    "codepoints": [
+      "U+006D LATIN SMALL LETTER M",
+      "U+0065 LATIN SMALL LETTER E"
+    ]
+  },
+  {
+    "text": "mе",
+    "codepoints": [
+      "U+006D LATIN SMALL LETTER M",
+      "U+0435 CYRILLIC SMALL LETTER IE"
+    ]
+  },
+  {
+    "text": "мe",
+    "codepoints": [
+      "U+043C CYRILLIC SMALL LETTER EM",
+      "U+0065 LATIN SMALL LETTER E"
+    ]
+  },
+  {
+    "text": "ме",
+    "codepoints": [
+      "U+043C CYRILLIC SMALL LETTER EM",
+      "U+0435 CYRILLIC SMALL LETTER IE"
+    ]
+  },
+  {
+    "text": "ME",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0045 LATIN CAPITAL LETTER E"
+    ]
+  },
+  {
+    "text": "MЕ",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0415 CYRILLIC CAPITAL LETTER IE"
+    ]
+  },
+  {
+    "text": "МE",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0045 LATIN CAPITAL LETTER E"
+    ]
+  },
+  {
+    "text": "МЕ",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0415 CYRILLIC CAPITAL LETTER IE"
+    ]
+  },
+  {
+    "text": "меня",
+    "codepoints": [
+      "U+043C CYRILLIC SMALL LETTER EM",
+      "U+0435 CYRILLIC SMALL LETTER IE",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "мeня",
+    "codepoints": [
+      "U+043C CYRILLIC SMALL LETTER EM",
+      "U+0065 LATIN SMALL LETTER E",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "mеня",
+    "codepoints": [
+      "U+006D LATIN SMALL LETTER M",
+      "U+0435 CYRILLIC SMALL LETTER IE",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "meня",
+    "codepoints": [
+      "U+006D LATIN SMALL LETTER M",
+      "U+0065 LATIN SMALL LETTER E",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "Меня",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0435 CYRILLIC SMALL LETTER IE",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "Мeня",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0065 LATIN SMALL LETTER E",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "Mеня",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0435 CYRILLIC SMALL LETTER IE",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "Meня",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0065 LATIN SMALL LETTER E",
+      "U+043D CYRILLIC SMALL LETTER EN",
+      "U+044F CYRILLIC SMALL LETTER YA"
+    ]
+  },
+  {
+    "text": "МЕНЯ",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0415 CYRILLIC CAPITAL LETTER IE",
+      "U+041D CYRILLIC CAPITAL LETTER EN",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "МЕHЯ",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0415 CYRILLIC CAPITAL LETTER IE",
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "МEНЯ",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0045 LATIN CAPITAL LETTER E",
+      "U+041D CYRILLIC CAPITAL LETTER EN",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "МEHЯ",
+    "codepoints": [
+      "U+041C CYRILLIC CAPITAL LETTER EM",
+      "U+0045 LATIN CAPITAL LETTER E",
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "MЕНЯ",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0415 CYRILLIC CAPITAL LETTER IE",
+      "U+041D CYRILLIC CAPITAL LETTER EN",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "MЕHЯ",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0415 CYRILLIC CAPITAL LETTER IE",
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "MEНЯ",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0045 LATIN CAPITAL LETTER E",
+      "U+041D CYRILLIC CAPITAL LETTER EN",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "MEHЯ",
+    "codepoints": [
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+0045 LATIN CAPITAL LETTER E",
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+042F CYRILLIC CAPITAL LETTER YA"
+    ]
+  },
+  {
+    "text": "Hmm",
+    "codepoints": [
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M"
+    ]
+  },
+  {
+    "text": "hmm",
+    "codepoints": [
+      "U+0068 LATIN SMALL LETTER H",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M"
+    ]
+  },
+  {
+    "text": "HMM",
+    "codepoints": [
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+004D LATIN CAPITAL LETTER M"
+    ]
+  },
+  {
+    "text": "Hmmm",
+    "codepoints": [
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M"
+    ]
+  },
+  {
+    "text": "hmmm",
+    "codepoints": [
+      "U+0068 LATIN SMALL LETTER H",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M"
+    ]
+  },
+  {
+    "text": "HMMM",
+    "codepoints": [
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+004D LATIN CAPITAL LETTER M"
+    ]
+  },
+  {
+    "text": "Hmmmm",
+    "codepoints": [
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M"
+    ]
+  },
+  {
+    "text": "hmmmm",
+    "codepoints": [
+      "U+0068 LATIN SMALL LETTER H",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M",
+      "U+006D LATIN SMALL LETTER M"
+    ]
+  },
+  {
+    "text": "HMMMM",
+    "codepoints": [
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+004D LATIN CAPITAL LETTER M",
+      "U+004D LATIN CAPITAL LETTER M"
+    ]
+  },
+  {
+    "text": "Actually",
+    "codepoints": [
+      "U+0041 LATIN CAPITAL LETTER A",
+      "U+0063 LATIN SMALL LETTER C",
+      "U+0074 LATIN SMALL LETTER T",
+      "U+0075 LATIN SMALL LETTER U",
+      "U+0061 LATIN SMALL LETTER A",
+      "U+006C LATIN SMALL LETTER L",
+      "U+006C LATIN SMALL LETTER L",
+      "U+0079 LATIN SMALL LETTER Y"
+    ]
+  },
+  {
+    "text": "OK",
+    "codepoints": [
+      "U+004F LATIN CAPITAL LETTER O",
+      "U+004B LATIN CAPITAL LETTER K"
+    ]
+  },
+  {
+    "text": "Ok",
+    "codepoints": [
+      "U+004F LATIN CAPITAL LETTER O",
+      "U+006B LATIN SMALL LETTER K"
+    ]
+  },
+  {
+    "text": "ok",
+    "codepoints": [
+      "U+006F LATIN SMALL LETTER O",
+      "U+006B LATIN SMALL LETTER K"
+    ]
+  },
+  {
+    "text": "Hm",
+    "codepoints": [
+      "U+0048 LATIN CAPITAL LETTER H",
+      "U+006D LATIN SMALL LETTER M"
+    ]
+  }
+]
