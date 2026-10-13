@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "baseline": "2026-10-13-ring1-hm-word-policy",
+  "base_recipe": "f41310358fb184625dea32c2858853179e198652",
+  "delta": "Add exactly Hm to the temporary protection blocklist; no detector changes",
+  "policy": "experiments/2026-10-13-hm-word-policy/tables/bad_words.json",
+  "validation": "Native tokenization and deployment identity; owner evaluates blocking",
+  "preserved": [
+    "all previous blocklist entries",
+    "runtime code",
+    "image",
+    "kernels",
+    "temperature",
+    "detector",
+    "2000-word expiry",
+    "retries",
+    "context",
+    "concurrency",
+    "images",
+    "memory guards"
+  ]
+}
