@@ -11,3 +11,17 @@ The owner authorized Ring 1 first, then Ring 2 only after an hour of stable serv
 Portable tests exercise prefix coverage, mixed case, token segmentation, whole-word negatives, exact 2,000-word expiry, short-cycle detection, fenced-code exclusions, cancellation, request isolation, and the actual API rewind/mask/seed sequence. These are separate from model recovery; live output validation is required before admission. Private session data is not committed.
 
 The owner subsequently authorized the 2,000-word duration on both rings immediately. The earlier one-hour staging gate is superseded for this rollout. Detection thresholds and reasoning-boundary release are unchanged.
+
+## Early burst trigger
+
+The owner authorized the shorter trigger on both rings. Every completed word
+is checked, with no minimum response length or second confirmation: four whole
+case-insensitive `Let me` prefixes in the last 50 words, or six combined `Let me`
+and Hmm-variant occurrences in the last 100 words. Fenced code supplies no hits
+but still occupies window positions. A phrase crossing the window edge does not
+count. The first matching rule and counts are logged without reasoning text.
+
+This early intervention keeps the accepted prefix; it does not rewind. The
+2,000-word mask, genuine-control release, fresh-seed continuation, temperature,
+and severe-loop retry machinery are unchanged. Frequent legitimate reasoning
+can also trigger; this is a concentration heuristic, not proof of a loop.

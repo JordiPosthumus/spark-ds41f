@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-13-ring1-burst-trigger",
+  "previous_baseline": "2026-10-13-ring1-duration-2000",
+  "base_commit": "f9b5422513185d306540be54bed7cb743a072719",
+  "rollback": "f9b5422513185d306540be54bed7cb743a072719",
+  "status": "owner-authorized-trial",
+  "experiment": "experiments/2026-10-13-prefix-recovery",
+  "runtime_delta": "Every completed word: 4 Let me prefixes/50 words OR 6 combined Let me and Hmm/100 words. No warmup or confirmation delay.",
+  "preserved": "2000-word temporary mask, severe-loop retries, temperature, all unrelated settings and ring-specific kernels",
+  "validation": {
+    "portable_tests": 35,
+    "captured_missed_responses_detected": 2,
+    "live": "Required before gateway admission",
+    "limitation": "Concentration heuristic can also trigger on productive reasoning; no semantic guarantee."
+  }
+}
