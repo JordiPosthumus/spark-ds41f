@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-13-ring1-duration-2000",
+  "promoted_baseline": "2026-10-13-ring1-native-bad-words",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -45,7 +45,7 @@
         "rw"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/native/vllm/v1/worker/gpu/model_runner.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/native/vllm/v1/worker/gpu/model_runner.py",
         "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
         "ro"
       ],
@@ -80,38 +80,43 @@
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/overlay/serving.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/overlay/serving.py",
         "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/overlay/ds41f_phrase_recovery",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/overlay/ds41f_phrase_recovery",
         "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_phrase_recovery",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/native/vllm/sampling_params.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/native/vllm/sampling_params.py",
         "/opt/spark3/candidate/vllm/vllm/sampling_params.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/native/vllm/v1/worker/gpu/sample/sampler.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/native/vllm/v1/worker/gpu/sample/sampler.py",
         "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/sampler.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/native/vllm/v1/worker/gpu/sample/phrase_suppression.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/phrase_suppression.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/native/vllm/v1/worker/gpu/sample/loop_protection.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/loop_protection.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/native/vllm/v1/worker/gpu/sample/phrase_suppression_tables.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/phrase_suppression_tables.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/native/vllm/v1/worker/gpu/sample/loop_protection_tables.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/loop_protection_tables.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-prefix-recovery/tables",
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/tables",
         "/opt/spark3/phrase-suppression-tables",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/native/vllm/v1/worker/gpu/sample/bad_words.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/bad_words.py",
         "ro"
       ]
     ]
@@ -297,7 +302,7 @@
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "phrase-burst-trigger-ring1",
+    "branch": "native-bad-words-ring1",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
@@ -306,5 +311,5 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring1-prefix-recovery-upstreams.lock.json"
+  "upstreams_config": "config/ring1-native-bad-words-upstreams.lock.json"
 }

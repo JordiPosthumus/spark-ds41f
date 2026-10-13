@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "baseline": "2026-10-13-ring1-native-bad-words",
+  "base_recipe": "921d53235ddd6a141170cdb6815691578a9cd971",
+  "intended_delta": "Approved 16-entry native vLLM bad_words policy with existing 2000-word protection lifetime",
+  "authorization": "Owner requested immediate staged deployment and will evaluate loop blocking",
+  "validation": {
+    "api_detector_tests": 20,
+    "gpu_evaluation": "Not a production acceptance gate at owner request",
+    "runtime": "Verify readiness and admission after deployment"
+  },
+  "preserved": [
+    "image",
+    "environment",
+    "serve_args",
+    "host resources",
+    "kernels",
+    "context",
+    "concurrency",
+    "images",
+    "temperature",
+    "retry policy"
+  ],
+  "rollback_recipe": "921d53235ddd6a141170cdb6815691578a9cd971"
+}
