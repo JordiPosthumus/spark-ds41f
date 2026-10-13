@@ -1,0 +1,1 @@
+{"passed": true, "cases": [{"skip_clone": false, "deepcopy": true, "clone": true, "msgpack": true}, {"skip_clone": true, "deepcopy": true, "clone": true, "msgpack": true}], "msgspec_version": "0.21.1", "cuda_devices_hidden": true}

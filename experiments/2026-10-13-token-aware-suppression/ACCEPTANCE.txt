@@ -1,0 +1,33 @@
+TOKEN-AWARE TEMPORARY SUPPRESSION — CANDIDATE ONLY
+
+Match whole Unicode words (letters, numbers, underscore are word characters).
+Target ASCII case-insensitive h followed by 2 through 16 m characters, and
+whole let / me / run or go separated by whitespace. Align detector with the
+same command-separator rule. No ordinary component-word bans.
+
+Trigger remains repeated target concentration. Restriction lasts 60 completed
+Unicode words within reasoning. Native speculative rows must account for
+accepted output and tentative draft prefixes without committing draft state.
+Carry actual generated-prefix lexical/UTF-8 state through continuation.
+
+Genuine EOS, reasoning-end and tool-control tokens remain allowed and disarm
+suppression immediately. A pending target word directly before those special
+control tokens is exempt: terminating reasoning is preferable to trapping the
+model or forcing it to extend the word. Ordinary punctuation/whitespace are
+not exempt. Textual lookalikes must not silently act as genuine control tokens.
+
+Independent oracle must verify visible output in known protected token spans.
+Required cases: Hmm with fused punctuation/newlines, mixed case, supported m
+counts, alternate tokenizations, split UTF-8, activation-prefix carryover,
+word expiry, marker boundaries inside speculative blocks, request slot reuse,
+concurrent unaffected requests, cancellation and image/prompt preservation.
+Do not certify suppression solely from activation logs or successful arithmetic.
+
+Stage Ring 1 only after offline and native targeted gates pass. Drain and wait
+for idle before coordinated restart. Verify real gateway dispatch and preserve
+all unrelated settings. Observe one full hour after passing canary and admission;
+any attributable failure requires repair and restarts the clock. Ring 2 stays
+unchanged until correctness and stability gates pass. Keep rollback published.
+
+Only synthetic fixtures and aggregate evidence may enter Git. Private session
+text, raw logs, request IDs, credentials and screenshots remain outside Git.

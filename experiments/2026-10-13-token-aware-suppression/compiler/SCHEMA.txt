@@ -1,0 +1,43 @@
+Compiler prototype only; no deployed runtime changes.
+
+Pinned vocabulary: tokenizer SHA c90dfa01249db1be4245780a052ede752e1361c612ac6d08e2bdada7d599476b.
+Pinned classification: target-unicode.json captured CPU-only from serving Python,
+Unicode 15.0.0. Word = category L/N or underscore; space = str.isspace(); others
+are boundaries. ASCII-only case folding for target letters.
+
+Contract: complete h followed by 2..16 m, or complete let + whitespace + me +
+whitespace + (run|go). Match alternatives of token segmentation, mixed casing,
+punctuation/whitespace around words, UTF8 fragments. Preserve Hmmfoo/running.
+Genuine control IDs 1,128822,128825 are unconditionally allowed/disarm in caller;
+pending target word immediately before those control IDs is an explicit exemption.
+The machine itself treats every ID as text; caller owns phase and TTL.
+
+runtime.load_tables(artifact_dir) validates archiveSHA + manifestshape/dtype.
+runtime.initial() -> (lex=0,utf=0)
+runtime.advance(tables,(lex,utf),accepted_token_ids) -> newstate
+runtime.feed_token(tables,lex,utf,token_id) -> lex,utf,completedwords,firstbad
+firstbad=255 means none, else ordinal of first forbidden completed word in token
+(counts initially partial word if completed by this token). A candidate is masked
+iff firstbad !=255 and firstbad <= remaining protection words. Computed words
+must only debit accepted/committed tokens, not masked or rejected draft tokens.
+
+lex_table int32[31,13], body_table int32[31,34575]:
+ bits0..4 destination lexical state; bits5..12 completed word count;
+ bits13..20 firstbad ordinal or255. ClassIDs D0,S1,W2,h3,m4,l5,e6,t7,r8,u9,n10,g11,o12.
+
+bridge_table int32[323,162]:
+ bits0..8 destination UTF8 state, bits9..10 event count(0..3),
+ bits11..14,15..18,19..22 lexical input class events (only D,S,W).
+Each token has token_prefix_id int32[129280], token_body_id int32[129280].
+Process bridge from currentUTF first, feed its events throughlex_table, then
+body_table using updatedlex. Accumulate wordcounts and firstbad ordinal with
+bridgeword offset. body_nonempty uint8[34575] decides whether UTFstate becomes
+body_tail int32[34575] or remains bridge state. Do not overwriteUTF on emptybody.
+
+unicode_table int32[323,256] is compiler/test machinery; GPU doesn't need it.
+special uint8[129280] marks all added IDs (some are special:false in tokenizer),
+and MUST NOT be used as a blanket skip/disarm list. Use explicit boundaryIDs.
+
+No per-token full-vocab CPU decoding. Runtime CPU token walker ~0.70us/token on
+local Mac measured36,000tokens. Artifact tables total6,165,363bytes. Native GPU
+cost, speculative correctness, and quality effectiveness need separate tests.

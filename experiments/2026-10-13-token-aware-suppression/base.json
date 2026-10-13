@@ -1,0 +1,7 @@
+{
+  "ring1_recipe_commit": "45aa6805a022c51a9705966e109ddf0af07a571c",
+  "ring1_deployed_commit": "28cfb890e42ddb51be00d4be1e2022f12dede79c",
+  "ring2_deployed_commit": "3d50f9499a28f118cf0486c82fe2bd58a108401b",
+  "status": "candidate_not_deployed",
+  "change": "Replace canonical bad-word phrase sequences with token-byte-aware temporary suppression; retain unrelated engine settings."
+}
