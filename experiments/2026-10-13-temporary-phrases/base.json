@@ -1,0 +1,6 @@
+{
+  "recipe_commit": "02b4f0f01f131ad4c5e0f31d9c962d5afe44cf1c",
+  "previous_baseline": "2026-10-13-ring1-phrase-recovery",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
+  "source": "owner fork; existing native API recovery package"
+}

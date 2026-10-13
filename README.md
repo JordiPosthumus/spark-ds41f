@@ -1,3 +1,5 @@
+Owner-authorized [temporary phrase intervention experiment](docs/temporary-phrases.md) is enabled on this ring; existing recovery and all unrelated settings are preserved.
+
 Owner fork: [Ring 1 phrase-density recovery](docs/ring1-phrase-density-recovery.md) selects the same API recovery package validated on Ring 2. Ring 1 keeps its existing GPU kernels; Ring 2 retains M64.
 
 # spark-ds41f

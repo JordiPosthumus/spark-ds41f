@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-13-ring1-phrase-recovery",
+  "promoted_baseline": "2026-10-13-ring1-temporary-phrases",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -80,12 +80,12 @@
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-12-phrase-density-recovery/overlay/serving.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-temporary-phrases/overlay/serving.py",
         "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-12-phrase-density-recovery/overlay/ds41f_phrase_recovery",
+        "{home}/spark-ds41f/experiments/2026-10-13-temporary-phrases/overlay/ds41f_phrase_recovery",
         "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_phrase_recovery",
         "ro"
       ]
@@ -192,7 +192,8 @@
     "XDG_CACHE_HOME": "/cache/kkref/jit",
     "SPARKNET_ROCE_ALLREDUCE_DISPATCH_MAX_BYTES": "2097152",
     "VLLM_GREEDY_VERIFICATION": "1",
-    "SPARK_DS41F_LOOP_RECOVERY_MODE": "auto-recover"
+    "SPARK_DS41F_LOOP_RECOVERY_MODE": "auto-recover",
+    "SPARK_DS41F_TEMPORARY_PHRASES": "1"
   },
   "serve_args": [
     "/models",
@@ -270,7 +271,7 @@
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "ring1-phrase-recovery",
+    "branch": "temporary-phrases-ring1",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
