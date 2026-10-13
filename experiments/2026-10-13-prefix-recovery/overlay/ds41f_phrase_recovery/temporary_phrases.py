@@ -1,19 +1,23 @@
 """Trigger for owner-authorized bounded native phrase suppression."""
-from collections import Counter
+from collections import deque
 import unicodedata
 from .collapse import CollapseDetector, CollapseConfig
-from .phrase_detector import hashed, LET, ME, HMM
+from .phrase_detector import LET, ME, HMM
 
 
 class TemporaryPhraseTrigger(CollapseDetector):
-    """Two 200-word windows, 32 words apart, each with >=8 targeted hits.
+    """Check every completed word: 4 Let me/50 or 6 combined hits/100.
 
-    Fenced code is excluded. Detection is case-insensitive and counts Hmm
-    variants and every whole whitespace-separated let-me prefix.
-    This is an experimental trigger, not proof of semantic failure.
+    No warm-up or second confirmation. Fenced code never supplies hits, but
+    still occupies the word window. Whole whitespace-separated prefixes and
+    Hmm variants are case-insensitive. This heuristic can flag valid prose.
+    Only bounded hashes/positions are retained, never reasoning text.
     """
     def __init__(self):
         super().__init__(CollapseConfig(window=200, every=32, consecutive=2))
+        self._commands50 = deque()
+        self._commands100 = deque()
+        self._hmm100 = deque()
         self.triggered = False
         self.evidence = None
         self._separator_seen = False
@@ -42,22 +46,36 @@ class TemporaryPhraseTrigger(CollapseDetector):
         self.words += 1
         self.word = None
         self.word_chars = 0
-        if self.words < self.next_evaluation:
+        if self.triggered:
             return
-        self.next_evaluation = self.words + 32
-        rows = list(self.rows)
-        prose = [r[0] for r in rows if r[1]]
-        counts = Counter(prose)
-        hmm = sum(counts[k] for k in HMM)
-        commands = sum(a[1] and b[1] and b[3] and a[0] == LET and b[0] == ME
-                       for a, b in zip(rows, rows[1:]))
-        total = hmm + commands
-        match = len(prose) >= 160 and total >= 8
-        self.hits = self.hits + 1 if match else 0
-        if self.hits >= 2:
+        # Store the phrase's FIRST word position: both words must fit inside
+        # the window. Code and unrelated words age hits out normally.
+        current = self.rows[-1]
+        if current[1] and current[0] in HMM:
+            self._hmm100.append(self.words)
+        if len(self.rows) >= 2:
+            previous = self.rows[-2]
+            if (previous[1] and current[1] and current[3]
+                    and previous[0] == LET and current[0] == ME):
+                self._commands50.append(self.words - 1)
+                self._commands100.append(self.words - 1)
+        for positions, width in ((self._commands50, 50),
+                                 (self._commands100, 100), (self._hmm100, 100)):
+            while positions and positions[0] < self.words - width + 1:
+                positions.popleft()
+        short = len(self._commands50) >= 4
+        combined = len(self._commands100) + len(self._hmm100) >= 6
+        if short or combined:
+            width = 50 if short else 100
+            rows = list(self.rows)[-width:]
             self.triggered = True
-            self.evidence = {"hmm": hmm, "commands": commands,
-                             "window_words": len(prose), "words_seen": self.words}
+            self.evidence = {
+                "rule": "let_me_4_in_50" if short else "combined_6_in_100",
+                "hmm": sum(pos >= self.words - width + 1 for pos in self._hmm100),
+                "commands": len(self._commands50 if short else self._commands100),
+                "window_words": len(rows), "prose_words": sum(r[1] for r in rows),
+                "window_limit": width, "words_seen": self.words,
+            }
 
 class WordCounter:
     """Count completed Unicode letter/number words across arbitrary deltas."""
