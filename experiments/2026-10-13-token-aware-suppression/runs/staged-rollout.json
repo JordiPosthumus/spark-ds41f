@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "date_utc": "2026-10-13",
+  "status": "owner-authorized staged rollout completed; residual limitations below",
+  "deployed_runtime_commits": {
+    "ring1": "42e858db8b181059a9c779132d732a09ed76710d",
+    "ring2": "4afea5aaca756dd447f30e8b7d954071eaae42f6"
+  },
+  "validation": {
+    "independent_review_tracks": [
+      "matching semantics",
+      "server integration and rollback",
+      "actual emitted-output oracle"
+    ],
+    "api_tests": 21,
+    "native_gb10_cases": 25,
+    "ring1": {
+      "healthy_seconds": 3606.7311225410085,
+      "completed_gateway_requests_during_hour": 157,
+      "samples": 119,
+      "live_exact_expiry_words": 60,
+      "live_control_boundary_release_words": 36,
+      "live_mask_violations": 0,
+      "concurrent_request_isolation": true,
+      "valid_tool_call": true,
+      "cache_cold_to_warm_tokens": [
+        0,
+        512
+      ]
+    },
+    "ring2": {
+      "exact_three_rank_runtime_and_preserved_settings": true,
+      "live_exact_expiry_words": 60,
+      "live_protected_tokens": 81,
+      "live_mask_violations": 0,
+      "concurrent_request_isolation_independently_verified": true,
+      "valid_tool_call": true,
+      "cache_cold_to_warm_tokens": [
+        0,
+        512
+      ],
+      "cancelled_client_returned_engine_to_idle": true,
+      "successful_gateway_dispatch": true,
+      "gateway_dispatch_test": "bounded synthetic request through ordinary gateway routing"
+    }
+  },
+  "preserved": [
+    "original images and model identities",
+    "524288 context and 8 concurrent requests",
+    "uncapped image inputs",
+    "DSpark 5 and verification policy",
+    "Ring2 M64 kernel overlay",
+    "graphs, asynchronous scheduling and prefix caching",
+    "startup 5 GiB and steady 3 GiB memory guards",
+    "unrelated desktop services"
+  ],
+  "failure_history": [
+    {
+      "stage": "before Ring2 rollout",
+      "detail": "Previous baseline had already stopped at steady memory guard: 2935360 KiB available below 3145728 KiB."
+    },
+    {
+      "stage": "first Ring2 candidate start",
+      "detail": "Startup memory guard rejected 5234496 KiB below 5242880 KiB. Original containers and exact source restored and validated."
+    },
+    {
+      "stage": "one instrumented retry",
+      "detail": "Identical candidate and settings passed guarded startup in 107.9 seconds; no guard or capacity reduction. First-failure memory attribution remains incomplete."
+    }
+  ],
+  "limitations": [
+    "A live trigger and masked span demonstrate intervention, not guaranteed semantic recovery or prevention of all loops.",
+    "One organic Ring1 intervention completed during the hour; quality improvement was not established.",
+    "Live cancellation exercised ordinary streaming; protected cancellation and slot reuse covered by API/native tests.",
+    "Live doctor retains exactly the prior three desktop-service errors; it is not a clean doctor pass. Existing services were preserved.",
+    "Startup memory margin varies; the prior baseline also experienced steady memory pressure. No claim that this resolves general memory pressure.",
+    "No production throughput penalty or speedup estimate is established by these checks.",
+    "Offline table compaction prototype was not deployed."
+  ],
+  "rollback_commits": {
+    "ring1": "28cfb890e42ddb51be00d4be1e2022f12dede79c",
+    "ring2": "3d50f9499a28f118cf0486c82fe2bd58a108401b"
+  },
+  "cleanup": "Maintenance holds and bounded memory recorder released; isolated controller clones removed; rollback backups and private evidence retained.",
+  "privacy": "Aggregate counts and synthetic-test summaries only; no private request text, identifiers, credentials, screenshots or raw logs."
+}

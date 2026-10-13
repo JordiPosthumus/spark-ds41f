@@ -43,7 +43,8 @@ must be measured before any performance claim.
 CPU checks cover every vocabulary entry against native tokenizer decoding,
 Unicode scalar classification, mixed casing, alternate token splits, UTF-8
 fragments, request-local state, exact expiry, and API cancellation/continuation.
-See `ACCEPTANCE.txt` for remaining GPU, output, and staged serving gates.
+See `ACCEPTANCE.txt` for the acceptance requirements and
+`runs/staged-rollout.json` for the completed checks and residual limitations.
 
 ## Reproduce CPU checks
 
@@ -61,3 +62,19 @@ Validate actual protected output and ordinary tools/cancellation before admissio
 Require one hour of stable serving before Ring 2, retaining its M64 kernel changes.
 Any failed gate keeps Ring 2 unchanged and uses the recorded prior commit for
 coordinated rollback. Test fixtures are synthetic; no private sessions belong here.
+
+## Staged rollout result (2026-10-13)
+
+Both rings now serve the corrected implementation at the runtime commits recorded
+in `runs/staged-rollout.json`. Ring 1 passed a full hour with 157 completed gateway
+requests before Ring 2 deployment. Actual emitted tokens on both rings confirm
+60-word expiry, no targeted-phrase leaks in the protected span, request isolation
+and valid tool output. Cold-to-warm cache hits and ordinary cancellation passed.
+
+Ring 2's first startup failed its unchanged memory guard; the exact previous
+baseline was restored. One instrumented retry of the identical candidate passed.
+General memory-pressure attribution remains unresolved. Live doctor retains
+three pre-existing desktop-service errors; no unrelated service was disabled.
+These checks do not establish guaranteed semantic rescue or a throughput gain.
+The published runtime commits remain the deployment identities; this report is
+a documentation-only follow-up and does not imply another restart.
