@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-13-ring1-prefix-recovery",
+  "previous_baseline": "2026-10-13-ring1-token-aware-suppression",
+  "base_commit": "42e858db8b181059a9c779132d732a09ed76710d",
+  "rollback": "42e858db8b181059a9c779132d732a09ed76710d",
+  "status": "owner-authorized-staged-trial",
+  "experiment": "experiments/2026-10-13-prefix-recovery",
+  "runtime_delta": "Full Let me prefix plus OK, 300-word temporary mask on continuation and retry, short exact prose-cycle detector",
+  "preserved": "All unrelated serving settings and ring-specific kernels",
+  "validation": {
+    "portable_unique_tests": 27,
+    "live": "pending; not yet qualified"
+  }
+}

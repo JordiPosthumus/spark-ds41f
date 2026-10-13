@@ -1,0 +1,432 @@
+--- a/vllm/sampling_params.py
++++ b/vllm/sampling_params.py
+@@ -355,6 +355,10 @@
+     generated token can complete the sequence."""
+     _bad_words_token_ids: list[list[int]] | None = None
+ 
++    # Server-owned continuation state; deliberately absent from OpenAI protocol.
++    # (format version, lexical DFA state, streaming UTF-8 state).
++    _ds41f_phrase_suppression: tuple[int, int, int] | None = None
++
+     skip_reading_prefix_cache: bool | None = None
+     thinking_token_budget: int | None = None
+     """Maximum number of tokens allowed for thinking operations."""
+--- a/vllm/v1/worker/gpu/model_runner.py
++++ b/vllm/v1/worker/gpu/model_runner.py
+@@ -1313,6 +1313,8 @@
+         req_idx = self.req_states.remove_request(req_id)
+         if req_idx is None:
+             return False
++        if self.sampler is not None:
++            self.sampler.phrase_suppression_state.remove_request(req_idx)
+         if self.pooling_runner is not None:
+             self.pooling_runner.remove_request(req_idx)
+         if self.pp_handler is not None:
+--- /dev/null
++++ b/vllm/v1/worker/gpu/sample/phrase_suppression.py
+@@ -0,0 +1,287 @@
++"""Request-local, bounded phrase masking for the pinned V2 sampler.
++
++Prototype: review and GPU validation required before deployment.
++Only server-owned SamplingParams._ds41f_phrase_suppression enables a request.
++Committed GPU state never includes unaccepted speculative tokens.
++"""
++import os
++
++import numpy as np
++import torch
++
++from vllm.triton_utils import tl, triton
++from vllm.v1.worker.gpu.buffer_utils import StagedWriteTensor
++
++# Exact native model IDs; validated against compiler manifest at load.
++CONTROL_IDS = (1, 128822, 128825)  # EOS, </think>, DSML control marker.
++WORD_LIMIT = 300
++PENDING_CONTROL = 31  # Internal sentinel; NEVER a compiled lexical-table index.
++# GPU state columns: lexical state, UTF8 state, completed words, scan position,
++# active, seed lexical state, seed UTF8 state, seed prompt length, token limit.
++# A fixed-width
++# tensor makes initialization/reuse one staged write.
++_STATE_WIDTH = 9
++
++
++@triton.jit
++def _advance_token(
++    token, lex, utf, words, active, allow_defer,
++    token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
++    body_nonempty_ptr, body_tail_ptr,
++    PREFIXES: tl.constexpr, BODIES: tl.constexpr,
++):
++    """Vectorizable native-token transition with exact word-TTL masking.
++
++    first forbidden indices are one-based completed-word positions. A forbidden
++    phrase in word 300 is still masked; word 301 is not. Control tokens are exempt
++    even if they terminate a partial target word and disarm future positions.
++    """
++    old_lex, old_utf, old_words = lex, utf, words
++    pending_control = lex == 31
++    # The compiled table has states0..30. Pending control is handled solely by
++    # the overrides below; its lookup state is an inert boundary state.
++    lex = tl.where(pending_control, 0, lex)
++    is_control = (token == 1) | (token == 128822) | (token == 128825)
++    was_active = active & ~is_control
++    prefix = tl.load(token_prefix_ptr + token)
++    body_id = tl.load(token_body_ptr + token)
++    bridge = tl.load(bridge_ptr + utf * PREFIXES + prefix)
++    new_utf = bridge & 511
++    count = (bridge >> 9) & 3
++    bad = tl.full((), False, tl.int1)
++    for event in tl.static_range(3):
++        category = (bridge >> (11 + event * 4)) & 15
++        # Absent bridge events can encode unused bits. Clamp before the load.
++        category = tl.where(event < count, category, 0)
++        step = tl.load(lex_ptr + lex * 13 + category)
++        step_words = (step >> 5) & 255
++        first_bad = (step >> 13) & 255
++        use = event < count
++        bad = bad | (use & (first_bad != 255) & (words + first_bad <= 300))
++        lex = tl.where(use, step & 31, lex)
++        words = words + tl.where(use, step_words, 0)
++    body_exists = tl.load(body_nonempty_ptr + body_id) != 0
++    step = tl.load(body_ptr + lex * BODIES + body_id)
++    step_words = (step >> 5) & 255
++    first_bad = (step >> 13) & 255
++    bad = bad | (body_exists & (first_bad != 255) & (words + first_bad <= 300))
++    lex = tl.where(body_exists, step & 31, lex)
++    words = words + tl.where(body_exists, step_words, 0)
++    tail = tl.load(body_tail_ptr + body_id)
++    new_utf = tl.where(body_exists, tail, new_utf)
++    # Preserve the two-token direct DSML exit after a target word. Token30 is
++    # exactly '<'. It is allowed ONLY as a pending control prefix when it would
++    # otherwise terminate a prohibited phrase. The following token must be a
++    # genuine control; ordinary text (including another '<') remains prohibited.
++    defer_control = was_active & ~pending_control & (token == 30) & bad & allow_defer
++    hold_control = pending_control | defer_control
++    lex = tl.where(hold_control, 31, lex)
++    new_utf = tl.where(hold_control, old_utf, new_utf)
++    completed_words = tl.where(hold_control, old_words, tl.minimum(words, 300))
++    active = was_active & ((words < 300) | hold_control)
++    bad = was_active & (pending_control | bad) & ~defer_control
++    return (tl.where(was_active, lex, old_lex),
++            tl.where(was_active, new_utf, old_utf),
++            tl.where(was_active, completed_words, old_words),
++            active, bad)
++
++
++@triton.jit
++def _update_committed(
++    idx_mapping_ptr, states_ptr, all_ids_ptr, all_ids_stride,
++    total_len_ptr, token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr,
++    body_ptr, body_nonempty_ptr, body_tail_ptr,
++    PREFIXES: tl.constexpr, BODIES: tl.constexpr,
++):
++    batch_row = tl.program_id(0)
++    req = tl.load(idx_mapping_ptr + batch_row)
++    if req < 0:
++        return
++    base = states_ptr + req * 9
++    active = tl.load(base + 4) != 0
++    if not active:
++        return
++    lex = tl.load(base)
++    utf = tl.load(base + 1)
++    words = tl.load(base + 2)
++    scan = tl.load(base + 3)
++    end = tl.load(total_len_ptr + req)
++    # Normally monotonic. Recompute from the immutable trusted seed if native
++    # accepted history contracts, instead of retaining rejected suffix state.
++    if scan > end:
++        lex = tl.load(base + 5)
++        utf = tl.load(base + 6)
++        scan = tl.load(base + 7)
++        words = 0
++    if end < scan:
++        return
++    while scan < end and active:
++        token = tl.load(all_ids_ptr + req * all_ids_stride + scan)
++        lex, utf, words, active, ignored_bad = _advance_token(
++            token, lex, utf, words, active, True,
++            token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
++            body_nonempty_ptr, body_tail_ptr, PREFIXES, BODIES,
++        )
++        scan += 1
++    tl.store(base, lex)
++    tl.store(base + 1, utf)
++    tl.store(base + 2, words)
++    tl.store(base + 3, end)
++    tl.store(base + 4, active.to(tl.int32))
++
++
++@triton.jit
++def _mask_rows(
++    logits_ptr, logits_stride, expanded_mapping_ptr, local_pos_ptr,
++    input_ids_ptr, states_ptr,
++    token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
++    body_nonempty_ptr, body_tail_ptr,
++    PREFIXES: tl.constexpr, BODIES: tl.constexpr,
++    VOCAB: tl.constexpr, BLOCK: tl.constexpr,
++):
++    row = tl.program_id(0)
++    req = tl.load(expanded_mapping_ptr + row)
++    if req < 0:
++        return
++    base = states_ptr + req * 9
++    active = tl.load(base + 4) != 0
++    if not active:
++        return
++    lex = tl.load(base)
++    utf = tl.load(base + 1)
++    words = tl.load(base + 2)
++    pos = tl.load(local_pos_ptr + row)
++    request_first_row = row - pos
++    # Local position zero is the last committed token, already reflected in
++    # cache. Positions 1..pos are draft tokens preceding this target/bonus row.
++    for i in range(pos):
++        token = tl.load(input_ids_ptr + request_first_row + i + 1)
++        # Native verification may materialize rows after a -1 draft placeholder.
++        # Such rows are unreachable; never index token tables with a sentinel.
++        valid_token = (token >= 0) & (token < VOCAB)
++        active = active & valid_token
++        token = tl.where(valid_token, token, 1)
++        lex, utf, words, active, ignored_bad = _advance_token(
++            token, lex, utf, words, active, True,
++            token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
++            body_nonempty_ptr, body_tail_ptr, PREFIXES, BODIES,
++        )
++    if not active:
++        return
++    ids = tl.program_id(1) * BLOCK + tl.arange(0, BLOCK)
++    valid = ids < VOCAB
++    # Padded lanes use a valid control token and never write logits.
++    safe_ids = tl.where(valid, ids, 1)
++    remaining_tokens = tl.load(base + 8) - tl.load(base + 3) - pos
++    out_lex, out_utf, out_words, out_active, bad = _advance_token(
++        safe_ids, lex, utf, words, active, remaining_tokens >= 2,
++        token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
++        body_nonempty_ptr, body_tail_ptr, PREFIXES, BODIES,
++    )
++    tl.store(logits_ptr + row * logits_stride + ids, -float("inf"), mask=valid & bad)
++
++
++class PhraseSuppressionState:
++    """No device synchronization and no extra launches for untracked batches."""
++
++    def __init__(self, req_states):
++        self.req_states = req_states
++        self.use_suppression = np.zeros(req_states.max_num_reqs, dtype=bool)
++        table_dir = os.environ.get("SPARK_DS41F_PHRASE_TABLES")
++        self.enabled = os.environ.get("SPARK_DS41F_TEMPORARY_PHRASES") == "1" and bool(table_dir)
++        self.tables = None
++        self._pending_resets = {}
++        if not self.enabled:
++            return
++        # Pure-CPU shared loader checks hashes, dimensions, native model IDs and
++        # fixed policy before any GPU allocation. Its final location is supplied
++        # by the compiler prototype; this is intentionally not a public setting.
++        from .phrase_suppression_tables import get_tables
++        if not table_dir:
++            raise ValueError("Native phrase suppression requires validated tables")
++        arrays = get_tables()
++        expected = {
++            "token_prefix_id", "token_body_id", "bridge_table", "lex_table",
++            "body_table", "body_nonempty", "body_tail",
++        }
++        if not expected.issubset(arrays):
++            raise ValueError("Incomplete native phrase suppression tables")
++        self.vocab = len(arrays["token_prefix_id"])
++        self.n_utf, self.n_prefixes = arrays["bridge_table"].shape
++        self.n_lex, self.n_bodies = arrays["body_table"].shape
++        if self.vocab != req_states.vocab_size or self.n_lex != 31:
++            raise ValueError("Phrase suppression table/model mismatch")
++        if sum(arrays[name].nbytes for name in expected) > 64 * 1024 * 1024:
++            raise ValueError("Phrase suppression tables exceed memory bound")
++        self.tables = tuple(torch.from_numpy(np.array(arrays[name], copy=True)).to(
++            device=req_states.device
++        ) for name in (
++            "token_prefix_id", "token_body_id", "bridge_table", "lex_table",
++            "body_table", "body_nonempty", "body_tail",
++        ))
++        self.state = StagedWriteTensor(
++            (req_states.max_num_reqs, _STATE_WIDTH), dtype=torch.int32,
++            device=req_states.device,
++        )
++
++    def add_request(self, req_idx, prompt_len, sampling_params):
++        metadata = getattr(sampling_params, "_ds41f_phrase_suppression", None)
++        self.use_suppression[req_idx] = False
++        if metadata is not None and not self.enabled:
++            raise ValueError("Native phrase suppression request on disabled worker")
++        if not self.enabled:
++            return
++        seed = [0, 0, 0, int(prompt_len), 0, 0, 0, int(prompt_len), 0]
++        if metadata is not None:
++            if (not isinstance(metadata, (tuple, list)) or len(metadata) != 3
++                    or any(type(value) is not int for value in metadata)):
++                raise ValueError("Invalid internal phrase suppression state")
++            version, lex, utf = metadata
++            if version != 1 or not 0 <= lex <= self.n_lex or not 0 <= utf < self.n_utf:
++                raise ValueError("Invalid internal phrase suppression seed")
++            if type(prompt_len) is not int or prompt_len < 0:
++                raise ValueError("Invalid phrase suppression prompt boundary")
++            max_tokens = getattr(sampling_params, "max_tokens", None)
++            if type(max_tokens) is not int or max_tokens < 1 or prompt_len + max_tokens >= 2**31:
++                raise ValueError("Invalid phrase suppression output-token budget")
++            if (getattr(sampling_params, "allowed_token_ids", None) is not None
++                    or getattr(sampling_params, "logit_bias", None)
++                    or getattr(sampling_params, "ignore_eos", False)
++                    or 30 in (getattr(sampling_params, "stop_token_ids", None) or [])):
++                raise ValueError("Phrase suppression cannot intersect constrained sampling")
++            seed = [lex, utf, 0, prompt_len, 1, lex, utf, prompt_len, prompt_len + max_tokens]
++            self.use_suppression[req_idx] = True
++        # Always reset a reused slot, including inactive requests.
++        self._pending_resets[req_idx] = seed
++
++    def remove_request(self, req_idx):
++        self.use_suppression[req_idx] = False
++        if self.enabled:
++            self._pending_resets[req_idx] = [0] * _STATE_WIDTH
++
++    def apply_staged_writes(self):
++        if self.enabled:
++            # StagedWriteTensor dispatches writes in parallel. Collapse a
++            # remove/add/reuse sequence to one final reset for each slot.
++            for req_idx, seed in self._pending_resets.items():
++                self.state.stage_write(req_idx, 0, seed)
++            self._pending_resets.clear()
++            self.state.apply_write()
++
++    def apply(self, logits, expanded_idx_mapping, idx_mapping, idx_mapping_np,
++              input_ids, expanded_local_pos):
++        if not self.enabled or not np.any(self.use_suppression[idx_mapping_np]):
++            return
++        assert self.tables is not None
++        if logits.shape[1] != self.vocab:
++            raise ValueError("Phrase suppression logits vocabulary mismatch")
++        _update_committed[(idx_mapping.shape[0],)](
++            idx_mapping, self.state.gpu, self.req_states.all_token_ids.gpu,
++            self.req_states.all_token_ids.gpu.stride(0), self.req_states.total_len.gpu,
++            *self.tables, self.n_prefixes, self.n_bodies, num_warps=1,
++        )
++        _mask_rows[(logits.shape[0], triton.cdiv(self.vocab, 256))](
++            logits, logits.stride(0), expanded_idx_mapping, expanded_local_pos,
++            input_ids, self.state.gpu, *self.tables,
++            self.n_prefixes, self.n_bodies, self.vocab, 256, num_warps=4,
++        )
+--- /dev/null
++++ b/vllm/v1/worker/gpu/sample/phrase_suppression_tables.py
+@@ -0,0 +1,61 @@
++"""CPU-only loader and accepted-token state walker; NumPy, no torch dependency."""
++import hashlib,json,io
++from pathlib import Path
++import numpy as np
++
++NO_HIT=255
++BOUNDARY_IDS=frozenset((1,128822,128825))
++
++def load_tables(path):
++    path=Path(path)
++    if path.is_file():path=path.parent
++    manifest=json.loads((path/'metadata.json').read_text())
++    raw=(path/'tables.npz').read_bytes()
++    if manifest.get('format_version')!=1:raise ValueError('suppression format mismatch')
++    if hashlib.sha256(raw).hexdigest()!=manifest['archive_sha256']:raise ValueError('suppression tables hash mismatch')
++    with np.load(io.BytesIO(raw),allow_pickle=False) as data:
++        if set(data.files)!=set(manifest['tables']):raise ValueError('suppression table names mismatch')
++        tables={k:data[k] for k in data.files}
++    for k,a in tables.items():
++        spec=manifest['tables'][k]
++        if list(a.shape)!=spec['shape'] or str(a.dtype)!=spec['dtype'] or a.nbytes!=spec['bytes']:raise ValueError('suppression table shape/dtype mismatch')
++        a.flags.writeable=False
++    if tables['lex_table'].shape!=(31,13) or tables['token_prefix_id'].shape!=(129280,):raise ValueError('unexpected compiled vocabulary or lexer')
++    return tables
++
++def initial():return (0,0)
++
++def unpack(value):return int(value)&31,(int(value)>>5)&255,(int(value)>>13)&255
++
++def feed_token(tables,lex,utf,token):
++    if not 0<=lex<31 or not 0<=utf<tables['bridge_table'].shape[0]:raise ValueError('invalid suppression state')
++    if not 0<=token<len(tables['token_prefix_id']):raise ValueError('invalid suppression token')
++    words=0;hit=NO_HIT
++    value=int(tables['bridge_table'][utf,tables['token_prefix_id'][token]])
++    utf=value&511
++    for j in range((value>>9)&3):
++        lex,n,h=unpack(tables['lex_table'][lex,(value>>(11+4*j))&15])
++        if hit==NO_HIT and h!=NO_HIT:hit=words+h
++        words+=n
++    body=int(tables['token_body_id'][token])
++    lex,n,h=unpack(tables['body_table'][lex,body])
++    if hit==NO_HIT and h!=NO_HIT:hit=words+h
++    words+=n
++    if tables['body_nonempty'][body]:utf=int(tables['body_tail'][body])
++    return lex,utf,words,hit
++
++def advance(tables,state,token_ids):
++    lex,utf=state
++    for token in token_ids:lex,utf,_,_=feed_token(tables,lex,utf,int(token))
++    return lex,utf
++
++
++from functools import lru_cache
++import os
++
++@lru_cache(maxsize=1)
++def get_tables():
++    path = os.environ.get("SPARK_DS41F_PHRASE_TABLES")
++    if not path:
++        raise ValueError("Missing SPARK_DS41F_PHRASE_TABLES")
++    return load_tables(path)
+--- a/vllm/v1/worker/gpu/sample/sampler.py
++++ b/vllm/v1/worker/gpu/sample/sampler.py
+@@ -16,6 +16,7 @@
+ from vllm.v1.worker.gpu.input_batch import InputBatch, get_num_sampled_and_rejected
+ from vllm.v1.worker.gpu.metrics.logits import get_num_nans
+ from vllm.v1.worker.gpu.sample.bad_words import BadWordsState
++from vllm.v1.worker.gpu.sample.phrase_suppression import PhraseSuppressionState
+ from vllm.v1.worker.gpu.sample.gumbel import gumbel_sample
+ from vllm.v1.worker.gpu.sample.logit_bias import LogitBiasState
+ from vllm.v1.worker.gpu.sample.logprob import (
+@@ -53,6 +54,7 @@
+         self.penalties_state = PenaltiesState(req_states)
+         self.logit_bias_state = LogitBiasState(max_num_reqs, device)
+         self.bad_words_state = BadWordsState(req_states)
++        self.phrase_suppression_state = PhraseSuppressionState(req_states)
+         self.logprob_token_ids_state = LogprobTokenIdsState(max_num_reqs, device)
+         self.thinking_budget_state = ThinkingBudgetState(req_states, reasoning_config)
+         self.trace_replay_state = (
+@@ -72,6 +74,7 @@
+         self.penalties_state.add_request(req_idx, sampling_params)
+         self.logit_bias_state.add_request(req_idx, prompt_len, sampling_params)
+         self.bad_words_state.add_request(req_idx, sampling_params)
++        self.phrase_suppression_state.add_request(req_idx, prompt_len, sampling_params)
+         self.logprob_token_ids_state.add_request(req_idx, sampling_params)
+         self.thinking_budget_state.add_request(req_idx, sampling_params)
+         if self.trace_replay_state is not None:
+@@ -83,6 +86,7 @@
+             self.logit_bias_state.use_logit_bias[req_idx]
+             or self.penalties_state.use_penalty[req_idx]
+             or self.bad_words_state.num_bad_words.np[req_idx] > 0
++            or self.phrase_suppression_state.use_suppression[req_idx]
+             or (
+                 self.thinking_budget_state.enabled
+                 and self.thinking_budget_state.use_thinking_budget[req_idx]
+@@ -98,6 +102,7 @@
+         self.penalties_state.apply_staged_writes()
+         self.logit_bias_state.apply_staged_writes()
+         self.bad_words_state.apply_staged_writes()
++        self.phrase_suppression_state.apply_staged_writes()
+         self.logprob_token_ids_state.apply_staged_writes()
+         self.thinking_budget_state.apply_staged_writes()
+         if self.trace_replay_state is not None:
+@@ -244,6 +249,11 @@
+             idx_mapping_np,
+             input_ids,
+             expanded_local_pos,
++        )
++
++        self.phrase_suppression_state.apply(
++            logits, expanded_idx_mapping, idx_mapping, idx_mapping_np,
++            input_ids, expanded_local_pos,
+         )
+ 
+         # Force the reasoning end marker once a request's thinking budget is

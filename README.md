@@ -1,3 +1,5 @@
+Owner-authorized [prefix recovery correction](docs/prefix-recovery.md): full Let me prefix, 300-word temporary mask, and protected retries.
+
 Owner-authorized [token-aware suppression trial](docs/token-aware-suppression.md) corrects the temporary phrase guard on this ring; staged live qualification is required.
 
 Owner-authorized [temporary phrase intervention experiment](docs/temporary-phrases.md) is enabled on this ring; existing recovery and all unrelated settings are preserved.
