@@ -1,4 +1,4 @@
-Owner-authorized [prefix recovery correction](docs/prefix-recovery.md): full Let me prefix, 300-word temporary mask, and protected retries.
+Owner-authorized [prefix recovery correction](docs/prefix-recovery.md): full Let me prefix, 2,000-word temporary mask, and protected retries.
 
 Staged Ring2 [token-aware temporary suppression](docs/token-aware-suppression.md) candidate: deployment requires Ring1's full-hour gate; M64 and unrelated capabilities are preserved.
 

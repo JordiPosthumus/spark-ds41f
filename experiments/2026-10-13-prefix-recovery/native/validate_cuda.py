@@ -47,7 +47,7 @@ vocab=len(tables['token_prefix_id']);device=torch.device('cuda:0')
 assert torch.cuda.is_available()
 req=types.SimpleNamespace(
     max_num_reqs=4,vocab_size=vocab,device=device,
-    all_token_ids=types.SimpleNamespace(gpu=torch.zeros((4,1024),device=device,dtype=torch.int32)),
+    all_token_ids=types.SimpleNamespace(gpu=torch.zeros((4,8192),device=device,dtype=torch.int32)),
     total_len=types.SimpleNamespace(gpu=torch.zeros(4,device=device,dtype=torch.int32)),
 )
 start=time.perf_counter();holder=native.PhraseSuppressionState(req);torch.cuda.synchronize()
@@ -64,8 +64,8 @@ def step_cpu(state,token):
     if token in controls or token < 0 or token >= vocab:return lex,utf,words,False
     if lex==31:return state
     lx,ut,n,bad=runtime.feed_token(tables,lex,utf,int(token))
-    if token==30 and bad!=255 and words+bad<=300:return 31,utf,words,True
-    return lx,ut,min(300,words+n),words+n<300
+    if token==30 and bad!=255 and words+bad<=2000:return 31,utf,words,True
+    return lx,ut,min(2000,words+n),words+n<2000
 
 @lru_cache(maxsize=256)
 def expected_mask(lex,utf,words,active,allow_defer=True):
@@ -76,7 +76,7 @@ def expected_mask(lex,utf,words,active,allow_defer=True):
                 if lex==31:mask[tok]=True
                 else:
                     _,_,_,bad=runtime.feed_token(tables,lex,utf,tok)
-                    mask[tok]=bad!=255 and words+bad<=300 and not (tok==30 and allow_defer)
+                    mask[tok]=bad!=255 and words+bad<=2000 and not (tok==30 and allow_defer)
     return mask
 
 def set_output(slot,ids):
@@ -176,13 +176,13 @@ try:
     add(0,text['hmm'],max_tokens=1)
     check('last available token cannot start deferred marker',[(0,[])])
     add(0,initial_output=text['two_ninety_nine'])
-    check('word60 deferred marker cannot expire before control',[(0,text['draft_hmm']+[30,128825])])
+    check('word2000 deferred marker cannot expire before control',[(0,text['draft_hmm']+[30,128825])])
     add(0,text['hmm']+[byte['e2']])
     check('split UTF8 punctuation continuation',[(0,[byte['80'],byte['94']])])
     add(0,text['hmm']+[byte['c3']])
     check('split UTF8 letter is not word boundary',[(0,[byte['a9']])])
     add(0,initial_output=text['two_ninety_nine'])
-    check('word60 remains protected and word61 free',[(0,text['draft_hmm']+text['space']+text['draft_hmm'])])
+    check('word2000 remains protected and word2001 free',[(0,text['draft_hmm']+text['space']+text['draft_hmm'])])
     add(0,initial_output=text['three_hundred'])
     check('TTL expired in committed output',[(0,text['draft_hmm'])])
     # Cancellation and immediate slot reuse before staged writes are flushed.

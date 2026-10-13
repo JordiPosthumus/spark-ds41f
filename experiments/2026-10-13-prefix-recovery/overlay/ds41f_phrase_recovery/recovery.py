@@ -30,12 +30,12 @@ class RecoveryConfig:
     normal_holdback_tokens: int = 128
     release_misses: int = 2
     temporary_phrases: bool = False
-    temporary_words: int = 300
+    temporary_words: int = 2000
 
     def __post_init__(self):
         if self.mode not in {"off", "observe", "recover", "guard", "auto-recover"}:
             raise ValueError("mode")
-        if type(self.temporary_phrases) is not bool or self.temporary_words != 300:
+        if type(self.temporary_phrases) is not bool or self.temporary_words != 2000:
             raise ValueError("temporary phrase policy")
         if type(self.adaptive) is not bool:
             raise ValueError("adaptive")
@@ -554,7 +554,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 work_params = copy.deepcopy(params)
                 work_params.output_kind = type(params.output_kind).DELTA
                 # A retry must not discard the restriction that helps it escape.
-                # Rewind the lexical tracker first, then start a fresh 300-word
+                # Rewind the lexical tracker first, then start a fresh 2000-word
                 # mask on the retained prefix. The existing retry cap still applies.
                 if temporary_enabled:
                     temporary_active = True
