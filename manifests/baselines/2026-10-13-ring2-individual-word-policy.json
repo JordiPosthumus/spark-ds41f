@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "baseline": "2026-10-13-ring2-individual-word-policy",
+  "base_recipe": "464f59fae680a270e228fdfd3c1fbafec9928819",
+  "delta": "Individual Let/Me words and explicitly listed Latin/Cyrillic variants during the existing loop protection window",
+  "policy": "experiments/2026-10-13-individual-word-policy/tables/bad_words.json",
+  "validation": "Native tokenizer encoding and limits checked; owner conducts blocking evaluation; verify serving availability after deployment",
+  "preserved": [
+    "runtime code",
+    "image",
+    "kernels",
+    "temperature",
+    "detector",
+    "2000-word expiry",
+    "retries",
+    "context",
+    "concurrency",
+    "images",
+    "memory guards"
+  ]
+}
