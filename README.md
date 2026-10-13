@@ -1,3 +1,5 @@
+Owner-authorized [temporary phrase intervention experiment](docs/temporary-phrases.md) is enabled on this ring; existing recovery and all unrelated settings are preserved.
+
 Owner fork: [server-side phrase-density recovery](docs/phrase-density-recovery.md) replaces permanent phrase bans on Ring 2; its accepted M64 speed improvement and all unrelated settings are retained.
 
 # spark-ds41f

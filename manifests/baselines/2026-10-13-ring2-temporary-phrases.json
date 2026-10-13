@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-13-ring2-temporary-phrases",
+  "status": "owner-authorized-experiment",
+  "base_commit": "b338c70580444220751b4a4c627af496a938a597",
+  "previous_baseline": "2026-10-12-ring2-phrase-recovery",
+  "runtime_delta": "Temporary exact phrase bans on sustained targeted repetition, 60-word expiry at native chunk boundary. API source mounts and feature flag only.",
+  "preserved": "All unrelated settings, model/image identities, kernels, memory guards, output/context/concurrency, caches and image support.",
+  "validation": "13 offline mechanism/regression tests; live native validation required before admission. No new full performance benchmark claimed.",
+  "rollback": "b338c70580444220751b4a4c627af496a938a597",
+  "experiment": "experiments/2026-10-13-temporary-phrases"
+}
