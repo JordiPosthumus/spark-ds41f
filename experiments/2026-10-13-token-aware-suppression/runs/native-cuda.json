@@ -1,0 +1,200 @@
+{
+  "initialization_seconds": 0.002371738024521619,
+  "cuda_device": "NVIDIA GB10",
+  "tests": [
+    {
+      "name": "canonical newline leak and mixed active/inactive requests",
+      "rows": 4,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "all speculative prefixes and bonus rows",
+      "rows": 3,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "unreachable negative draft placeholders",
+      "rows": 4,
+      "masked_entries": 0,
+      "passed": true
+    },
+    {
+      "name": "accepted prefix only; rejected suffix forgotten",
+      "rows": 1,
+      "masked_entries": 0,
+      "passed": true
+    },
+    {
+      "name": "multiword whitespace phrase across drafts",
+      "rows": 3,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "control 1 inside speculative batch",
+      "rows": 4,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "control 128822 inside speculative batch",
+      "rows": 4,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "control 128825 inside speculative batch",
+      "rows": 4,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "direct DSML prefix and control resolution",
+      "rows": 5,
+      "masked_entries": 189822,
+      "passed": true
+    },
+    {
+      "name": "committed deferred prefix permits controls only",
+      "rows": 1,
+      "masked_entries": 129277,
+      "passed": true
+    },
+    {
+      "name": "last available token cannot start deferred marker",
+      "rows": 1,
+      "masked_entries": 60546,
+      "passed": true
+    },
+    {
+      "name": "word60 deferred marker cannot expire before control",
+      "rows": 5,
+      "masked_entries": 189822,
+      "passed": true
+    },
+    {
+      "name": "split UTF8 punctuation continuation",
+      "rows": 3,
+      "masked_entries": 258475,
+      "passed": true
+    },
+    {
+      "name": "split UTF8 letter is not word boundary",
+      "rows": 2,
+      "masked_entries": 128933,
+      "passed": true
+    },
+    {
+      "name": "word60 remains protected and word61 free",
+      "rows": 6,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "TTL expired in committed output",
+      "rows": 3,
+      "masked_entries": 0,
+      "passed": true
+    },
+    {
+      "name": "cancel and immediate inactive reuse in same batch",
+      "rows": 3,
+      "masked_entries": 0,
+      "passed": true
+    },
+    {
+      "name": "multiple removes and active reuse before staged flush",
+      "rows": 1,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "preemption and readmission with retained output",
+      "rows": 3,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "noncontiguous reordered request slots",
+      "rows": 5,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "same committed state applied twice",
+      "rows": 2,
+      "masked_entries": 60545,
+      "passed": true
+    },
+    {
+      "name": "invalid internal metadata rejected",
+      "passed": true
+    },
+    {
+      "name": "constrained sampling and deferred-prefix stop rejected by worker",
+      "passed": true
+    },
+    {
+      "name": "unrelated custom stop token preserved",
+      "passed": true
+    },
+    {
+      "name": "sampler-only CUDA graph replay",
+      "passed": true
+    }
+  ],
+  "source_sha256": {
+    "phrase_suppression_tables.py": "c37110378cd45c9e52a2ffaf297f240402a67f741b65e4b51d220fa93c224811",
+    "phrase_suppression.py": "5a65a34ca366756bc1472de8b5a0310bf41a9a9469429a31d5de70a6c44002b6",
+    "sampler.py": "57493381811a33259589d8ed047e8e6704f80c8e12c67904736f41ab88adf49a"
+  },
+  "table_archive_sha256": "cfdd78aa300edb3fe1f50ebb131bd4b0e2b2c4a967f904d10ceb60227e63d0ca",
+  "note": "Synthetic kernel validation only; not production stability or end-to-end rescue evidence.",
+  "serialization": {
+    "passed": true,
+    "cases": [
+      {
+        "skip_clone": false,
+        "deepcopy": true,
+        "clone": true,
+        "msgpack": true,
+        "default_none": true
+      },
+      {
+        "skip_clone": true,
+        "deepcopy": true,
+        "clone": true,
+        "msgpack": true,
+        "default_none": true
+      }
+    ],
+    "msgspec_version": "0.21.1"
+  },
+  "timing": [
+    {
+      "label": "inactive one request",
+      "iterations": 100,
+      "rows": 1,
+      "gpu_ms_per_apply": 0.0015884800255298614,
+      "wall_ms_per_apply": 0.0018760300008580089
+    },
+    {
+      "label": "active one request",
+      "iterations": 100,
+      "rows": 1,
+      "gpu_ms_per_apply": 0.021986560821533205,
+      "wall_ms_per_apply": 0.022099430207163095
+    },
+    {
+      "label": "active speculative rows",
+      "iterations": 100,
+      "rows": 3,
+      "gpu_ms_per_apply": 0.022202880382537843,
+      "wall_ms_per_apply": 0.022303919540718198
+    }
+  ],
+  "passed": true,
+  "peak_allocated_bytes": 8828928
+}

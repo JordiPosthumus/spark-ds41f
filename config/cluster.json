@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-13-ring1-temporary-phrases",
+  "promoted_baseline": "2026-10-13-ring1-token-aware-suppression",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -45,7 +45,7 @@
         "rw"
       ],
       [
-        "{home}/r6g-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/native/vllm/v1/worker/gpu/model_runner.py",
         "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
         "ro"
       ],
@@ -80,13 +80,38 @@
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-temporary-phrases/overlay/serving.py",
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/overlay/serving.py",
         "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-temporary-phrases/overlay/ds41f_phrase_recovery",
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/overlay/ds41f_phrase_recovery",
         "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_phrase_recovery",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/native/vllm/sampling_params.py",
+        "/opt/spark3/candidate/vllm/vllm/sampling_params.py",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/native/vllm/v1/worker/gpu/sample/sampler.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/sampler.py",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/native/vllm/v1/worker/gpu/sample/phrase_suppression.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/phrase_suppression.py",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/native/vllm/v1/worker/gpu/sample/phrase_suppression_tables.py",
+        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/phrase_suppression_tables.py",
+        "ro"
+      ],
+      [
+        "{home}/spark-ds41f/experiments/2026-10-13-token-aware-suppression/tables",
+        "/opt/spark3/phrase-suppression-tables",
         "ro"
       ]
     ]
@@ -193,7 +218,8 @@
     "SPARKNET_ROCE_ALLREDUCE_DISPATCH_MAX_BYTES": "2097152",
     "VLLM_GREEDY_VERIFICATION": "1",
     "SPARK_DS41F_LOOP_RECOVERY_MODE": "auto-recover",
-    "SPARK_DS41F_TEMPORARY_PHRASES": "1"
+    "SPARK_DS41F_TEMPORARY_PHRASES": "1",
+    "SPARK_DS41F_PHRASE_TABLES": "/opt/spark3/phrase-suppression-tables"
   },
   "serve_args": [
     "/models",
@@ -271,7 +297,7 @@
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "temporary-phrases-ring1",
+    "branch": "phrase-suppression-correction-ring1",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
@@ -280,5 +306,5 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring1-temporary-upstreams.lock.json"
+  "upstreams_config": "config/ring1-token-aware-upstreams.lock.json"
 }
