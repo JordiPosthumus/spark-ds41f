@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-13-ring2-dynamic-word-lpm",
+  "promoted_baseline": "2026-10-13-ring2-without-loop-protection",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -45,7 +45,7 @@
         "rw"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/model_runner.py",
+        "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
         "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
         "ro"
       ],
@@ -77,56 +77,6 @@
       [
         "/home/jordi/spark-lab/2026-10-12-ring2-baseline/baseline-overlay/overlay/greedy/vllm/models/deepseek_v4_1/tilelang/moe.py",
         "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/moe.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/overlay/serving.py",
-        "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/overlay/ds41f_phrase_recovery",
-        "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_phrase_recovery",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/sampling_params.py",
-        "/opt/spark3/candidate/vllm/vllm/sampling_params.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/sampler.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/sampler.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/loop_protection.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/loop_protection.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/loop_protection_tables.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/loop_protection_tables.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/tables",
-        "/opt/spark3/phrase-suppression-tables",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/bad_words.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/bad_words.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu_worker.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu_worker.py",
-        "ro"
-      ],
-      [
-        "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/dynamic_bad_words.py",
-        "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/dynamic_bad_words.py",
         "ro"
       ]
     ]
@@ -231,10 +181,7 @@
     "VLLM_USE_V2_MODEL_RUNNER": "1",
     "XDG_CACHE_HOME": "/cache/kkref/jit",
     "SPARKNET_ROCE_ALLREDUCE_DISPATCH_MAX_BYTES": "2097152",
-    "VLLM_GREEDY_VERIFICATION": "1",
-    "SPARK_DS41F_LOOP_RECOVERY_MODE": "auto-recover",
-    "SPARK_DS41F_TEMPORARY_PHRASES": "1",
-    "SPARK_DS41F_PHRASE_TABLES": "/opt/spark3/phrase-suppression-tables"
+    "VLLM_GREEDY_VERIFICATION": "1"
   },
   "serve_args": [
     "/models",
@@ -312,7 +259,7 @@
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "dynamic-word-lpm-ring2",
+    "branch": "remove-loop-protection-ring2",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
@@ -321,6 +268,6 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring2-dynamic-word-lpm-upstreams.lock.json",
+  "upstreams_config": "config/ring2-without-loop-protection-upstreams.lock.json",
   "nodes_config": "config/nodes.json"
 }

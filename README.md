@@ -1,10 +1,4 @@
-Owner-authorized [prefix recovery correction](docs/prefix-recovery.md): full Let me prefix, 2,000-word temporary mask, and protected retries.
-
-Staged Ring2 [token-aware temporary suppression](docs/token-aware-suppression.md) candidate: deployment requires Ring1's full-hour gate; M64 and unrelated capabilities are preserved.
-
-Owner-authorized [temporary phrase intervention experiment](docs/temporary-phrases.md) is enabled on this ring; existing recovery and all unrelated settings are preserved.
-
-Owner fork: [server-side phrase-density recovery](docs/phrase-density-recovery.md) replaces permanent phrase bans on Ring 2; its accepted M64 speed improvement and all unrelated settings are retained.
+Owner-directed [removal of all loop protection](docs/loop-protection-removed.md) is the current configuration. Historical loop-protection experiments are inactive.
 
 # spark-ds41f
 
