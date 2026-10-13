@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "baseline": "2026-10-13-ring1-word-alarm-notice",
+  "base_recipe": "abcf1d44d0358a6b94a099c7326e0ab427503748",
+  "delta": "One shared word-family policy: four same-family hits in 50 words enable all configured native bad_words for existing 2000-word window; inject owner sentence once per alarm continuation; rewind to first-hit native chunk checkpoint before inserting reminder; emit labelled server notice directly in reasoning SSE without parser/token-accounting changes",
+  "policy": "experiments/2026-10-13-word-alarm/tables/word_policy.json",
+  "validation": "Focused detector and policy checks; owner evaluates generation behavior; verify serving and all-rank source identity",
+  "preserved": [
+    "native matcher",
+    "runtime image",
+    "GPU kernels",
+    "retries",
+    "temperature",
+    "2000-word expiry",
+    "capacity",
+    "memory guards"
+  ],
+  "interjection": "I must not get stuck in a thinking loop."
+}

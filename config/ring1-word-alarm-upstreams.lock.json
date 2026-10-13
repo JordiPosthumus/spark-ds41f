@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_from_baseline": "2026-10-13-ring1-word-alarm",
+  "generated_from_baseline": "2026-10-13-ring1-word-alarm-notice",
   "sources": {
     "vllm": {
       "kind": "git",

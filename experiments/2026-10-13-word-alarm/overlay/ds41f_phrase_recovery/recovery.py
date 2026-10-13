@@ -1,8 +1,8 @@
-"""Offline, default-off server-side recovery prototype for a vLLM engine client.
+"""Server-side reasoning alarm and native generation recovery.
 
-Wraps the pre-parser RequestOutput iterator; never edits live KV or worker state.
-Only vanilla single-choice, unpenalized reasoning is initially eligible. Every
-unsupported option falls through unchanged. No live integration is installed.
+Wrap the pre-parser RequestOutput iterator without editing live KV/worker state.
+Eligible reasoning streams may rewind and receive the configured continuation
+hint. Labelled server notices travel as sideband metadata to the SSE adapter.
 """
 import asyncio
 from collections import deque
@@ -21,7 +21,7 @@ except ImportError:  # Standalone offline test invocation.
 
 @dataclass(frozen=True)
 class RecoveryConfig:
-    mode: str = "off"  # off / observe / recover / guard / auto-recover; no instruction injection
+    mode: str = "off"  # off / observe / recover / guard / auto-recover
     max_retries: int = 10
     holdback_tokens: int = 2048
     holdback_bytes: int = 32768
@@ -214,6 +214,12 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
         temporary_tracker = temporary_token_tracker_factory()
     else:
         temporary_tracker = None
+    reminder = None
+    if temporary_enabled:
+        from .temporary_phrases import word_policy
+        reminder = word_policy()[0].get("interjection")
+    guidance_tokens_total = 0
+    last_reminder_injected = False
     temporary_active = False
     temporary_counter = WordCounter()
     temporary_activations = 0
@@ -228,6 +234,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
     # Native chunk checkpoints retain token coordinates/fence state only, never
     # output text. Auto recovery may reuse these after reasoning was published.
     checkpoints = {}
+    alarm_checkpoints = {}
     auto_recover = config.mode == "auto-recover"
     published = 0
     pending = deque()
@@ -251,6 +258,45 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
     close_task = None
     read_task = None
     maximum_retained_tokens = maximum_retained_bytes = maximum_retained_chunks = 0
+
+    def protected_prompt(remaining):
+        nonlocal guidance_tokens_total, last_reminder_injected
+        guide_ids = list(reminder["token_ids"]) if reminder else []
+        if guide_ids and remaining <= len(guide_ids):
+            event("alarm_reminder_skipped", reason="output_budget", tokens=len(guide_ids))
+            guide_ids = []
+        last_reminder_injected = bool(guide_ids)
+        if guide_ids:
+            guidance_tokens_total += len(guide_ids)
+            event("alarm_reminder_injected", intervention=temporary_activations,
+                  tokens=len(guide_ids), source="owner_configured_continuation_hint",
+                  emitted_to_client=True, client_representation="labelled_server_notice")
+        # The hint belongs to this continuation, not to accepted model output.
+        # Rebuild tracker state from the actual prefix used by this attempt.
+        # Earlier hints are not repeatedly copied into future continuations.
+        retained = accepted_ids + guide_ids
+        temporary_tracker.rewind(retained)
+        return retry_prompt(prompt, retained), remaining - len(guide_ids)
+
+    def alarm_notice(raw):
+        # A sideband notice, not fabricated native text/tokens. The chat serving
+        # adapter serializes it directly as labelled reasoning, outside the
+        # model parser and all sampling/output-token accounting.
+        note = copy.copy(raw)
+        note.request_id = request_id
+        note.finished = False
+        note.outputs = []
+        note.ds41f_discarded_completion_tokens = unpublished_discarded
+        for name, value in (original_metadata or {}).items():
+            setattr(note, name, value)
+        note.ds41f_loop_notice = (
+            '\n\n[Server: loop protection activated. Rewound the model context and '
+            'inserted reminder: "I must not get stuck in a thinking loop."]\n\n'
+            if last_reminder_injected else
+            '\n\n[Server: loop protection activated. Rewound the model context; '
+            'reminder omitted because the remaining output budget is too small.]\n\n')
+        event("alarm_notice_emitted", reminder_injected=last_reminder_injected)
+        return note
 
     def public(raw):
         # The chat API derives its usage from the outputs it receives. It must
@@ -376,6 +422,8 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 # would differ from the already-streamed parser history.
                 if auto_recover and recovery_armed and not phase.partial_boundary:
                     checkpoints[start] = Checkpoint(start, fence)
+                    if temporary_detector is not None and not temporary_active:
+                        alarm_checkpoints[start] = Checkpoint(start, fence)
                 pending.append(Pending(result, start, len(accepted_ids), len(output.text.encode()), fence))
                 pending_bytes += pending[-1].byte_count
                 crossed_boundary = phase.feed(output.text, ids)
@@ -384,6 +432,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 if crossed_boundary or naturally_finished:
                     recovery_armed = False
                     checkpoints.clear()
+                    alarm_checkpoints.clear()
                 if naturally_finished:
                     # Mark before yielding its final chunk: consumers commonly
                     # close immediately after that yield, without requesting one
@@ -406,8 +455,25 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                             temporary_detector.restore_fence(detector.fence_state())
                 elif temporary_detector is not None and recovery_armed and temporary_activations < config.max_retries:
                     temporary_detector.feed(output.text, start, len(accepted_ids))
+                    # Keep only the native chunk checkpoints associated with
+                    # the last 50 word starts, plus an unfinished word. This is
+                    # bounded even when one word spans many streamed chunks.
+                    rows = list(getattr(temporary_detector, "rows", ()))
+                    needed = {row[2] for row in rows[-50:]}
+                    if getattr(temporary_detector, "word", None) is not None:
+                        needed.add(temporary_detector.word_start)
+                    if temporary_detector.triggered:
+                        needed.add(temporary_detector.evidence.get("rewind_start_token"))
+                    alarm_checkpoints = {k: v for k, v in alarm_checkpoints.items() if k in needed}
                     if temporary_detector.triggered and not phase.partial_boundary:
-                        transition = "activate"
+                        target = temporary_detector.evidence.get("rewind_start_token")
+                        if target in alarm_checkpoints:
+                            transition = "activate"
+                        else:
+                            event("alarm_activation_skipped", reason="rewind_checkpoint_unavailable")
+                            temporary_detector = temporary_trigger_factory()
+                            temporary_detector.restore_fence(detector.fence_state())
+                            alarm_checkpoints.clear()
                 if phase.partial_boundary and transition == "activate":
                     transition = None
                 if recovery_armed:
@@ -500,18 +566,39 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
             if transition is not None and retry_checkpoint is None and not terminal:
                 await close_attempt(True)
                 assert transition == "activate"
+                alarm_checkpoint = alarm_checkpoints[temporary_detector.evidence["rewind_start_token"]]
+                boundary = alarm_checkpoint.start
+                removed = len(accepted_ids) - boundary
+                unpublished_discarded += sum(p.end-p.start for p in pending if p.start >= boundary)
+                discarded_generated += removed
+                accepted_ids = accepted_ids[:boundary]
+                pending = deque(p for p in pending if p.end <= boundary)
+                pending_bytes = sum(p.byte_count for p in pending)
+                checkpoints = {k: v for k, v in checkpoints.items() if k < boundary}
+                alarm_checkpoints.clear()
+                detector = detector_factory()
+                holdback.reset()
+                weak_detector = weak_detector_factory(holdback.update) if config.adaptive else None
+                if alarm_checkpoint.fence is not None and hasattr(detector, "restore_fence"):
+                    detector.restore_fence(alarm_checkpoint.fence)
+                    if weak_detector is not None:
+                        weak_detector.restore_fence(alarm_checkpoint.fence)
+                phase = PhaseGuard(boundary_token_sequences)
+                event("alarm_context_rewound", retained_tokens=boundary,
+                      removed_model_tokens=removed, first_hit_word=temporary_detector.evidence["first_hit_word"],
+                      prior_visible_text_retracted=False, checkpoint_kind="native_chunk_before_first_hit")
                 temporary_active = True
                 temporary_activations += 1
                 temporary_counter = WordCounter()
-                event("temporary_phrases_activated", intervention=temporary_activations,
-                      word_limit=config.temporary_words, protected_start_token=len(accepted_ids),
-                      **temporary_detector.evidence)
-                # Continue exactly after committed output; do not rewind or replay
-                # tools. The outer parser keeps its state across this boundary.
-                current_prompt = retry_prompt(prompt, accepted_ids)
+                # Continue the rewound prefix with the owner-provided hint.
+                # The outer parser keeps its state; no hint is emitted as model text.
                 work_params = copy.deepcopy(params)
                 work_params.output_kind = type(params.output_kind).DELTA
-                work_params.max_tokens = params.max_tokens - observed_generated
+                current_prompt, work_params.max_tokens = protected_prompt(
+                    params.max_tokens - observed_generated)
+                event("temporary_phrases_activated", intervention=temporary_activations,
+                      word_limit=config.temporary_words, protected_start_token=temporary_tracker.offset,
+                      **temporary_detector.evidence)
                 if temporary_active:
                     work_params._ds41f_loop_protection = temporary_tracker.begin()
                     work_params.bad_words = list(temporary_tracker.phrases)
@@ -531,6 +618,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 temporary_detector = temporary_trigger_factory() if temporary_enabled else None
                 if temporary_detector is not None and hasattr(detector, "fence_state"):
                     temporary_detector.restore_fence(detector.fence_state())
+                yield alarm_notice(result)
                 continue
             if retry_checkpoint is not None:
                 await close_attempt(True)
@@ -539,6 +627,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 discarded_generated += len(accepted_ids)-boundary
                 accepted_ids = accepted_ids[:boundary]
                 checkpoints = {k: v for k, v in checkpoints.items() if k < boundary}
+                alarm_checkpoints.clear()
                 pending = deque(p for p in pending if p.end <= boundary and p is not retry_checkpoint)
                 pending_bytes = sum(p.byte_count for p in pending)
                 retry_number += 1
@@ -562,16 +651,19 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                     temporary_active = True
                     temporary_activations += 1
                     temporary_counter = WordCounter()
+                    current_prompt, work_params.max_tokens = protected_prompt(
+                        params.max_tokens - (observed_generated if auto_recover else len(accepted_ids)))
                     work_params._ds41f_loop_protection = temporary_tracker.begin()
                     work_params.bad_words = list(temporary_tracker.phrases)
                     work_params._bad_words_token_ids = [list(x) for x in temporary_tracker.bad_ids]
                     event("temporary_phrases_activated", intervention=temporary_activations,
-                          word_limit=config.temporary_words, protected_start_token=len(accepted_ids),
+                          word_limit=config.temporary_words, protected_start_token=temporary_tracker.offset,
                           cause="loop_retry")
                 # Model context rewinds; already streamed reasoning stays visible.
                 # Charge all observed attempt tokens to the original request
                 # budget; never silently extend it for discarded model history.
-                work_params.max_tokens = params.max_tokens - (observed_generated if auto_recover else len(accepted_ids))
+                if not temporary_enabled:
+                    work_params.max_tokens = params.max_tokens - (observed_generated if auto_recover else len(accepted_ids))
                 seed = secrets.randbits(63)
                 while seed in seeds:
                     seed = secrets.randbits(63)
@@ -596,6 +688,8 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                       visible_reasoning_retained=published if auto_recover else 0,
                       remaining_output_budget=work_params.max_tokens,
                       prior_visible_text_retracted=False)
+                if temporary_enabled:
+                    yield alarm_notice(result)
                 continue
             if not terminal:
                 raise RuntimeError("engine iterator ended without final output")
@@ -621,6 +715,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                   temporary_continuations=continuations,
                   temporary_mask_violation_tokens=temporary_tracker.total_violations if temporary_tracker is not None else 0,
                   visible_completion_tokens=published,
+                  server_injected_guidance_tokens=guidance_tokens_total,
                   output_budget=params.max_tokens,
                   budget_policy="observed_attempt_tokens" if auto_recover else "retained_completion_tokens",
                   observed_generated_tokens=observed_generated,

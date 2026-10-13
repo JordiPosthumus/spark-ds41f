@@ -103,6 +103,8 @@ class TemporaryPhraseTrigger(CollapseDetector):
                 self.evidence = {
                     "rule": "word_family_4_in_50", "family": family,
                     "hits": len(hits),
+                    "first_hit_word": hits[0],
+                    "rewind_start_token": next(row[2] for row in recent if row[4] == hits[0]),
                     "family_counts": {name: len(values) for name, values in self._family_hits.items()},
                     "window_words": len(recent), "prose_words": sum(row[1] for row in recent),
                     "window_limit": width, "words_seen": self.words,
