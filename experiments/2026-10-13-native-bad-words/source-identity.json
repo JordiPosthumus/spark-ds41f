@@ -1,0 +1,20 @@
+{
+  "base_recipe": "921d53235ddd6a141170cdb6815691578a9cd971",
+  "base_files_sha256": {
+    "vllm/sampling_params.py": "e63c22e08fc80ee4a1f28739f5cffdcbaa7d66d592e4799ff4496b84b89c5675",
+    "vllm/v1/worker/gpu/model_runner.py": "f666622bef41a70e50713ea64cf37312ba1f11ee8c8c81ccc6ecfeb188f5689f",
+    "vllm/v1/worker/gpu/sample/bad_words.py": "a42d371c61bbaa4b323fd2fc88537b4cd1346abf7a78041575a14d9065dc7a7f",
+    "vllm/v1/worker/gpu/sample/loop_protection.py": null,
+    "vllm/v1/worker/gpu/sample/loop_protection_tables.py": null,
+    "vllm/v1/worker/gpu/sample/sampler.py": "57493381811a33259589d8ed047e8e6704f80c8e12c67904736f41ab88adf49a"
+  },
+  "candidate_files_sha256": {
+    "vllm/sampling_params.py": "8bb0ee862c5307810605b4b0f924d9fa13fac34231866129a3e2a5f7ef6de190",
+    "vllm/v1/worker/gpu/model_runner.py": "dde9a0e4285864faf2d15ae8cf798153a1216bde031a67971c750ea7ae23ec0d",
+    "vllm/v1/worker/gpu/sample/bad_words.py": "dba1fcaf8ecabc5b48e05abd4c4df91938764acb373a8413bbc69114e9e3dc3f",
+    "vllm/v1/worker/gpu/sample/loop_protection.py": "cd82fac52042a6892013967d786398603b16e1c4e4226d6042a1a63c7185c2ec",
+    "vllm/v1/worker/gpu/sample/loop_protection_tables.py": "12eb52ff8d72bec07e87220b052862cd09772bb95ec6839f20897d2ee97ade2c",
+    "vllm/v1/worker/gpu/sample/sampler.py": "4e3024c4bf6b18423a3c8143adf931d34e2790c1b0844ac25e5c42a36bd0a58e"
+  },
+  "status": "Candidate: GPU and live validation required before admission"
+}

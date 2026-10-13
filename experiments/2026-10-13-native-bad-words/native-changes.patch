@@ -1,0 +1,449 @@
+--- a/vllm/sampling_params.py
++++ b/vllm/sampling_params.py
+@@ -356,8 +356,8 @@
+     _bad_words_token_ids: list[list[int]] | None = None
+ 
+     # Server-owned continuation state; deliberately absent from OpenAI protocol.
+-    # (format version, lexical DFA state, streaming UTF-8 state).
+-    _ds41f_phrase_suppression: tuple[int, int, int] | None = None
++    # (version, word-in-progress flag, UTF-8 state, retained output suffix length).
++    _ds41f_loop_protection: tuple[int, int, int, int] | None = None
+ 
+     skip_reading_prefix_cache: bool | None = None
+     thinking_token_budget: int | None = None
+--- a/vllm/v1/worker/gpu/model_runner.py
++++ b/vllm/v1/worker/gpu/model_runner.py
+@@ -1314,7 +1314,7 @@
+         if req_idx is None:
+             return False
+         if self.sampler is not None:
+-            self.sampler.phrase_suppression_state.remove_request(req_idx)
++            self.sampler.loop_protection_state.remove_request(req_idx)
+         if self.pooling_runner is not None:
+             self.pooling_runner.remove_request(req_idx)
+         if self.pp_handler is not None:
+--- a/vllm/v1/worker/gpu/sample/bad_words.py
++++ b/vllm/v1/worker/gpu/sample/bad_words.py
+@@ -78,6 +78,8 @@
+         idx_mapping_np: np.ndarray,
+         input_ids: torch.Tensor,
+         expanded_local_pos: torch.Tensor,
++        protection_rows: torch.Tensor | None = None,
++        history_floor: torch.Tensor | None = None,
+     ) -> None:
+         max_num_bad_words = int(self.num_bad_words.np[idx_mapping_np].max())
+         if max_num_bad_words == 0:
+@@ -91,11 +93,12 @@
+             self.bad_word_offsets.gpu,
+             self.num_bad_words.gpu,
+             self.req_states.all_token_ids.gpu,
+-            self.req_states.prompt_len.gpu,
++            self.req_states.prompt_len.gpu if history_floor is None else history_floor,
+             self.req_states.total_len.gpu,
+             input_ids,
+             expanded_local_pos,
+             max_num_bad_words,
++            protection_rows,
+         )
+ 
+ 
+@@ -115,9 +118,16 @@
+     total_len_ptr,
+     input_ids_ptr,
+     expanded_local_pos_ptr,
++    protection_rows_ptr,
++    HAS_PROTECTION: tl.constexpr,
+ ):
+     token_idx = tl.program_id(0).to(tl.int64)
+     bw_idx = tl.program_id(1)
++
++    # Only lifetime gating; the upstream phrase matching below is unchanged.
++    if HAS_PROTECTION:
++        if not tl.load(protection_rows_ptr + token_idx):
++            return
+ 
+     req_state_idx = tl.load(expanded_idx_mapping_ptr + token_idx)
+     num_bad_words = tl.load(num_bad_words_ptr + req_state_idx)
+@@ -178,6 +188,7 @@
+     input_ids: torch.Tensor,
+     expanded_local_pos: torch.Tensor,
+     max_num_bad_words: int,
++    protection_rows: torch.Tensor | None = None,
+ ) -> None:
+     num_tokens = logits.shape[0]
+     _bad_words_kernel[(num_tokens, max_num_bad_words)](
+@@ -195,5 +206,6 @@
+         total_len,
+         input_ids,
+         expanded_local_pos,
++        protection_rows,
++        HAS_PROTECTION=protection_rows is not None,
+     )
+-
+--- /dev/null
++++ b/vllm/v1/worker/gpu/sample/loop_protection.py
+@@ -0,0 +1,217 @@
++"""Temporary lifetime gating for vLLM bad_words; never matches phrases or writes logits."""
++import os
++import numpy as np
++import torch
++from vllm.triton_utils import tl, triton
++from vllm.v1.worker.gpu.buffer_utils import StagedWriteTensor
++
++WORD_LIMIT = 2000
++_STATE_WIDTH = 9
++# word flag, UTF8 state, count, scan position, active, seed word flag,
++# seed UTF8 state, seed prompt length, protected request (including expired).
++
++@triton.jit
++def _advance_token(token, lex, utf, words, active,
++    token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
++    body_nonempty_ptr, body_tail_ptr, PREFIXES: tl.constexpr, BODIES: tl.constexpr):
++    old_lex, old_utf, old_words = lex, utf, words
++    use_token = active & (token != 1) & (token != 128822) & (token != 128825)
++    prefix = tl.load(token_prefix_ptr + token)
++    body_id = tl.load(token_body_ptr + token)
++    bridge = tl.load(bridge_ptr + utf * PREFIXES + prefix)
++    new_utf = bridge & 511
++    count = (bridge >> 9) & 3
++    for event in tl.static_range(3):
++        category = (bridge >> (11 + event * 4)) & 15
++        category = tl.where(event < count, category, 0)
++        step = tl.load(lex_ptr + lex * 3 + category)
++        lex = tl.where(event < count, step & 31, lex)
++        words += tl.where(event < count, (step >> 5) & 255, 0)
++    body_exists = tl.load(body_nonempty_ptr + body_id) != 0
++    step = tl.load(body_ptr + lex * BODIES + body_id)
++    lex = tl.where(body_exists, step & 31, lex)
++    words += tl.where(body_exists, (step >> 5) & 255, 0)
++    new_utf = tl.where(body_exists, tl.load(body_tail_ptr + body_id), new_utf)
++    return (tl.where(use_token, lex, old_lex),
++            tl.where(use_token, new_utf, old_utf),
++            tl.where(use_token, tl.minimum(words, 2000), old_words),
++            use_token & (words < 2000))
++
++@triton.jit
++def _update_committed(
++    idx_mapping_ptr, states_ptr, all_ids_ptr, all_ids_stride,
++    total_len_ptr, token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr,
++    body_ptr, body_nonempty_ptr, body_tail_ptr,
++    PREFIXES: tl.constexpr, BODIES: tl.constexpr,
++):
++    batch_row = tl.program_id(0)
++    req = tl.load(idx_mapping_ptr + batch_row)
++    if req < 0:
++        return
++    base = states_ptr + req * 9
++    active = tl.load(base + 4) != 0
++    if not active:
++        return
++    lex = tl.load(base)
++    utf = tl.load(base + 1)
++    words = tl.load(base + 2)
++    scan = tl.load(base + 3)
++    end = tl.load(total_len_ptr + req)
++    # Normally monotonic. Recompute from the immutable trusted seed if native
++    # accepted history contracts, instead of retaining rejected suffix state.
++    if scan > end:
++        lex = tl.load(base + 5)
++        utf = tl.load(base + 6)
++        scan = tl.load(base + 7)
++        words = 0
++    if end < scan:
++        return
++    while scan < end and active:
++        token = tl.load(all_ids_ptr + req * all_ids_stride + scan)
++        lex, utf, words, active = _advance_token(
++            token, lex, utf, words, active,
++            token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
++            body_nonempty_ptr, body_tail_ptr, PREFIXES, BODIES,
++        )
++        scan += 1
++    tl.store(base, lex)
++    tl.store(base + 1, utf)
++    tl.store(base + 2, words)
++    tl.store(base + 3, end)
++    tl.store(base + 4, active.to(tl.int32))
++
++
++@triton.jit
++def _protection_rows(rows_ptr, expanded_mapping_ptr, local_pos_ptr,
++    input_ids_ptr, states_ptr, token_prefix_ptr, token_body_ptr, bridge_ptr,
++    lex_ptr, body_ptr, body_nonempty_ptr, body_tail_ptr,
++    PREFIXES: tl.constexpr, BODIES: tl.constexpr, VOCAB: tl.constexpr):
++    row = tl.program_id(0)
++    req = tl.load(expanded_mapping_ptr + row)
++    if req < 0:
++        tl.store(rows_ptr + row, False)
++        return
++    base = states_ptr + req * 9
++    if tl.load(base + 8) == 0:
++        # Ordinary client bad_words must keep their standard lifetime.
++        tl.store(rows_ptr + row, True)
++        return
++    active = tl.load(base + 4) != 0
++    lex = tl.load(base)
++    utf = tl.load(base + 1)
++    words = tl.load(base + 2)
++    pos = tl.load(local_pos_ptr + row)
++    first = row - pos
++    for i in range(pos):
++        token = tl.load(input_ids_ptr + first + i + 1)
++        valid = (token >= 0) & (token < VOCAB)
++        active = active & valid
++        token = tl.where(valid, token, 1)
++        lex, utf, words, active = _advance_token(
++            token, lex, utf, words, active, token_prefix_ptr, token_body_ptr,
++            bridge_ptr, lex_ptr, body_ptr, body_nonempty_ptr, body_tail_ptr,
++            PREFIXES, BODIES)
++    tl.store(rows_ptr + row, active)
++
++class LoopProtectionState:
++    """No device synchronization and no extra launches for untracked batches."""
++
++    def __init__(self, req_states, max_rows):
++        self.req_states = req_states
++        self.use_protection = np.zeros(req_states.max_num_reqs, dtype=bool)
++        table_dir = os.environ.get("SPARK_DS41F_PHRASE_TABLES")
++        self.enabled = os.environ.get("SPARK_DS41F_TEMPORARY_PHRASES") == "1" and bool(table_dir)
++        self.tables = None
++        self._pending_resets = {}
++        if not self.enabled:
++            return
++        # Pure-CPU shared loader checks hashes, dimensions, native model IDs and
++        # fixed policy before any GPU allocation. Its final location is supplied
++        # by the compiler prototype; this is intentionally not a public setting.
++        from .loop_protection_tables import get_tables
++        if not table_dir:
++            raise ValueError("Loop protection requires validated tables")
++        arrays = get_tables()
++        expected = {
++            "token_prefix_id", "token_body_id", "bridge_table", "lex_table",
++            "body_table", "body_nonempty", "body_tail",
++        }
++        if not expected.issubset(arrays):
++            raise ValueError("Incomplete native phrase suppression tables")
++        self.vocab = len(arrays["token_prefix_id"])
++        self.n_utf, self.n_prefixes = arrays["bridge_table"].shape
++        self.n_lex, self.n_bodies = arrays["body_table"].shape
++        if self.vocab != req_states.vocab_size or self.n_lex != 2:
++            raise ValueError("Loop protection table/model mismatch")
++        if sum(arrays[name].nbytes for name in expected) > 64 * 1024 * 1024:
++            raise ValueError("Loop protection tables exceed memory bound")
++        self.tables = tuple(torch.from_numpy(np.array(arrays[name], copy=True)).to(
++            device=req_states.device
++        ) for name in (
++            "token_prefix_id", "token_body_id", "bridge_table", "lex_table",
++            "body_table", "body_nonempty", "body_tail",
++        ))
++        self.state = StagedWriteTensor(
++            (req_states.max_num_reqs, _STATE_WIDTH), dtype=torch.int32,
++            device=req_states.device,
++        )
++
++        self.row_flags = torch.empty(max_rows, dtype=torch.bool, device=req_states.device)
++        self.history_floor = StagedWriteTensor(
++            (req_states.max_num_reqs, 1), dtype=torch.int32, device=req_states.device)
++
++    def add_request(self, req_idx, prompt_len, sampling_params):
++        metadata = getattr(sampling_params, "_ds41f_loop_protection", None)
++        self.use_protection[req_idx] = False
++        if metadata is not None and not self.enabled:
++            raise ValueError("Loop protection request on disabled worker")
++        if not self.enabled:
++            return
++        seed = [0, 0, 0, int(prompt_len), 0, 0, 0, int(prompt_len), 0]
++        floor = int(prompt_len)
++        if metadata is not None:
++            from .loop_protection_tables import get_policy
++            phrases, ids = get_policy()
++            if (not isinstance(metadata, (tuple, list)) or len(metadata) != 4
++                    or any(type(x) is not int for x in metadata)):
++                raise ValueError("Invalid internal loop protection state")
++            version, lex, utf, tail = metadata
++            if (version != 2 or not 0 <= lex < self.n_lex or not 0 <= utf < self.n_utf
++                    or not 0 <= tail <= min(prompt_len, max(map(len, ids))-1)):
++                raise ValueError("Invalid loop protection seed")
++            if sampling_params.bad_words != phrases or sampling_params.bad_words_token_ids != ids:
++                raise ValueError("Native bad_words policy mismatch")
++            seed = [lex, utf, 0, prompt_len, 1, lex, utf, prompt_len, 1]
++            floor -= tail
++            self.use_protection[req_idx] = True
++        self._pending_resets[req_idx] = (seed, floor)
++
++    def remove_request(self, req_idx):
++        self.use_protection[req_idx] = False
++        if self.enabled:
++            self._pending_resets[req_idx] = ([0] * _STATE_WIDTH, 0)
++
++    def apply_staged_writes(self):
++        if self.enabled:
++            for req_idx, (seed, floor) in self._pending_resets.items():
++                self.state.stage_write(req_idx, 0, seed)
++                self.history_floor.stage_write(req_idx, 0, [floor])
++            self._pending_resets.clear()
++            self.state.apply_write()
++            self.history_floor.apply_write()
++
++    def rows(self, num_rows, expanded_idx_mapping, idx_mapping, idx_mapping_np,
++             input_ids, expanded_local_pos):
++        if not self.enabled or not np.any(self.use_protection[idx_mapping_np]):
++            return None, None
++        if num_rows > self.row_flags.numel():
++            raise ValueError("Loop protection expanded-row capacity exceeded")
++        _update_committed[(idx_mapping.shape[0],)](
++            idx_mapping, self.state.gpu, self.req_states.all_token_ids.gpu,
++            self.req_states.all_token_ids.gpu.stride(0), self.req_states.total_len.gpu,
++            *self.tables, self.n_prefixes, self.n_bodies, num_warps=1)
++        _protection_rows[(num_rows,)](
++            self.row_flags, expanded_idx_mapping, expanded_local_pos,
++            input_ids, self.state.gpu, *self.tables,
++            self.n_prefixes, self.n_bodies, self.vocab, num_warps=1)
++        return self.row_flags[:num_rows], self.history_floor.gpu
+--- /dev/null
++++ b/vllm/v1/worker/gpu/sample/loop_protection_tables.py
+@@ -0,0 +1,70 @@
++"""CPU-only loader and accepted-token state walker; NumPy, no torch dependency."""
++import hashlib,json,io
++from pathlib import Path
++import numpy as np
++
++NO_HIT=255
++BOUNDARY_IDS=frozenset((1,128822,128825))
++
++def load_tables(path):
++    path=Path(path)
++    if path.is_file():path=path.parent
++    manifest=json.loads((path/'metadata.json').read_text())
++    raw=(path/'tables.npz').read_bytes()
++    if manifest.get('format_version')!=2:raise ValueError('word-counter format mismatch')
++    if hashlib.sha256(raw).hexdigest()!=manifest['archive_sha256']:raise ValueError('word-counter tables hash mismatch')
++    with np.load(io.BytesIO(raw),allow_pickle=False) as data:
++        if set(data.files)!=set(manifest['tables']):raise ValueError('word-counter table names mismatch')
++        tables={k:data[k] for k in data.files}
++    for k,a in tables.items():
++        spec=manifest['tables'][k]
++        if list(a.shape)!=spec['shape'] or str(a.dtype)!=spec['dtype'] or a.nbytes!=spec['bytes']:raise ValueError('word-counter table shape/dtype mismatch')
++        a.flags.writeable=False
++    if tables['lex_table'].shape!=(2,3) or tables['token_prefix_id'].shape!=(129280,):raise ValueError('unexpected compiled vocabulary or lexer')
++    return tables
++
++def initial():return (0,0)
++
++def unpack(value):return int(value)&31,(int(value)>>5)&255,(int(value)>>13)&255
++
++def feed_token(tables,lex,utf,token):
++    if not 0<=lex<2 or not 0<=utf<tables['bridge_table'].shape[0]:raise ValueError('invalid word-counter state')
++    if not 0<=token<len(tables['token_prefix_id']):raise ValueError('invalid word-counter token')
++    words=0;hit=NO_HIT
++    value=int(tables['bridge_table'][utf,tables['token_prefix_id'][token]])
++    utf=value&511
++    for j in range((value>>9)&3):
++        lex,n,h=unpack(tables['lex_table'][lex,(value>>(11+4*j))&15])
++        if hit==NO_HIT and h!=NO_HIT:hit=words+h
++        words+=n
++    body=int(tables['token_body_id'][token])
++    lex,n,h=unpack(tables['body_table'][lex,body])
++    if hit==NO_HIT and h!=NO_HIT:hit=words+h
++    words+=n
++    if tables['body_nonempty'][body]:utf=int(tables['body_tail'][body])
++    return lex,utf,words,hit
++
++def advance(tables,state,token_ids):
++    lex,utf=state
++    for token in token_ids:lex,utf,_,_=feed_token(tables,lex,utf,int(token))
++    return lex,utf
++
++
++from functools import lru_cache
++import os
++
++@lru_cache(maxsize=1)
++def get_tables():
++    path = os.environ.get("SPARK_DS41F_PHRASE_TABLES")
++    if not path:
++        raise ValueError("Missing SPARK_DS41F_PHRASE_TABLES")
++    return load_tables(path)
++
++@lru_cache(maxsize=1)
++def get_policy():
++    root=Path(os.environ['SPARK_DS41F_PHRASE_TABLES'])
++    phrases=json.loads((root/'bad_words.json').read_text())
++    encoded=json.loads((root/'bad_words_token_ids.json').read_text())
++    if encoded['phrases'] != phrases:
++        raise ValueError('Native bad_words policy/tokenization mismatch')
++    return phrases, encoded['token_ids']
+--- a/vllm/v1/worker/gpu/sample/sampler.py
++++ b/vllm/v1/worker/gpu/sample/sampler.py
+@@ -16,7 +16,7 @@
+ from vllm.v1.worker.gpu.input_batch import InputBatch, get_num_sampled_and_rejected
+ from vllm.v1.worker.gpu.metrics.logits import get_num_nans
+ from vllm.v1.worker.gpu.sample.bad_words import BadWordsState
+-from vllm.v1.worker.gpu.sample.phrase_suppression import PhraseSuppressionState
++from vllm.v1.worker.gpu.sample.loop_protection import LoopProtectionState
+ from vllm.v1.worker.gpu.sample.gumbel import gumbel_sample
+ from vllm.v1.worker.gpu.sample.logit_bias import LogitBiasState
+ from vllm.v1.worker.gpu.sample.logprob import (
+@@ -54,7 +54,7 @@
+         self.penalties_state = PenaltiesState(req_states)
+         self.logit_bias_state = LogitBiasState(max_num_reqs, device)
+         self.bad_words_state = BadWordsState(req_states)
+-        self.phrase_suppression_state = PhraseSuppressionState(req_states)
++        self.loop_protection_state = LoopProtectionState(req_states, max_num_reqs * (num_speculative_tokens + 1))
+         self.logprob_token_ids_state = LogprobTokenIdsState(max_num_reqs, device)
+         self.thinking_budget_state = ThinkingBudgetState(req_states, reasoning_config)
+         self.trace_replay_state = (
+@@ -74,7 +74,7 @@
+         self.penalties_state.add_request(req_idx, sampling_params)
+         self.logit_bias_state.add_request(req_idx, prompt_len, sampling_params)
+         self.bad_words_state.add_request(req_idx, sampling_params)
+-        self.phrase_suppression_state.add_request(req_idx, prompt_len, sampling_params)
++        self.loop_protection_state.add_request(req_idx, prompt_len, sampling_params)
+         self.logprob_token_ids_state.add_request(req_idx, sampling_params)
+         self.thinking_budget_state.add_request(req_idx, sampling_params)
+         if self.trace_replay_state is not None:
+@@ -86,7 +86,7 @@
+             self.logit_bias_state.use_logit_bias[req_idx]
+             or self.penalties_state.use_penalty[req_idx]
+             or self.bad_words_state.num_bad_words.np[req_idx] > 0
+-            or self.phrase_suppression_state.use_suppression[req_idx]
++            or self.loop_protection_state.use_protection[req_idx]
+             or (
+                 self.thinking_budget_state.enabled
+                 and self.thinking_budget_state.use_thinking_budget[req_idx]
+@@ -102,7 +102,7 @@
+         self.penalties_state.apply_staged_writes()
+         self.logit_bias_state.apply_staged_writes()
+         self.bad_words_state.apply_staged_writes()
+-        self.phrase_suppression_state.apply_staged_writes()
++        self.loop_protection_state.apply_staged_writes()
+         self.logprob_token_ids_state.apply_staged_writes()
+         self.thinking_budget_state.apply_staged_writes()
+         if self.trace_replay_state is not None:
+@@ -242,18 +242,15 @@
+             expanded_local_pos,
+         )
+ 
+-        # Apply bad words masking in place.
++        # Our code supplies only lifetime/continuation-history information.
++        # vLLM's existing bad_words matcher performs all phrase blocking.
++        protection_rows, history_floor = self.loop_protection_state.rows(
++            logits.shape[0], expanded_idx_mapping, idx_mapping, idx_mapping_np,
++            input_ids, expanded_local_pos,
++        )
+         self.bad_words_state.apply_bad_words(
+-            logits,
+-            expanded_idx_mapping,
+-            idx_mapping_np,
+-            input_ids,
+-            expanded_local_pos,
+-        )
+-
+-        self.phrase_suppression_state.apply(
+-            logits, expanded_idx_mapping, idx_mapping, idx_mapping_np,
+-            input_ids, expanded_local_pos,
++            logits, expanded_idx_mapping, idx_mapping_np, input_ids,
++            expanded_local_pos, protection_rows, history_floor,
+         )
+ 
+         # Force the reasoning end marker once a request's thinking budget is
