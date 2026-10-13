@@ -78,6 +78,33 @@ class GuardTests(unittest.TestCase):
   self.assertEqual(guard.offset,len(retained));self.assertFalse(guard.active)
   expected=module.advance(module.get_tables(),module.initial(),retained)
   self.assertEqual(guard.begin(),(1,*expected));self.assertEqual(guard.violations,0);self.assertEqual(guard.total_violations,1)
+ def test_pending_control_freezes_words_utf_and_all_ordinary_escapes(self):
+  guard=TokenGuard();guard.begin();guard.feed(ids('safe '*59+'Hmm'))
+  self.assertEqual(guard.words,59);utf=guard.state[1];guard.feed([30])
+  self.assertEqual(guard.state,(31,utf));self.assertTrue(guard.pending_control)
+  self.assertEqual(guard.words,59);self.assertTrue(guard.active)
+  escapes=ids('x y ')+[30]
+  guard.feed(escapes)
+  self.assertEqual(guard.violations,len(escapes));self.assertEqual(guard.state,(31,utf))
+  self.assertEqual(guard.words,59);self.assertTrue(guard.active);self.assertTrue(guard.pending_control)
+ def test_pending_control_resolves_only_genuine_controls(self):
+  for control,resolution in [(128825,'tool_marker'),(128822,'terminal_control'),(1,'terminal_control')]:
+   guard=TokenGuard();guard.feed(ids('Hmm'));guard.begin();guard.feed([30]);guard.feed([control])
+   self.assertEqual(guard.control_prefix_resolution,resolution)
+   self.assertFalse(guard.active);self.assertFalse(guard.pending_control)
+   self.assertEqual(guard.finished,'reasoning_boundary');self.assertEqual(guard.violations,0)
+   self.assertEqual(guard.words,0)
+ def test_pending_natural_finish_evidence_and_rewind(self):
+  guard=TokenGuard();guard.feed(ids('Hmm'));guard.begin();guard.feed([30]);guard.finish('request_finished')
+  self.assertTrue(guard.evidence()['incomplete_control_prefix'])
+  self.assertIsNone(guard.evidence()['control_prefix_resolution'])
+  self.assertEqual(guard.evidence()['release_reason'],'request_finished')
+  guard.rewind(ids('Clean '));self.assertFalse(guard.pending_control)
+  self.assertNotEqual(guard.state[0],31)
+ def test_ordinary_less_than_is_not_a_control_prefix(self):
+  guard=TokenGuard();guard.feed(ids('normal'));guard.begin();guard.feed([30])
+  self.assertNotEqual(guard.state[0],31);self.assertFalse(guard.pending_control)
+  self.assertEqual(guard.words,1);self.assertEqual(guard.violations,0)
  def test_two_requests_isolate_state(self):
   a=TokenGuard();b=TokenGuard();a.feed(ids('Hmm'));a.begin();b.begin();a.feed(ids('.'))
   self.assertEqual(a.violations,1);self.assertEqual(b.words,0);self.assertEqual(b.state,(0,0))
@@ -95,8 +122,8 @@ class TriggerTests(unittest.TestCase):
    detector=TemporaryPhraseTrigger();detector.feed(text,0,len(text));self.assertFalse(detector.triggered)
 
 class IntegrationTests(unittest.IsolatedAsyncioTestCase):
- async def case(self,scripts,detector=PhraseDensity):
-  engine=Engine(scripts);events=[];visible=[];original=params();mm=object();prompt={'type':'multimodal','prompt_token_ids':[11,12],'mm_kwargs':mm}
+ async def case(self,scripts,detector=PhraseDensity,param_updates=None):
+  engine=Engine(scripts);events=[];visible=[];original=params();original.__dict__.update(param_updates or {});mm=object();prompt={'type':'multimodal','prompt_token_ids':[11,12],'mm_kwargs':mm}
   async for out in generate_with_recovery(engine,prompt,original,'test',config=RecoveryConfig(mode='auto-recover',normal_holdback_tokens=0,temporary_phrases=True,max_retries=1),detector_factory=detector,temporary_trigger_factory=Trigger,on_event=events.append,reasoning_ended=False):visible.append(out)
   return engine,events,visible,prompt,original
  async def test_activation_prefix_and_no_restart_at_expiry(self):
@@ -144,6 +171,37 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
   release=next(x for x in events if x['event']=='temporary_phrases_released')
   self.assertEqual(release['release_reason'],'request_closed');self.assertEqual(release['protected_words'],0)
   self.assertFalse(events[-1]['completed'])
+ async def test_conflicting_native_constraints_skip_only_temporary(self):
+  class Severe(PhraseDensity):
+   def feed(self,text,start,end):
+    return Detection(0,{'kind':'offline_test'}) if 'SEVERE' in text else None
+  for name,value in [('allowed_token_ids',[30,128825]),('logit_bias',{30:2.0}),('ignore_eos',True)]:
+   e,events,out,p,original=await self.case([[row('SEVERE ')],[row('Recovered. </think>Done.',True)]],detector=Severe,param_updates={name:value})
+   skipped=next(x for x in events if x['event']=='temporary_phrases_skipped')
+   self.assertEqual(skipped['reason'],'unqualified_'+name)
+   self.assertFalse(any(x['event']=='temporary_phrases_activated' for x in events))
+   self.assertEqual(len(e.calls),2);self.assertEqual(events[-1]['retries'],1)
+   self.assertEqual(getattr(e.calls[1][1],name),value);self.assertIsNone(getattr(e.calls[1][1],'_ds41f_phrase_suppression',None))
+   self.assertTrue(events[-1]['completed'])
+ async def test_custom_stop_on_less_than_does_not_enter_pending_control(self):
+  e,events,out,p,original=await self.case([[row('Initial normal ',True)]],param_updates={'stop_token_ids':[30]})
+  self.assertTrue(any(x['event']=='temporary_phrases_skipped' for x in events))
+  self.assertFalse(any(x['event']=='temporary_phrases_activated' for x in events))
+  self.assertEqual(e.calls[0][1].stop_token_ids,[30]);self.assertEqual(len(e.calls),1)
+ async def test_empty_constraints_still_allow_temporary(self):
+  e,events,out,p,original=await self.case([[row('Initial normal ')],[row('Done.',True)]],param_updates={'allowed_token_ids':[],'logit_bias':{},'ignore_eos':False})
+  self.assertTrue(any(x['event']=='temporary_phrases_activated' for x in events))
+  self.assertFalse(any(x['event']=='temporary_phrases_skipped' for x in events))
+ async def test_pending_finish_is_visible_in_release_evidence(self):
+  e,events,out,p,original=await self.case([[row('Initial Hmm')],[('<',[30],True)]])
+  release=next(x for x in events if x['event']=='temporary_phrases_released')
+  self.assertTrue(release['incomplete_control_prefix']);self.assertEqual(release['release_reason'],'request_finished')
+  self.assertEqual(len(e.calls),2)
+ async def test_pending_tool_marker_continues_once_without_violations(self):
+  e,events,out,p,original=await self.case([[row('Initial Hmm')],[('<',[30],False),('｜DSML｜',[128825],False),row('calls>Final.',True)]])
+  release=next(x for x in events if x['event']=='temporary_phrases_released')
+  self.assertEqual(release['control_prefix_resolution'],'tool_marker');self.assertEqual(release['mask_violation_tokens'],0)
+  self.assertFalse(release['incomplete_control_prefix']);self.assertEqual(len(e.calls),2)
  async def test_control_boundary_ends_inplace(self):
   e,events,out,_,_=await self.case([[row('Initial normal ')],[row('Useful. </think>Hmm. Let me run.'),row('Final.',True)]])
   self.assertEqual(len(e.calls),2);self.assertEqual(len(e.aborts),1)

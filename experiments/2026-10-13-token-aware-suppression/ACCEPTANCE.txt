@@ -31,3 +31,10 @@ unchanged until correctness and stability gates pass. Keep rollback published.
 
 Only synthetic fixtures and aggregate evidence may enter Git. Private session
 text, raw logs, request IDs, credentials and screenshots remain outside Git.
+
+Control-prefix refinement: exact ID30 may defer a forbidden boundary only when
+at least two output positions remain. Sentinel31 tracks pendingcontrol outside
+compiled lexer tables. Whilepending, only truecontrols1/128822/128825 are allowed;
+no wordTTL or API expiry can clearpending. DirectDSML preserved; ordinary '<'
+continuations remainblocked. Pendingcancellation is incomplete. EOS/endthinkafter
+'<' is explicitly a terminal exception, not a successful toolmarker.

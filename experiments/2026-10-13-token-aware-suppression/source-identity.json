@@ -11,7 +11,7 @@
   "candidate_files_sha256": {
     "vllm/sampling_params.py": "e63c22e08fc80ee4a1f28739f5cffdcbaa7d66d592e4799ff4496b84b89c5675",
     "vllm/v1/worker/gpu/model_runner.py": "f666622bef41a70e50713ea64cf37312ba1f11ee8c8c81ccc6ecfeb188f5689f",
-    "vllm/v1/worker/gpu/sample/phrase_suppression.py": "9ef9b373c05d0f1d1eea29ca83a6774592d85b85b9dc9ce914375ec3aea171ef",
+    "vllm/v1/worker/gpu/sample/phrase_suppression.py": "5a65a34ca366756bc1472de8b5a0310bf41a9a9469429a31d5de70a6c44002b6",
     "vllm/v1/worker/gpu/sample/phrase_suppression_tables.py": "c37110378cd45c9e52a2ffaf297f240402a67f741b65e4b51d220fa93c224811",
     "vllm/v1/worker/gpu/sample/sampler.py": "57493381811a33259589d8ed047e8e6704f80c8e12c67904736f41ab88adf49a"
   },

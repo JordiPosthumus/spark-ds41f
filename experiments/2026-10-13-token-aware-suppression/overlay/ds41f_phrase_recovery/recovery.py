@@ -196,8 +196,18 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
     detector = detector_factory()
     from .temporary_phrases import TemporaryPhraseTrigger, WordCounter
     temporary_trigger_factory = temporary_trigger_factory or TemporaryPhraseTrigger
-    temporary_detector = temporary_trigger_factory() if config.temporary_phrases else None
-    if config.temporary_phrases:
+    temporary_enabled = config.temporary_phrases
+    incompatible = next((name for name in ("allowed_token_ids", "logit_bias", "ignore_eos")
+                         if getattr(params, name, None)), None)
+    if incompatible is None and 30 in (getattr(params, "stop_token_ids", None) or []):
+        incompatible = "control_prefix_stop_token"
+    if temporary_enabled and incompatible:
+        # Preserve the caller's native constraints and existing severe recovery.
+        # The new control-prefix transition is unqualified with these masks.
+        temporary_enabled = False
+        event("temporary_phrases_skipped", reason="unqualified_" + incompatible)
+    temporary_detector = temporary_trigger_factory() if temporary_enabled else None
+    if temporary_enabled:
         if temporary_token_tracker_factory is None:
             from .token_guard import TokenGuard
             temporary_token_tracker_factory = TokenGuard
@@ -516,7 +526,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 # The native reasoning-budget state must see the actual phase.
                 if phase.ended:
                     kwargs["reasoning_ended"] = True
-                temporary_detector = temporary_trigger_factory() if config.temporary_phrases else None
+                temporary_detector = temporary_trigger_factory() if temporary_enabled else None
                 if temporary_detector is not None and hasattr(detector, "fence_state"):
                     temporary_detector.restore_fence(detector.fence_state())
                 continue
@@ -538,7 +548,7 @@ async def generate_with_recovery(engine, prompt, params, request_id, *,
                 temporary_active = False
                 if temporary_tracker is not None:
                     temporary_tracker.rewind(accepted_ids)
-                temporary_detector = temporary_trigger_factory() if config.temporary_phrases else None
+                temporary_detector = temporary_trigger_factory() if temporary_enabled else None
                 current_id = request_id + ".loop-retry-" + str(retry_number) + "-" + secrets.token_hex(6)
                 current_prompt = retry_prompt(prompt, accepted_ids)
                 work_params = copy.deepcopy(params)

@@ -22,6 +22,19 @@ words. Genuine EOS, reasoning-end and DSML control tokens are always allowed and
 disarm the restriction; a pending target directly before such a token is exempt.
 This is a narrow phrase intervention, not a guarantee of semantic recovery.
 
+Direct reasoning-to-tool transitions do not require `</think>` in this model.
+The literal `<` token (ID30) can therefore be an incomplete DSML marker. When
+that exact token would otherwise complete a forbidden phrase, the sampler may
+allow it only with a pending-control state and room for a following token.
+While pending, ordinary tokens remain forbidden; only genuine DSML, EOS or
+reasoning-end control tokens can resolve it. TTL cannot clear this state.
+EOS/reasoning-end after `<` is a narrow terminal exception and can leave a
+literal `<` in reasoning; telemetry distinguishes it from a proper DSML marker.
+Cancellation with an unresolved prefix is reported as incomplete, not recovery.
+Requests with explicit allowed-token lists, logit biases or ignored EOS retain
+native handling and existing severe recovery, but skip this temporary intervention
+until their mask interactions have been qualified.
+
 The table compiler is pinned to the serving tokenizer hash and Unicode 15.0.0.
 Its factored tables occupy about 6.17 MB. No ordinary component-word ban is added.
 Normal requests take the inactive sampler path; actual GPU and serving overhead

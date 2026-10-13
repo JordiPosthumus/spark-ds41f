@@ -55,24 +55,28 @@ report={'initialization_seconds':time.perf_counter()-start,'cuda_device':torch.c
         'tests':[], 'source_sha256':{p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in source.glob('*.py')},
         'table_archive_sha256':hashlib.sha256((args.tables/'tables.npz').read_bytes()).hexdigest(),
         'note':'Synthetic kernel validation only; not production stability or end-to-end rescue evidence.'}
-ref_states=np.zeros((4,8),dtype=np.int32)
+ref_states=np.zeros((4,9),dtype=np.int32)
 prompts={};outputs={};guarded={}
 
 def step_cpu(state,token):
     lex,utf,words,active=state
     if not active:return state
     if token in controls or token < 0 or token >= vocab:return lex,utf,words,False
-    lex,utf,n,_=runtime.feed_token(tables,lex,utf,int(token))
-    return lex,utf,min(60,words+n),words+n<60
+    if lex==31:return state
+    lx,ut,n,bad=runtime.feed_token(tables,lex,utf,int(token))
+    if token==30 and bad!=255 and words+bad<=60:return 31,utf,words,True
+    return lx,ut,min(60,words+n),words+n<60
 
 @lru_cache(maxsize=256)
-def expected_mask(lex,utf,words,active):
+def expected_mask(lex,utf,words,active,allow_defer=True):
     mask=np.zeros(vocab,dtype=bool)
     if active:
         for tok in range(vocab):
             if tok not in controls:
-                _,_,_,bad=runtime.feed_token(tables,lex,utf,tok)
-                mask[tok]=bad!=255 and words+bad<=60
+                if lex==31:mask[tok]=True
+                else:
+                    _,_,_,bad=runtime.feed_token(tables,lex,utf,tok)
+                    mask[tok]=bad!=255 and words+bad<=60 and not (tok==30 and allow_defer)
     return mask
 
 def set_output(slot,ids):
@@ -82,14 +86,14 @@ def set_output(slot,ids):
     req.all_token_ids.gpu[slot,:len(ids)].copy_(torch.tensor(ids,device=device,dtype=torch.int32))
     req.total_len.gpu[slot]=len(ids)
 
-def add(slot,seed_ids=(),enabled=True,initial_output=()):
+def add(slot,seed_ids=(),enabled=True,initial_output=(),max_tokens=512):
     lex,utf=runtime.advance(tables,runtime.initial(),seed_ids)
     prompts[slot]=[77,88,99]
     guarded[slot]=enabled
     metadata=(1,lex,utf) if enabled else None
-    holder.add_request(slot,len(prompts[slot]),types.SimpleNamespace(_ds41f_phrase_suppression=metadata))
-    if enabled:ref_states[slot]=[lex,utf,0,3,1,lex,utf,3]
-    else:ref_states[slot]=[0,0,0,3,0,0,0,3]
+    holder.add_request(slot,len(prompts[slot]),types.SimpleNamespace(_ds41f_phrase_suppression=metadata,max_tokens=max_tokens))
+    if enabled:ref_states[slot]=[lex,utf,0,3,1,lex,utf,3,3+max_tokens]
+    else:ref_states[slot]=[0,0,0,3,0,0,0,3,0]
     set_output(slot,initial_output)
 
 def remove(slot):
@@ -133,7 +137,8 @@ def check(name,batch):
         for pos in range(len(drafts)+1):
             current=initial
             for tok in drafts[:pos]:current=step_cpu(current,int(tok))
-            expected=expected_mask(*current)
+            remaining=int(st[8])-int(st[3])-pos
+            expected=expected_mask(*current,allow_defer=remaining>=2)
             got=np.isneginf(actual[row])
             assert np.array_equal(got,expected),(name,'mask row',row,'unexpected',np.flatnonzero(got!=expected)[:10].tolist())
             assert np.all(actual[row,~expected]==1.25),(name,'unmasked logits modified')
@@ -159,6 +164,15 @@ try:
     for control in sorted(controls):
         add(0,text['hmm'])
         check(f'control {control} inside speculative batch',[(0,[control]+text['draft_hmm'])])
+    add(0,text['hmm'])
+    check('direct DSML prefix and control resolution',[(0,[30,128825]+text['draft_hmm'])])
+    add(0,text['hmm'])
+    set_output(0,[30])
+    check('committed deferred prefix permits controls only',[(0,[])])
+    add(0,text['hmm'],max_tokens=1)
+    check('last available token cannot start deferred marker',[(0,[])])
+    add(0,initial_output=text['fifty_nine'])
+    check('word60 deferred marker cannot expire before control',[(0,text['draft_hmm']+[30,128825])])
     add(0,text['hmm']+[byte['e2']])
     check('split UTF8 punctuation continuation',[(0,[byte['80'],byte['94']])])
     add(0,text['hmm']+[byte['c3']])
@@ -182,11 +196,20 @@ try:
     # GPU state updates are incremental, not duplicate token consumption.
     check('same committed state applied twice',[(2,[]),(0,[])])
     # Validating bad metadata cannot result in a silently unprotected request.
-    for bad in [(0,0,0),(1,-1,0),(1,31,0),(1,0,99999),(1,True,0),(1,0)]:
-        try:holder.add_request(3,3,types.SimpleNamespace(_ds41f_phrase_suppression=bad))
+    for bad in [(0,0,0),(1,-1,0),(1,32,0),(1,0,99999),(1,True,0),(1,0)]:
+        try:holder.add_request(3,3,types.SimpleNamespace(_ds41f_phrase_suppression=bad,max_tokens=512))
         except ValueError:pass
         else:raise AssertionError(('accepted invalid internal metadata',bad))
     report['tests'].append({'name':'invalid internal metadata rejected','passed':True})
+    for fields in [{'allowed_token_ids':[4]},{'logit_bias':{1:-100}},{'ignore_eos':True},{'stop_token_ids':[30]}]:
+        try:holder.add_request(3,3,types.SimpleNamespace(_ds41f_phrase_suppression=(1,0,0),max_tokens=10,**fields))
+        except ValueError:pass
+        else:raise AssertionError(('accepted constrained suppression request',fields))
+    report['tests'].append({'name':'constrained sampling and deferred-prefix stop rejected by worker','passed':True})
+    holder.add_request(3,3,types.SimpleNamespace(_ds41f_phrase_suppression=(1,0,0),max_tokens=10,stop_token_ids=[17]))
+    assert holder.use_suppression[3]
+    remove(3)
+    report['tests'].append({'name':'unrelated custom stop token preserved','passed':True})
     # Synthetic sampling overhead: no model, no reset/memcpy in timed region.
     def timing(batch,label):
         data=inputs(batch);logits=torch.ones((len(data[-1]),vocab),device=device)

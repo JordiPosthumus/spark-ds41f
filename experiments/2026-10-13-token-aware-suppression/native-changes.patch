@@ -24,7 +24,7 @@
          if self.pp_handler is not None:
 --- /dev/null
 +++ b/vllm/v1/worker/gpu/sample/phrase_suppression.py
-@@ -0,0 +1,262 @@
+@@ -0,0 +1,287 @@
 +"""Request-local, bounded phrase masking for the pinned V2 sampler.
 +
 +Prototype: review and GPU validation required before deployment.
@@ -42,15 +42,17 @@
 +# Exact native model IDs; validated against compiler manifest at load.
 +CONTROL_IDS = (1, 128822, 128825)  # EOS, </think>, DSML control marker.
 +WORD_LIMIT = 60
++PENDING_CONTROL = 31  # Internal sentinel; NEVER a compiled lexical-table index.
 +# GPU state columns: lexical state, UTF8 state, completed words, scan position,
-+# active, seed lexical state, seed UTF8 state, seed prompt length. A fixed-width
++# active, seed lexical state, seed UTF8 state, seed prompt length, token limit.
++# A fixed-width
 +# tensor makes initialization/reuse one staged write.
-+_STATE_WIDTH = 8
++_STATE_WIDTH = 9
 +
 +
 +@triton.jit
 +def _advance_token(
-+    token, lex, utf, words, active,
++    token, lex, utf, words, active, allow_defer,
 +    token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
 +    body_nonempty_ptr, body_tail_ptr,
 +    PREFIXES: tl.constexpr, BODIES: tl.constexpr,
@@ -62,6 +64,10 @@
 +    even if they terminate a partial target word and disarm future positions.
 +    """
 +    old_lex, old_utf, old_words = lex, utf, words
++    pending_control = lex == 31
++    # The compiled table has states0..30. Pending control is handled solely by
++    # the overrides below; its lookup state is an inert boundary state.
++    lex = tl.where(pending_control, 0, lex)
 +    is_control = (token == 1) | (token == 128822) | (token == 128825)
 +    was_active = active & ~is_control
 +    prefix = tl.load(token_prefix_ptr + token)
@@ -90,11 +96,21 @@
 +    words = words + tl.where(body_exists, step_words, 0)
 +    tail = tl.load(body_tail_ptr + body_id)
 +    new_utf = tl.where(body_exists, tail, new_utf)
-+    active = was_active & (words < 60)
++    # Preserve the two-token direct DSML exit after a target word. Token30 is
++    # exactly '<'. It is allowed ONLY as a pending control prefix when it would
++    # otherwise terminate a prohibited phrase. The following token must be a
++    # genuine control; ordinary text (including another '<') remains prohibited.
++    defer_control = was_active & ~pending_control & (token == 30) & bad & allow_defer
++    hold_control = pending_control | defer_control
++    lex = tl.where(hold_control, 31, lex)
++    new_utf = tl.where(hold_control, old_utf, new_utf)
++    completed_words = tl.where(hold_control, old_words, tl.minimum(words, 60))
++    active = was_active & ((words < 60) | hold_control)
++    bad = was_active & (pending_control | bad) & ~defer_control
 +    return (tl.where(was_active, lex, old_lex),
 +            tl.where(was_active, new_utf, old_utf),
-+            tl.where(was_active, tl.minimum(words, 60), old_words),
-+            active, bad & was_active)
++            tl.where(was_active, completed_words, old_words),
++            active, bad)
 +
 +
 +@triton.jit
@@ -108,7 +124,7 @@
 +    req = tl.load(idx_mapping_ptr + batch_row)
 +    if req < 0:
 +        return
-+    base = states_ptr + req * 8
++    base = states_ptr + req * 9
 +    active = tl.load(base + 4) != 0
 +    if not active:
 +        return
@@ -129,7 +145,7 @@
 +    while scan < end and active:
 +        token = tl.load(all_ids_ptr + req * all_ids_stride + scan)
 +        lex, utf, words, active, ignored_bad = _advance_token(
-+            token, lex, utf, words, active,
++            token, lex, utf, words, active, True,
 +            token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
 +            body_nonempty_ptr, body_tail_ptr, PREFIXES, BODIES,
 +        )
@@ -154,7 +170,7 @@
 +    req = tl.load(expanded_mapping_ptr + row)
 +    if req < 0:
 +        return
-+    base = states_ptr + req * 8
++    base = states_ptr + req * 9
 +    active = tl.load(base + 4) != 0
 +    if not active:
 +        return
@@ -173,7 +189,7 @@
 +        active = active & valid_token
 +        token = tl.where(valid_token, token, 1)
 +        lex, utf, words, active, ignored_bad = _advance_token(
-+            token, lex, utf, words, active,
++            token, lex, utf, words, active, True,
 +            token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
 +            body_nonempty_ptr, body_tail_ptr, PREFIXES, BODIES,
 +        )
@@ -183,8 +199,9 @@
 +    valid = ids < VOCAB
 +    # Padded lanes use a valid control token and never write logits.
 +    safe_ids = tl.where(valid, ids, 1)
++    remaining_tokens = tl.load(base + 8) - tl.load(base + 3) - pos
 +    out_lex, out_utf, out_words, out_active, bad = _advance_token(
-+        safe_ids, lex, utf, words, active,
++        safe_ids, lex, utf, words, active, remaining_tokens >= 2,
 +        token_prefix_ptr, token_body_ptr, bridge_ptr, lex_ptr, body_ptr,
 +        body_nonempty_ptr, body_tail_ptr, PREFIXES, BODIES,
 +    )
@@ -241,17 +258,25 @@
 +            raise ValueError("Native phrase suppression request on disabled worker")
 +        if not self.enabled:
 +            return
-+        seed = [0, 0, 0, int(prompt_len), 0, 0, 0, int(prompt_len)]
++        seed = [0, 0, 0, int(prompt_len), 0, 0, 0, int(prompt_len), 0]
 +        if metadata is not None:
 +            if (not isinstance(metadata, (tuple, list)) or len(metadata) != 3
 +                    or any(type(value) is not int for value in metadata)):
 +                raise ValueError("Invalid internal phrase suppression state")
 +            version, lex, utf = metadata
-+            if version != 1 or not 0 <= lex < self.n_lex or not 0 <= utf < self.n_utf:
++            if version != 1 or not 0 <= lex <= self.n_lex or not 0 <= utf < self.n_utf:
 +                raise ValueError("Invalid internal phrase suppression seed")
 +            if type(prompt_len) is not int or prompt_len < 0:
 +                raise ValueError("Invalid phrase suppression prompt boundary")
-+            seed = [lex, utf, 0, prompt_len, 1, lex, utf, prompt_len]
++            max_tokens = getattr(sampling_params, "max_tokens", None)
++            if type(max_tokens) is not int or max_tokens < 1 or prompt_len + max_tokens >= 2**31:
++                raise ValueError("Invalid phrase suppression output-token budget")
++            if (getattr(sampling_params, "allowed_token_ids", None) is not None
++                    or getattr(sampling_params, "logit_bias", None)
++                    or getattr(sampling_params, "ignore_eos", False)
++                    or 30 in (getattr(sampling_params, "stop_token_ids", None) or [])):
++                raise ValueError("Phrase suppression cannot intersect constrained sampling")
++            seed = [lex, utf, 0, prompt_len, 1, lex, utf, prompt_len, prompt_len + max_tokens]
 +            self.use_suppression[req_idx] = True
 +        # Always reset a reused slot, including inactive requests.
 +        self._pending_resets[req_idx] = seed
