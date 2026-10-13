@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "baseline": "2026-10-13-ring2-word-alarm",
+  "base_recipe": "1d12e7c6491726cedb9c02a3370ad59723b7d72e",
+  "delta": "One shared word-family policy: four same-family hits in 50 words enable all configured native bad_words for existing 2000-word window",
+  "policy": "experiments/2026-10-13-word-alarm/tables/word_policy.json",
+  "validation": "Focused detector and policy checks; owner evaluates generation behavior; verify serving and all-rank source identity",
+  "preserved": [
+    "native matcher",
+    "runtime image",
+    "GPU kernels",
+    "retries",
+    "temperature",
+    "2000-word expiry",
+    "capacity",
+    "memory guards"
+  ]
+}
