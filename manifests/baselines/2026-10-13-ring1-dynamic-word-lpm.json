@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "baseline": "2026-10-13-ring1-dynamic-word-lpm",
+  "base_recipe": "5119bed25b7990a71bfa4d3196b10415979a2c69",
+  "prior_baseline": "2026-10-13-ring1-word-alarm-notice",
+  "delta": "No model reminder; rolling prose-word native bad_words updates and visible activation/addition/off notices",
+  "policy": "experiments/2026-10-13-dynamic-word-lpm/tables/word_policy.json",
+  "validation": "27 focused CPU tests; pinned native tokenizer CPU check; owner evaluates generation; no live inference probes",
+  "preserved": [
+    "image",
+    "model",
+    "temperature",
+    "entry trigger",
+    "native 2000-word expiry",
+    "context",
+    "output capacity",
+    "concurrency",
+    "images",
+    "kernels",
+    "memory guards"
+  ],
+  "quality_implication": "Experimental dynamic sampling restrictions; not lossless",
+  "additional_memory_per_rank_at_8_requests_bytes": 2162720
+}
