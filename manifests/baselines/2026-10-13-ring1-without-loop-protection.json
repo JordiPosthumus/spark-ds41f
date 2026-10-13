@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "baseline": "2026-10-13-ring1-without-loop-protection",
+  "base_recipe": "cc1be98060da1afdc82055ed5ff2668ee00b30dc",
+  "prior_baseline": "2026-10-13-ring1-dynamic-word-lpm",
+  "delta": "Owner-directed complete removal of custom server loop detection, automatic recovery, injected notices and automatic word/phrase blocking; restore pre-protection model runner and image sampling/serving sources.",
+  "preserved": [
+    "image",
+    "model weights",
+    "uncapped images",
+    "context/output/concurrency",
+    "temperature",
+    "DSpark",
+    "all unrelated greedy and MoE fixes",
+    "Ring 2 M64 prefill",
+    "memory guards",
+    "cache settings"
+  ],
+  "removed_environment": [
+    "SPARK_DS41F_LOOP_RECOVERY_MODE",
+    "SPARK_DS41F_TEMPORARY_PHRASES",
+    "SPARK_DS41F_PHRASE_TABLES"
+  ],
+  "removed_mounts": [
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/model_runner.py",
+      "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/overlay/serving.py",
+      "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/serving.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/overlay/ds41f_phrase_recovery",
+      "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_phrase_recovery",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/sampling_params.py",
+      "/opt/spark3/candidate/vllm/vllm/sampling_params.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/sampler.py",
+      "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/sampler.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/loop_protection.py",
+      "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/loop_protection.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/loop_protection_tables.py",
+      "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/loop_protection_tables.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/tables",
+      "/opt/spark3/phrase-suppression-tables",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/bad_words.py",
+      "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/bad_words.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu_worker.py",
+      "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu_worker.py",
+      "ro"
+    ],
+    [
+      "{home}/spark-ds41f/experiments/2026-10-13-dynamic-word-lpm/native/vllm/v1/worker/gpu/sample/dynamic_bad_words.py",
+      "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/sample/dynamic_bad_words.py",
+      "ro"
+    ]
+  ],
+  "restored_model_runner": "{home}/r6g-overlay/overlay/greedy/vllm/v1/worker/gpu/model_runner.py",
+  "validation": "Exact configuration delta and loaded source identity checks; no generation evaluation requested."
+}
