@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "promoted_baseline": "2026-10-13-ring1-hm-word-policy",
+  "promoted_baseline": "2026-10-13-ring1-word-alarm",
   "container": {
     "name": "dsv41-karmic-kraken",
     "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6f",
@@ -85,7 +85,7 @@
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-native-bad-words/overlay/ds41f_phrase_recovery",
+        "{home}/spark-ds41f/experiments/2026-10-13-word-alarm/overlay/ds41f_phrase_recovery",
         "/opt/spark3/candidate/vllm/vllm/entrypoints/openai/chat_completion/ds41f_phrase_recovery",
         "ro"
       ],
@@ -110,7 +110,7 @@
         "ro"
       ],
       [
-        "{home}/spark-ds41f/experiments/2026-10-13-hm-word-policy/tables",
+        "{home}/spark-ds41f/experiments/2026-10-13-word-alarm/tables",
         "/opt/spark3/phrase-suppression-tables",
         "ro"
       ],
@@ -302,7 +302,7 @@
   "deployment": {
     "launch_enabled": true,
     "repository": "https://github.com/JordiPosthumus/spark-ds41f.git",
-    "branch": "hm-word-policy-ring1",
+    "branch": "word-alarm-ring1",
     "path": "{home}/spark-ds41f",
     "ready_url": "http://127.0.0.1:8000/v1/models",
     "ready_timeout_seconds": 3600
@@ -311,5 +311,5 @@
     "transport": "oneshot-direct"
   },
   "kernel_backend": "tilelang",
-  "upstreams_config": "config/ring1-hm-word-policy-upstreams.lock.json"
+  "upstreams_config": "config/ring1-word-alarm-upstreams.lock.json"
 }

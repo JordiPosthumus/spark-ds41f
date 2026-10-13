@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "window_words": 50,
+  "threshold": 4,
+  "families": {
+    "let": {
+      "block": [
+        "Let",
+        "Lеt",
+        "let",
+        "lеt",
+        "LET",
+        "LEТ",
+        "LЕT",
+        "LЕТ"
+      ]
+    },
+    "me": {
+      "block": [
+        "Me",
+        "Mе",
+        "Мe",
+        "Ме",
+        "me",
+        "mе",
+        "мe",
+        "ме",
+        "ME",
+        "MЕ",
+        "МE",
+        "МЕ",
+        "меня",
+        "мeня",
+        "mеня",
+        "meня",
+        "Меня",
+        "Мeня",
+        "Mеня",
+        "Meня",
+        "МЕНЯ",
+        "МЕHЯ",
+        "МEНЯ",
+        "МEHЯ",
+        "MЕНЯ",
+        "MЕHЯ",
+        "MEНЯ",
+        "MEHЯ"
+      ]
+    },
+    "ok": {
+      "block": [
+        "OK",
+        "Ok",
+        "ok",
+        "Okay",
+        "okay",
+        "OKAY"
+      ]
+    },
+    "actually": {
+      "block": [
+        "Actually"
+      ]
+    },
+    "hm": {
+      "block": [
+        "Hmm",
+        "hmm",
+        "HMM",
+        "Hmmm",
+        "hmmm",
+        "HMMM",
+        "Hmmmm",
+        "hmmmm",
+        "HMMMM",
+        "Hm",
+        "hm",
+        "HM",
+        "H m",
+        "h m",
+        "H M",
+        "H mm",
+        "h mm",
+        "H MM",
+        "H m m",
+        "h m m",
+        "H M M"
+      ]
+    }
+  },
+  "detection_only_legacy_hm_max_m": 16
+}
