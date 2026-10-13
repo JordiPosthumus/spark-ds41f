@@ -19,3 +19,9 @@ The existing 2000-word timer, reasoning/tool boundary exit, temperature, severe
 loop retry mechanics, kernels, image, capacity, and memory guards are unchanged.
 Focused CPU checks cover detection and policy wiring. The owner evaluates model
 behavior; passing these checks does not prove semantic loop recovery.
+
+Each activation also appends the owner-configured sentence "I must not get stuck in a thinking loop." to the model's continuation prefix, surrounded by newlines. It is not emitted as generated text or added as a user message. A fresh hint is used once per alarm continuation; earlier hints are not accumulated in retained output. Its token count is reserved from the existing context/output envelope; when too little budget remains, the hint is skipped and logged. Model token usage remains distinct from server-injected guidance telemetry.
+
+Alarm activation now rewinds the model context to the saved native-chunk checkpoint at or before the first hit in the triggering word family. A chunk may start a few tokens before that word. All model tokens observed before rewind remain charged against the original output budget. Already streamed text remains visible in clients. The inserted reminder is logged and quoted inside the labelled server notice; it is not represented as model-generated text. Missing/unsafe checkpoints skip the activation with an explicit event.
+
+A labelled `[Server: loop protection activated ...]` notice is emitted in the reasoning stream on each rewind. It states whether the reminder was inserted. It is display-only, bypasses the model/tool parser, and contributes no model-generated tokens. Pi can display and store this reasoning notice; already-streamed text is not retracted. Future client history may include whatever reasoning the client chooses to resend.

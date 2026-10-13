@@ -88,5 +88,21 @@
       ]
     }
   },
-  "detection_only_legacy_hm_max_m": 16
+  "detection_only_legacy_hm_max_m": 16,
+  "interjection": {
+    "text": "\n\nI must not get stuck in a thinking loop.\n\n",
+    "token_ids": [
+      271,
+      43,
+      2231,
+      554,
+      1178,
+      20920,
+      295,
+      260,
+      6892,
+      12175,
+      339
+    ]
+  }
 }
