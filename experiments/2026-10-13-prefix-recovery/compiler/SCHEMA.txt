@@ -1,0 +1,4 @@
+Temporary whole-word policy: case-insensitive Hmm (2..16 m), Let + whitespace + me, and OK.
+300 completed Unicode words per intervention. Control-boundary release unchanged.
+Tensor layout is unchanged: 31 lexical states, 13 classes, 32-bit accumulated word count; token transition word counts are 8-bit and are not the intervention total.
+See metadata.json for pinned Unicode/tokenizer and table shapes.

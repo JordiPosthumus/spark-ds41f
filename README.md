@@ -1,3 +1,5 @@
+Owner-authorized [prefix recovery correction](docs/prefix-recovery.md): full Let me prefix, 300-word temporary mask, and protected retries.
+
 Staged Ring2 [token-aware temporary suppression](docs/token-aware-suppression.md) candidate: deployment requires Ring1's full-hour gate; M64 and unrelated capabilities are preserved.
 
 Owner-authorized [temporary phrase intervention experiment](docs/temporary-phrases.md) is enabled on this ring; existing recovery and all unrelated settings are preserved.

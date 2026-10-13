@@ -1,0 +1,11 @@
+{
+  "status": "pass",
+  "text_cases": 36,
+  "mixedcase_cases": 600,
+  "bridge_comparisons": 121125,
+  "malformed_streams": 300,
+  "unicode_scalar_values": 1112064,
+  "vocab_size": 129280,
+  "tokenizer_decode_equivalence": 129280,
+  "notes": "No GPU/model/runtime calls; exact emitted-output effectiveness still requires native acceptance tests."
+}
