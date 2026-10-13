@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "observation_date_utc": "2026-10-13",
+  "scope": "Passive production log observation after deployment; no synthetic trigger or inference probe in this observation.",
+  "summary": {
+    "ring1": {
+      "deployed_commit": "28cfb890e42ddb51be00d4be1e2022f12dede79c",
+      "finished_accounting_records": 15,
+      "completed_records": 15,
+      "requests_with_temporary_intervention": 1,
+      "severe_rewind_retries": 0
+    },
+    "ring2": {
+      "deployed_commit": "3d50f9499a28f118cf0486c82fe2bd58a108401b",
+      "finished_accounting_records": 111,
+      "completed_records": 111,
+      "requests_with_temporary_intervention": 0,
+      "severe_rewind_retries": 0
+    }
+  },
+  "observed_intervention": {
+    "ring": "ring1",
+    "trigger_hmm_count": 8,
+    "trigger_window_words": 200,
+    "temporary_mask_expired_after_words": 60,
+    "temporary_continuations": 2,
+    "severe_rewind_retries": 0,
+    "completion_tokens": 1752,
+    "server_completed": true,
+    "gateway_http_status": 200,
+    "gateway_stream_terminal": true,
+    "gateway_sse_done": true
+  },
+  "interpretation": "A production request activated the temporary phrase mask, released it at the word limit, and completed. This proves live mechanism operation, not that an infinite loop was certainly prevented, nor a measured quality or speed gain. The severe rewind path did not activate in this window.",
+  "privacy": "Only aggregate counters and implementation commit IDs are published. Raw logs, prompts, generated reasoning, tool arguments, session/request identifiers, site addresses, local paths and precise event times remain outside the repository. Existing history is not certified free of personal metadata by this record."
+}
