@@ -66,10 +66,10 @@ class GuardTests(unittest.TestCase):
   x=json.loads(TOKENIZER.read_bytes());inv=byte_inverse()
   by={bytes(inv[c] for c in s):i for s,i in x['model']['vocab'].items() if all(c in inv for c in s)}
   guard=TokenGuard();guard.feed(ids('hmm')+[by[b'\xc3']]);guard.begin();guard.feed([by[b'\xa9']]+ids(' '));self.assertEqual(guard.violations,0)
- def test_exact_three_hundred_words_with_chunk_overshoot(self):
-  guard=TokenGuard();guard.begin();guard.feed(ids('safe '*299+'Hmm. Hmm.'))
-  self.assertEqual(guard.violations,1);self.assertEqual(guard.words,300);self.assertEqual(guard.finished,'word_limit')
-  self.assertEqual(guard.evidence()['protected_words'],300)
+ def test_exact_two_thousand_words_with_chunk_overshoot(self):
+  guard=TokenGuard();guard.begin();guard.feed(ids('safe '*1999+'Hmm. Hmm.'))
+  self.assertEqual(guard.violations,1);self.assertEqual(guard.words,2000);self.assertEqual(guard.finished,'word_limit')
+  self.assertEqual(guard.evidence()['protected_words'],2000)
   self.assertGreater(guard.offset,guard.end)
  def test_rewind_then_reactivate_clears_prefix(self):
   guard=TokenGuard();guard.feed(ids('old Hmm'));guard.begin();guard.feed(ids('. more '))
@@ -79,14 +79,14 @@ class GuardTests(unittest.TestCase):
   expected=module.advance(module.get_tables(),module.initial(),retained)
   self.assertEqual(guard.begin(),(1,*expected));self.assertEqual(guard.violations,0);self.assertEqual(guard.total_violations,1)
  def test_pending_control_freezes_words_utf_and_all_ordinary_escapes(self):
-  guard=TokenGuard();guard.begin();guard.feed(ids('safe '*299+'Hmm'))
-  self.assertEqual(guard.words,299);utf=guard.state[1];guard.feed([30])
+  guard=TokenGuard();guard.begin();guard.feed(ids('safe '*1999+'Hmm'))
+  self.assertEqual(guard.words,1999);utf=guard.state[1];guard.feed([30])
   self.assertEqual(guard.state,(31,utf));self.assertTrue(guard.pending_control)
-  self.assertEqual(guard.words,299);self.assertTrue(guard.active)
+  self.assertEqual(guard.words,1999);self.assertTrue(guard.active)
   escapes=ids('x y ')+[30]
   guard.feed(escapes)
   self.assertEqual(guard.violations,len(escapes));self.assertEqual(guard.state,(31,utf))
-  self.assertEqual(guard.words,299);self.assertTrue(guard.active);self.assertTrue(guard.pending_control)
+  self.assertEqual(guard.words,1999);self.assertTrue(guard.active);self.assertTrue(guard.pending_control)
  def test_pending_control_resolves_only_genuine_controls(self):
   for control,resolution in [(128825,'tool_marker'),(128822,'terminal_control'),(1,'terminal_control')]:
    guard=TokenGuard();guard.feed(ids('Hmm'));guard.begin();guard.feed([30]);guard.feed([control])
@@ -127,14 +127,14 @@ class IntegrationTests(unittest.IsolatedAsyncioTestCase):
   async for out in generate_with_recovery(engine,prompt,original,'test',config=RecoveryConfig(mode='auto-recover',normal_holdback_tokens=0,temporary_phrases=True,max_retries=1),detector_factory=detector,temporary_trigger_factory=Trigger,on_event=events.append,reasoning_ended=False):visible.append(out)
   return engine,events,visible,prompt,original
  async def test_activation_prefix_and_no_restart_at_expiry(self):
-  e,events,out,p,original=await self.case([[row('Initial Hmm')],[row('foo '+(' '.join('meaningful'+str(i) for i in range(300))+' ')+'Hmm. '),row('</think>Done.',True)]])
+  e,events,out,p,original=await self.case([[row('Initial Hmm')],[row('foo '+(' '.join('meaningful'+str(i) for i in range(2000))+' ')+'Hmm. '),row('</think>Done.',True)]])
   self.assertEqual(len(e.calls),2);self.assertEqual(len(e.aborts),1)
   expected=module.advance(module.get_tables(),module.initial(),ids('Initial Hmm'))
   self.assertEqual(e.calls[1][1]._ds41f_phrase_suppression,(1,*expected))
   self.assertIs(e.calls[1][0]['mm_kwargs'],p['mm_kwargs']);self.assertEqual(e.calls[1][0]['prompt_token_ids'],[11,12]+ids('Initial Hmm'))
   self.assertEqual(original.bad_words,[]);self.assertEqual(e.calls[1][1].bad_words,[])
   release=next(x for x in events if x['event']=='temporary_phrases_released')
-  self.assertEqual(release['protected_words'],300);self.assertEqual(release['mask_violation_tokens'],0)
+  self.assertEqual(release['protected_words'],2000);self.assertEqual(release['mask_violation_tokens'],0)
   self.assertTrue(events[-1]['completed'])
  async def test_natural_finish_retains_span_evidence(self):
   e,events,out,_,_=await self.case([[row('Initial normal ')],[row('Useful short conclusion.',True)]])

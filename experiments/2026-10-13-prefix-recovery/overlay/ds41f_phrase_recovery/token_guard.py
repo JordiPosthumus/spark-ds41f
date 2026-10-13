@@ -63,7 +63,7 @@ class TokenGuard:
                 self.state = (31, utf_in)
                 self.pending_control = True
                 continue
-            if self.active and not pending and token == 30 and hit != self.no_hit and hit <= 300-self.words:
+            if self.active and not pending and token == 30 and hit != self.no_hit and hit <= 2000-self.words:
                 # '<' is allowed only as an incomplete genuine control prefix.
                 # Native sampling requires budget for its following control.
                 self.state = (31, utf_in)
@@ -71,12 +71,12 @@ class TokenGuard:
                 continue
             self.state = (lex, utf)
             if self.active:
-                if pending or (hit != self.no_hit and hit <= 300-self.words):
+                if pending or (hit != self.no_hit and hit <= 2000-self.words):
                     self.violations += 1
                     self.total_violations += 1
                 self.pending_control = False
                 self.words += words
-                if self.words >= 300:
+                if self.words >= 2000:
                     self.active = False
                     self.finished = "word_limit"
                     self.end = self.offset
@@ -103,7 +103,7 @@ class TokenGuard:
         return {"protected_start_token": self.start,
                 "protected_end_token": self.end,
                 "completed_words_including_last_token": self.words,
-                "protected_words": min(self.words, 300),
+                "protected_words": min(self.words, 2000),
                 "mask_violation_tokens": self.violations,
                 "release_reason": self.finished,
                 "incomplete_control_prefix": self.pending_control,

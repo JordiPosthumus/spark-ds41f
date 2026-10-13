@@ -24,8 +24,8 @@ class RegressionTests(unittest.IsolatedAsyncioTestCase):
   d=TemporaryPhraseTrigger();text='Let me write. Each separate calculation has a useful new result. '*40
   for i,c in enumerate(text):d.feed(c,i,i+1)
   self.assertTrue(d.triggered)
- def test_exact_300_word_expiry(self):
-  g=TokenGuard();g.begin();g.feed(ids('safe '*299));self.assertTrue(g.active)
+ def test_exact_2000_word_expiry(self):
+  g=TokenGuard();g.begin();g.feed(ids('safe '*1999));self.assertTrue(g.active)
   g.feed(ids('OK.'));self.assertGreater(g.violations,0);self.assertFalse(g.active)
   violations=g.violations;g.feed(ids('Let me go. OK.'));self.assertEqual(g.violations,violations)
  async def test_actual_detector_rolls_back_then_arms_retry(self):
@@ -38,7 +38,7 @@ class RegressionTests(unittest.IsolatedAsyncioTestCase):
   self.assertIsNotNone(e.calls[1][1]._ds41f_phrase_suppression)
   self.assertNotEqual(e.calls[1][1].seed,original.seed)
   self.assertEqual(events[-1]['retries'],1);self.assertTrue(events[-1]['completed'])
-  self.assertTrue(any(x.get('cause')=='loop_retry' and x.get('word_limit')==300 for x in events))
+  self.assertTrue(any(x.get('cause')=='loop_retry' and x.get('word_limit')==2000 for x in events))
   self.assertEqual(len(e.aborts),1)
 
 if __name__=='__main__':unittest.main()

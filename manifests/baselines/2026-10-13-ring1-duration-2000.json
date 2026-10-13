@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "baseline_id": "2026-10-13-ring1-duration-2000",
+  "previous_baseline": "2026-10-13-ring1-prefix-recovery",
+  "base_commit": "88276c2ef99167ca3de8a515849cc5dec8ecfe7e",
+  "rollback": "88276c2ef99167ca3de8a515849cc5dec8ecfe7e",
+  "status": "owner-authorized-trial",
+  "experiment": "experiments/2026-10-13-prefix-recovery",
+  "runtime_delta": "Temporary phrase duration 300 to 2000 completed words; Ring2 also receives the already validated prefix/retry correction. Detection sensitivity and genuine reasoning/control release unchanged.",
+  "preserved": "All unrelated settings, image identities, and ring-specific kernels",
+  "validation": {
+    "live": "pending",
+    "portable_unique_tests": 27,
+    "fresh_patch_hashes": 5
+  }
+}

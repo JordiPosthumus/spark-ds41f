@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_from_baseline": "2026-10-13-ring1-prefix-recovery",
+  "generated_from_baseline": "2026-10-13-ring1-duration-2000",
   "sources": {
     "vllm": {
       "kind": "git",

@@ -41,7 +41,7 @@
 +
 +# Exact native model IDs; validated against compiler manifest at load.
 +CONTROL_IDS = (1, 128822, 128825)  # EOS, </think>, DSML control marker.
-+WORD_LIMIT = 300
++WORD_LIMIT = 2000
 +PENDING_CONTROL = 31  # Internal sentinel; NEVER a compiled lexical-table index.
 +# GPU state columns: lexical state, UTF8 state, completed words, scan position,
 +# active, seed lexical state, seed UTF8 state, seed prompt length, token limit.
@@ -60,7 +60,7 @@
 +    """Vectorizable native-token transition with exact word-TTL masking.
 +
 +    first forbidden indices are one-based completed-word positions. A forbidden
-+    phrase in word 300 is still masked; word 301 is not. Control tokens are exempt
++    phrase in word 2000 is still masked; word 2001 is not. Control tokens are exempt
 +    even if they terminate a partial target word and disarm future positions.
 +    """
 +    old_lex, old_utf, old_words = lex, utf, words
@@ -84,14 +84,14 @@
 +        step_words = (step >> 5) & 255
 +        first_bad = (step >> 13) & 255
 +        use = event < count
-+        bad = bad | (use & (first_bad != 255) & (words + first_bad <= 300))
++        bad = bad | (use & (first_bad != 255) & (words + first_bad <= 2000))
 +        lex = tl.where(use, step & 31, lex)
 +        words = words + tl.where(use, step_words, 0)
 +    body_exists = tl.load(body_nonempty_ptr + body_id) != 0
 +    step = tl.load(body_ptr + lex * BODIES + body_id)
 +    step_words = (step >> 5) & 255
 +    first_bad = (step >> 13) & 255
-+    bad = bad | (body_exists & (first_bad != 255) & (words + first_bad <= 300))
++    bad = bad | (body_exists & (first_bad != 255) & (words + first_bad <= 2000))
 +    lex = tl.where(body_exists, step & 31, lex)
 +    words = words + tl.where(body_exists, step_words, 0)
 +    tail = tl.load(body_tail_ptr + body_id)
@@ -104,8 +104,8 @@
 +    hold_control = pending_control | defer_control
 +    lex = tl.where(hold_control, 31, lex)
 +    new_utf = tl.where(hold_control, old_utf, new_utf)
-+    completed_words = tl.where(hold_control, old_words, tl.minimum(words, 300))
-+    active = was_active & ((words < 300) | hold_control)
++    completed_words = tl.where(hold_control, old_words, tl.minimum(words, 2000))
++    active = was_active & ((words < 2000) | hold_control)
 +    bad = was_active & (pending_control | bad) & ~defer_control
 +    return (tl.where(was_active, lex, old_lex),
 +            tl.where(was_active, new_utf, old_utf),
