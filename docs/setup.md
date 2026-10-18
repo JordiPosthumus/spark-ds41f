@@ -438,6 +438,28 @@ Commands that change the nodes need the configuration named with
 `--cluster-config` before the subcommand, for example
 `bin/spark --cluster-config config/cluster.json cluster start --apply`.
 
+### A site profile replaces `serve_args` wholesale
+
+`serve_args` in a profile is the complete command; an overlay that names its own
+list does not merge with the recipe's, it replaces it. Copying
+`config/cluster.json` into a site profile therefore carries every default in that
+list, including the recipe's per-prompt image cap:
+
+```
+--limit-mm-per-prompt '{"image":4}'
+```
+
+A site that serves more than four images in one prompt gets, on every such
+request:
+
+```
+400: At most 4 image(s) may be provided in one prompt (parameter=image)
+```
+
+Remove both list entries from the site profile to lift the cap; `bin/spark
+doctor` compares the running command against the profile, so the change is
+visible in its report before the next start.
+
 ### Check
 
 `bin/spark doctor` reports `configuration OK`.
