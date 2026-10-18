@@ -1,0 +1,22 @@
+{
+  "description": "r6m's Engram reader and gather, Engram model, draft budget and JIT monitor tests, from the image.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6m",
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "ENGRAM_ROWS_TEST_DIR": "/c/engram-rows-test",
+    "PYTHONPATH": "/b"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "io_uring": true,
+  "argv": [
+    "-c",
+    "import subprocess, sys; RUNS = [('rows', ['tests/kernels/test_deepseek_v41_engram_rows.py']), ('engram', ['tests/models/test_deepseek_v4_1_engram.py']), ('budget', ['tests/v1/spec_decode/test_adaptive_verification.py', 'tests/utils_/test_jit_monitor_dynamo.py'])]; codes = [subprocess.call([sys.executable, '-m', 'pytest', '-q', '-rfEs', '-p', 'no:cacheprovider', '--noconftest', '-p', 'engram_fixtures', '--basetemp', '/c/pytest-tmp-r6m-' + name, *paths]) for name, paths in RUNS]; print('exit codes', [n for n, _ in RUNS], codes); sys.exit(max(codes))"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "engram_fixtures.py",
+      "/b/engram_fixtures.py"
+    ]
+  ]
+}

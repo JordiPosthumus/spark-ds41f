@@ -1,0 +1,51 @@
+{
+  "description": "The retirement candidate's kernels (vLLM wo-retire 2b0f96b27): the WO and block-32 tests, then the WO and the DSpark context-KV projection against B12X at every size, warm and cold.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "-c",
+    "import subprocess, sys; codes = [subprocess.call([sys.executable, '-m', 'pytest', '-q', '--noconftest', '-p', 'no:cacheprovider', '-rfE', 'tests/kernels/quantization/test_deepseek_v41_tilelang_wo.py']), subprocess.call([sys.executable, '-m', 'pytest', '-q', '--noconftest', '-p', 'no:cacheprovider', '-rfE', '-k', 'block32_rows or mxfp8', 'tests/kernels/quantization/test_deepseek_v41_tilelang_linear.py']), subprocess.call([sys.executable, '/b/bench_wo.py']), subprocess.call([sys.executable, '/b/bench_context_kv.py'])]; print('exit codes', codes); sys.exit(max(codes))"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "tests__kernels__quantization__test_deepseek_v41_tilelang_linear.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/quantization/test_deepseek_v41_tilelang_linear.py"
+    ],
+    [
+      "tests__kernels__quantization__test_deepseek_v41_tilelang_wo.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/quantization/test_deepseek_v41_tilelang_wo.py"
+    ],
+    [
+      "vllm__models__deepseek_v4_1__attention.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/attention.py"
+    ],
+    [
+      "vllm__models__deepseek_v4_1__tilelang__gemm.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/gemm.py"
+    ],
+    [
+      "vllm__models__deepseek_v4_1__tilelang__linear.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/linear.py"
+    ],
+    [
+      "vllm__models__deepseek_v4_1__tilelang__wo.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/wo.py"
+    ],
+    [
+      "bench_wo.py",
+      "/b/bench_wo.py"
+    ],
+    [
+      "kbench.py",
+      "/b/kbench.py"
+    ],
+    [
+      "bench_context_kv.py",
+      "/b/bench_context_kv.py"
+    ]
+  ]
+}

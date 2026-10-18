@@ -1,0 +1,25 @@
+{
+  "description": "Why r6m prefills 10-13% slower than r6k: r6m's Engram gather (with and without its per-block poll) against B12X's lookup, and r6m's reader against B12X's row cache on the same random rows of a 1 GiB table.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6m",
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "ENGRAM_ROWS_TEST_DIR": "/c/engram-prefill",
+    "PYTHONPATH": "/b"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "io_uring": true,
+  "argv": [
+    "/b/bench_engram_prefill.py"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "kbench.py",
+      "/b/kbench.py"
+    ],
+    [
+      "bench_engram_prefill.py",
+      "/b/bench_engram_prefill.py"
+    ]
+  ]
+}

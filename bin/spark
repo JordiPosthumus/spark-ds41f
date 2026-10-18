@@ -38,6 +38,7 @@ import kernel_readiness
 import topology
 import transport_profiles
 import model_layout
+import recipe as cluster_recipe
 
 
 
@@ -47,7 +48,7 @@ def read_json(relative: str) -> dict:
 
 
 def cluster_config_path(args: argparse.Namespace | None = None) -> tuple[Path, str]:
-    raw = getattr(args, "cluster_config", DEFAULT_CLUSTER_CONFIG)
+    raw = getattr(args, "cluster_config", None) or DEFAULT_CLUSTER_CONFIG
     relative = Path(raw)
     if relative.is_absolute():
         raise SystemExit("--cluster-config must be relative to the repository root")
@@ -79,11 +80,52 @@ def site_nodes() -> dict:
 def configuration(
     args: argparse.Namespace | None = None,
 ) -> tuple[dict, dict, dict]:
-    cluster_path, _ = cluster_config_path(args)
+    """The concrete cluster configuration, its node map and its upstream lock.
+
+    A recipe (``config/cluster.json``) resolves to the shape the site is cabled
+    as (``config/site.json``), or to ``--shape``.
+    """
+    cluster_path, canonical = cluster_config_path(args)
     cluster = json.loads(cluster_path.read_text(encoding="utf-8"))
+    shape_nodes = None
+    if cluster_recipe.is_overlay(cluster):
+        cluster = read_cluster(canonical)
+    elif cluster_recipe.is_recipe(cluster):
+        shape = getattr(args, "shape", None) or cluster_recipe.site_shape(ROOT)
+        if shape is None:
+            raise SystemExit(
+                f"{canonical} serves {', '.join(sorted(cluster['shapes']))}; name this site's cabling with "
+                f"`bin/spark site shape NAME --apply` ({cluster_recipe.SITE_FILE}) or pass --shape"
+            )
+        shape_nodes = int(cluster_recipe.shape_entry(cluster, shape)["nodes"])
+        cluster = cluster_recipe.resolve(cluster, shape)
     nodes_path = repository_config_path(cluster.get("nodes_config", "config/nodes.json"))
     upstreams_path = repository_config_path(cluster.get("upstreams_config", "upstreams.lock.json"))
-    return cluster, (site_nodes() if nodes_path == ROOT / NODES_FILE else json.loads(nodes_path.read_text())), json.loads(upstreams_path.read_text())
+    nodes = site_nodes() if nodes_path == ROOT / NODES_FILE else json.loads(nodes_path.read_text())
+    if shape_nodes is not None and len(nodes["nodes"]) != shape_nodes:
+        raise SystemExit(
+            f"shape {cluster['shape']} needs {shape_nodes} nodes and its node map "
+            f"{cluster.get('nodes_config', NODES_FILE)} has {len(nodes['nodes'])}"
+        )
+    return cluster, nodes, json.loads(upstreams_path.read_text())
+
+
+def read_cluster(relative: str, shape: str | None = None) -> dict:
+    """A cluster configuration file as concrete settings: a recipe resolves to
+    ``shape``, else to the site's; an arm overlay resolves its base first."""
+    cluster = read_json(relative)
+    if cluster_recipe.is_overlay(cluster):
+        base = cluster["extends"]
+        if cluster_recipe.is_recipe(read_json(base["config"])) and not base.get("shape"):
+            raise SystemExit(f"{relative} extends the recipe {base['config']}: name its shape, an arm must not "
+                             "follow the site's cabling")
+        return cluster_recipe.overlay(cluster, read_cluster(base["config"], base.get("shape")))
+    if not cluster_recipe.is_recipe(cluster):
+        return cluster
+    name = shape or cluster_recipe.site_shape(ROOT)
+    if name is None:
+        raise SystemExit(f"{relative} is a recipe: name a shape (this site names none in {cluster_recipe.SITE_FILE})")
+    return cluster_recipe.resolve(cluster, name)
 
 
 def repository_config_path(raw: str) -> Path:
@@ -101,8 +143,55 @@ def node_by_name(nodes: dict, name: str) -> dict:
     raise SystemExit(f"unknown node {name!r}")
 
 
+# DSpark's verifier prices its steps from cost curves it times on a boot and pins in
+# SPARK3_DSPARK_COST_DIR under a key of the shape set (TP size, limits, shapes). A profile
+# that names no directory gets one per build (build_fingerprint), so a new build profiles
+# itself on its first boot, reuses its curves after, and never schedules on another build's.
+# A profile that names one pins curves across builds (an A/B on shared curves).
+DSPARK_COST_ROOT = "/cache/kkref/dspark-costs"
+
+
+def content_digest(path: Path) -> str:
+    """A file's SHA-256, or a directory's over its files' relative paths and digests."""
+    if not path.is_dir():
+        return sha256(path)
+    files = sorted(p for p in path.rglob("*") if p.is_file())
+    return hashlib.sha256(json.dumps([[str(f.relative_to(path)), sha256(f)] for f in files]).encode()).hexdigest()
+
+
+# Settings that change no step's timing, so a release's dev-mode arm and production share curves.
+NOT_TIMING = ("SPARK3_DSPARK_COST_DIR", "VLLM_SERVER_DEV_MODE")
+
+
+def build_fingerprint(cluster: dict) -> str:
+    """What a profile's step times depend on: its image's expected source trees, the code
+    mounted into /opt over it (the repository's files by content, anything else by path),
+    its environment and its serve arguments. A traced or delayed arm therefore never pins
+    curves for the production build."""
+    home = cluster["host"]["home"]
+    checkout = repository_path(cluster).rstrip("/") + "/" if "deployment" in cluster else None
+    overlays = []
+    for source, destination, _ in sorted(cluster["container"]["mounts"]):
+        if not destination.startswith("/opt/"):
+            continue
+        path = source.format(home=home)
+        inside = checkout is not None and path.startswith(checkout)
+        overlays.append([destination, content_digest(ROOT / path[len(checkout):]) if inside else path])
+    identity = {"labels": cluster["container"].get("expected_labels", {}), "overlays": overlays,
+                "environment": {k: str(v) for k, v in cluster["environment"].items() if k not in NOT_TIMING},
+                "serve_args": cluster["serve_args"]}
+    return hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()[:16]
+
+
+def dspark_cost_dir(cluster: dict) -> str:
+    """The profile's pinned-curve directory: its own setting, else its build's."""
+    return cluster["environment"].get("SPARK3_DSPARK_COST_DIR") or f"{DSPARK_COST_ROOT}/build-{build_fingerprint(cluster)}"
+
+
 def expected_environment(cluster: dict, node: dict) -> dict[str, str]:
-    return topology.node_environment(cluster, node)
+    env = topology.node_environment(cluster, node)
+    env["SPARK3_DSPARK_COST_DIR"] = dspark_cost_dir(cluster)
+    return env
 
 
 def expected_command(cluster: dict, node: dict) -> list[str]:
@@ -170,6 +259,56 @@ def environment_problems(
             problems.append(f"{node_name}: {key}={value!r}, expected the image's {image_env[key]!r}")
         else:
             problems.append(f"{node_name}: extra variable {key}={value!r}")
+    return problems
+
+
+def configured_cpuset(cluster: dict) -> str | None:
+    """The CPUs a profile pins serving to (``--cpuset-cpus=`` in docker_run_args), if any."""
+    for argument in cluster["container"]["docker_run_args"]:
+        if argument.startswith("--cpuset-cpus="):
+            return argument.split("=", 1)[1]
+    return None
+
+
+def cpu_list(text: str) -> set[int]:
+    """'5-9,15-19' as a set of CPU numbers; empty text is the empty set."""
+    cpus: set[int] = set()
+    for part in filter(None, (piece.strip() for piece in text.split(","))):
+        low, _, high = part.partition("-")
+        cpus.update(range(int(low), int(high or low) + 1))
+    return cpus
+
+
+def fast_cpus(capacities: dict[int, int]) -> set[int]:
+    """CPUs whose cpu_capacity is above the midpoint of the smallest and largest: GB10's
+    ten Cortex-X925 (sparknet's "big" rule)."""
+    if not capacities:
+        return set()
+    middle = (min(capacities.values()) + max(capacities.values())) / 2
+    return {cpu for cpu, capacity in capacities.items() if capacity > middle}
+
+
+def cpu_capacities(text: str) -> dict[int, int]:
+    """``grep -H . /sys/devices/system/cpu/cpu*/cpu_capacity`` output as {cpu: capacity}."""
+    out = {}
+    for line in text.splitlines():
+        match = re.search(r"cpu(\d+)/cpu_capacity:(\d+)$", line.strip())
+        if match:
+            out[int(match.group(1))] = int(match.group(2))
+    return out
+
+
+def cpuset_problems(node_name: str, configured: str | None, live: str, capacities: dict[int, int]) -> list[str]:
+    """A pinned profile must run pinned, on exactly the node's fast cores."""
+    if configured is None:
+        return []
+    problems = []
+    if cpu_list(live) != cpu_list(configured):
+        problems.append(f"{node_name}: container runs on CPUs {live or 'all'}, the profile pins {configured}")
+    fast = fast_cpus(capacities)
+    if fast and cpu_list(configured) != fast:
+        problems.append(f"{node_name}: --cpuset-cpus={configured} is not this node's fast cores "
+                        f"({','.join(map(str, sorted(fast)))})")
     return problems
 
 
@@ -602,6 +741,18 @@ HOST_FACTS_QUERY += r"""printf 'nvme_coalescing=%s\n' "$(for c in /dev/nvme[0-9]
   printf '%s:%s\n' "${c#/dev/}" "$(sudo -n nvme get-feature "$c" -f 8 2>/dev/null | awk -F'value:' 'NF > 1 {print $2}')"
 done | paste -sd, -)"
 printf 'nvme_coalescing_service=%s\n' "$(systemctl is-enabled nvidia-nvme-interrupt-coalescing.service 2>/dev/null)"
+printf 'nvme_apst=%s\n' "$(for c in /dev/nvme[0-9]*; do
+  [ -c "$c" ] || continue
+  table=$(sudo -n nvme get-feature "$c" -f 0x0c -H 2>/dev/null | awk '
+    /APSTE/ {enabled = ($0 ~ /Enabled/) ? 1 : 0}
+    /Entry\[/ {entry = $0; gsub(/[^0-9]/, "", entry)}
+    /\(ITPT\)/ {idle = $(NF - 1)}
+    /\(ITPS\)/ {if (idle > 0) chain = chain entry ">" $NF "@" idle " "}
+    END {printf "en=%s|%s", enabled, chain}')
+  exits=$(sudo -n nvme id-ctrl "$c" 2>/dev/null | awk '
+    /^ps +[0-9]+ :/ {for (f = 1; f <= NF; f++) if ($f ~ /^exlat:/) {sub("exlat:", "", $f); printf "%s:%s ", $2, $f}}')
+  printf '%s|%s|%s\n' "${c#/dev/}" "$table" "$exits"
+done | paste -sd, -)"
 """
 
 
@@ -769,6 +920,76 @@ NVME_COALESCING_FIX = (
     "sudo systemctl mask --now nvidia-nvme-interrupt-coalescing.service && "
     "sudo /usr/bin/nvidia-nvme-interrupt-coalescing.sh disable"
 )
+
+
+# APST may put an idle drive to sleep, but not on the Engram reader's critical path:
+# no state with this exit latency (us) or more before this much idle (ms).
+NVME_APST_LIMITS = ((5000, 1000), (20000, 30000))
+NVME_APST_FIX = (
+    "set nvme_core apst_primary_timeout_ms=2000 and apst_secondary_timeout_ms=60000: now "
+    "with echo 2000 | sudo tee /sys/module/nvme_core/parameters/apst_primary_timeout_ms, "
+    "echo 60000 | sudo tee /sys/module/nvme_core/parameters/apst_secondary_timeout_ms "
+    "and rewriting each controller's power/pm_qos_latency_tolerance_us to re-arm APST; "
+    "at boot with 'options nvme_core apst_primary_timeout_ms=2000 "
+    "apst_secondary_timeout_ms=60000' in /etc/modprobe.d/nvme-apst.conf and "
+    "sudo update-initramfs -u"
+)
+
+
+def nvme_apst_warnings(node_name: str, facts: dict[str, str]) -> list[str]:
+    """NVMe autonomous power state transitions (APST, feature 0x0c) that sleep too soon.
+
+    With the kernel's defaults (apst_primary_timeout_ms=100) the fleet's drives enter
+    PS3 (11 ms exit latency) after 100 ms idle and PS4 (46 ms) 2 s later. The Engram
+    reader's first read after a pause then waits for the drive to wake: on TP3 at
+    eight streams, whose steps exceed 100 ms, the GPU waited 1.5 s for Engram rows
+    in a 62 s run and throughput was 3% lower than with the drive kept awake
+    (experiments/2026-10-16-r6p). Each controller's chain of transitions from PS0
+    must reach no state of NVME_APST_LIMITS' exit latency before its idle time.
+    These are warnings: a sleeping drive costs latency, not correctness.
+    """
+    warnings = []
+    for entry in filter(None, facts.get("nvme_apst", "").split(",")):
+        # controller|en=<0|1>|<state>><target>@<idle ms> ...|<state>:<exit us> ...
+        controller, enabled, chain, exits = (entry.split("|") + ["", "", ""])[:4]
+        enabled = enabled.removeprefix("en=")
+        exit_us = {}
+        for item in exits.split():
+            state, _, latency = item.partition(":")
+            if state.isdigit() and latency.isdigit():
+                exit_us[int(state)] = int(latency)
+        if enabled not in ("0", "1") or not exit_us:
+            warnings.append(Warn(
+                f"{node_name}: cannot read NVMe APST on {controller} (nvme get-feature -f 0x0c "
+                "and nvme id-ctrl need passwordless sudo and nvme-cli)"
+            ))
+            continue
+        if enabled == "0":
+            continue
+        transitions = {}
+        for item in chain.split():
+            source, _, rest = item.partition(">")
+            target, _, idle = rest.partition("@")
+            if source.isdigit() and target.isdigit() and idle.isdigit() and int(idle) > 0:
+                transitions[int(source)] = (int(target), int(idle))
+        state, idle, seen = 0, 0, {0}
+        while state in transitions:
+            target, wait = transitions[state]
+            state, idle = target, idle + wait
+            if state in seen:
+                break
+            seen.add(state)
+            latency = exit_us.get(state, 0)
+            for limit_us, limit_ms in NVME_APST_LIMITS:
+                if latency >= limit_us and idle < limit_ms:
+                    warnings.append(Warn(
+                        f"{node_name}: {controller} sleeps in PS{state} ({latency / 1000:g} ms "
+                        f"to wake) after {idle} ms idle, and the Engram reader's first read "
+                        f"after a pause waits for it (no state of {limit_us / 1000:g} ms or "
+                        f"more before {limit_ms} ms idle); {NVME_APST_FIX}"
+                    ))
+                    break
+    return warnings
 
 
 def nvme_coalescing_warnings(node_name: str, facts: dict[str, str]) -> list[str]:
@@ -1005,6 +1226,7 @@ def live_doctor(cluster: dict, nodes: dict) -> list[str]:
         problems.extend(splash_problems(node["name"], facts))
         problems.extend(idle_service_warnings(node["name"], facts))
         problems.extend(nvme_coalescing_warnings(node["name"], facts))
+        problems.extend(nvme_apst_warnings(node["name"], facts))
         problems.extend(fan_control_problems(
             node["name"], facts, fan_control=fan_control_enabled(cluster)))
         gid_index, hcas = roce_gid_setting(cluster, node)
@@ -1046,6 +1268,11 @@ def live_doctor(cluster: dict, nodes: dict) -> list[str]:
         problems.extend(
             mount_problems(node["name"], expected_binds(cluster), inspection["HostConfig"]["Binds"])
         )
+        if configured_cpuset(cluster) is not None:
+            capacities = cpu_capacities(run_ssh(
+                nodes, node, "sh", "-c", "grep -H . /sys/devices/system/cpu/cpu[0-9]*/cpu_capacity").stdout)
+            problems.extend(cpuset_problems(node["name"], configured_cpuset(cluster),
+                                            inspection["HostConfig"].get("CpusetCpus") or "", capacities))
         label_result = run_ssh(
             nodes,
             node,
@@ -1106,8 +1333,24 @@ def command_doctor(args: argparse.Namespace) -> int:
     return report_doctor(problems, warnings, args.live)
 
 
+def command_site_shape(args: argparse.Namespace) -> int:
+    recipe = read_json(DEFAULT_CLUSTER_CONFIG)
+    current = cluster_recipe.site_shape(ROOT)
+    if args.name is None:
+        print(current or f"no shape named ({cluster_recipe.SITE_FILE} is missing)")
+        return 0
+    entry = cluster_recipe.shape_entry(recipe, args.name)
+    if not args.apply:
+        print(f"would name this site {args.name} ({entry['nodes']} nodes, {entry['fabric']['transport']}, node map "
+              f"{entry.get('nodes_config', NODES_FILE)}); pass --apply, then `cluster sync` and `doctor --live`")
+        return 0
+    (ROOT / cluster_recipe.SITE_FILE).write_text(json.dumps({"shape": args.name}, indent=2) + "\n", encoding="utf-8")
+    print(f"this site is cabled as {args.name}; run `cluster sync` to copy it and `doctor --live` to check the links")
+    return 0
+
+
 def command_tuning(args: argparse.Namespace) -> int:
-    if args.cluster_config != DEFAULT_CLUSTER_CONFIG:
+    if args.cluster_config not in (None, DEFAULT_CLUSTER_CONFIG):
         raise SystemExit("tuning profiles select their pinned base; omit --cluster-config")
     try:
         profile, resolved = transport_profiles.resolve(ROOT, args.profiles_config, args.profile)
@@ -1166,7 +1409,7 @@ def collective_probe_command(cluster: dict, nodes: dict, node: dict, port: int) 
     command = ["docker", "run", "--rm", "--name=spark-collective-probe",
                "--network=host", "--gpus=all", "--memory=12g", "--memory-swap=12g",
                "--device=/dev/infiniband:/dev/infiniband:rwm", "--cap-add=IPC_LOCK",
-               "--ulimit=memlock=-1:-1", "--shm-size=256m",
+               "--ulimit=memlock=-1:-1", "--ulimit=core=0", "--shm-size=256m",
                "--entrypoint=/usr/bin/timeout"]
     for key, value in sorted(env.items()):
         command.extend(["--env", f"{key}={value}"])
@@ -1229,12 +1472,12 @@ def report_weight_fragmentation(reports: dict, commands: bool = False) -> list[s
 
 def weight_fragmentation_findings(cluster: dict, nodes: dict, commands: bool = False) -> list[str]:
     """Read extent metadata and report only non-ideal layouts or unavailable checks."""
-    source = next(
+    source = cluster_recipe.model_snapshot(cluster) if "models" in cluster else next(
         (source for source, target, _ in cluster["container"]["mounts"] if target == "/models"),
         None,
     )
     if source is None:
-        return [Warn("cannot check weight fragmentation: no /models mount")]
+        return [Warn("cannot check weight fragmentation: no model mount")]
     root = source.format(home=cluster["host"]["home"])
     code = (ROOT / "scripts/weight_fragmentation.py").read_text()
 
@@ -1359,6 +1602,19 @@ def remote_repository_state(
     return lines[0], lines[1], "\n".join(lines[2:]).strip()
 
 
+def unrecorded_subnet_problems(nodes: dict, node: dict, hcas: list[str]) -> list[str]:
+    """A multi-node start checks every RoCE interface against its cable's subnet; an
+    interface without a recorded subnet would skip that check, so it blocks the start."""
+    if len(nodes["nodes"]) < 2:
+        return []
+    missing = [hca for hca in hcas if hca not in node.get("roce_subnets", {})]
+    if not missing:
+        return []
+    return [f"{node['name']}: the node map records no cable subnet for {', '.join(missing)}, so a start "
+            "cannot check that the cabling is the one this profile was written for; add roce_subnets "
+            "(docs/switchless-topology.md)"]
+
+
 def remote_runtime_problems(
     cluster: dict,
     nodes: dict,
@@ -1428,6 +1684,7 @@ def node_runtime_problems(
     gids = remote_shell(nodes, node, roce_gid_query(hcas))
     problems.extend(roce_gid_problems(node["name"], gid_index, hcas, gids.stdout))
     problems.extend(topology.gid_subnet_problems(node, gid_index, gids.stdout))
+    problems.extend(unrecorded_subnet_problems(nodes, node, hcas))
     doctor = run_ssh(
         nodes,
         node,
@@ -1475,8 +1732,13 @@ def node_runtime_problems(
 
 
 def command_cluster_sync(args: argparse.Namespace) -> int:
+    require_named_profile(args)
     cluster, nodes, upstreams = configuration(args)
     _, config_relative = cluster_config_path(args)
+    if args.revision:
+        # A named commit or ref may be newer than this checkout's last fetch (a hash just
+        # merged, or origin/main): fetch before resolving it.
+        checked(["git", "fetch", "--quiet", "--prune", "origin"], cwd=ROOT)
     revision = repository_revision(args.revision or "HEAD")
     path = repository_path(cluster)
     for node in nodes["nodes"]:
@@ -1538,6 +1800,8 @@ def command_cluster_sync(args: argparse.Namespace) -> int:
     # Read before any checkout: on the head node the checkout can be ROOT, and
     # moving it off a commit that still tracked the file removes it.
     site_paths = {NODES_FILE, cluster.get("nodes_config", NODES_FILE)}
+    if (ROOT / cluster_recipe.SITE_FILE).is_file():
+        site_paths.add(cluster_recipe.SITE_FILE)
     site_texts = {relative: repository_config_path(relative).read_text(encoding="utf-8") for relative in site_paths}
     quoted_path = shlex.quote(path)
     fetch_script = (
@@ -1681,19 +1945,31 @@ def wait_for_api(cluster: dict, nodes: dict) -> None:
     raise RuntimeError(f"API did not become ready within {timeout}s{suffix}")
 
 
+def memguard_settings(cluster: dict, phase: str) -> list[str]:
+    """The guard's container, phase, threshold (GiB), interval and container wait
+    (seconds), from the resolved configuration: an arm overlay or a recipe has no
+    such fields of its own, so the guard never reads the file."""
+    host = cluster["host"]
+    if phase == "startup":
+        values = (host["startup_memguard_gib"], host["startup_memguard_interval_seconds"],
+                  host["startup_memguard_wait_seconds"])
+    elif phase == "steady":
+        values = (host["memguard_gib"], host["memguard_interval_seconds"], 0)
+    else:
+        raise ValueError(f"memguard phase must be startup or steady, not {phase!r}")
+    return [cluster["container"]["name"], phase, *(str(value) for value in values)]
+
+
 def start_memguard(
     cluster: dict,
     nodes: dict,
     node: dict,
-    cluster_config: str,
     phase: str,
     *,
     prelaunch: bool = False,
 ) -> None:
     script = f"{repository_path(cluster)}/scripts/memguard-start.sh"
-    arguments = [script, cluster_config, phase]
-    if prelaunch:
-        arguments.append("prelaunch")
+    arguments = [script, *memguard_settings(cluster, phase), "prelaunch" if prelaunch else "running"]
     result = run_ssh(nodes, node, *arguments)
     if result.returncode:
         detail = result.stderr.strip() or result.stdout.strip()
@@ -1703,14 +1979,9 @@ def start_memguard(
     print(f"{node['name']}: {result.stdout.strip()}", flush=True)
 
 
-def start_memguards(
-    cluster: dict,
-    nodes: dict,
-    cluster_config: str,
-    phase: str,
-) -> None:
+def start_memguards(cluster: dict, nodes: dict, phase: str) -> None:
     for node in nodes["nodes"]:
-        start_memguard(cluster, nodes, node, cluster_config, phase)
+        start_memguard(cluster, nodes, node, phase)
 
 
 def preserve_failed_start_logs(
@@ -1758,7 +2029,6 @@ def restore_containers(
     nodes: dict,
     backups: dict[str, str],
     started: list[dict],
-    cluster_config: str,
 ) -> None:
     name = cluster["container"]["name"]
     for node in nodes["nodes"]:
@@ -1774,14 +2044,7 @@ def restore_containers(
             print(f"WARN: {node['name']}: could not restore container name", file=sys.stderr)
             continue
         try:
-            start_memguard(
-                cluster,
-                nodes,
-                node,
-                cluster_config,
-                "startup",
-                prelaunch=True,
-            )
+            start_memguard(cluster, nodes, node, "startup", prelaunch=True)
         except RuntimeError as error:
             print(
                 f"WARN: {error}; did not start restored container unguarded",
@@ -1795,9 +2058,113 @@ def restore_containers(
             continue
 
 
+# The label naming the profile a container was started from, so a later plan can show
+# the live engine's own profile and the command that stops it.
+PROFILE_LABEL = "spark.cluster-config"
+# What "the engine's shape" means: a start that changes any of these is a different
+# deployment, not a restart.
+SHAPE_FLAGS = (("nodes", "--nnodes"), ("tp", "--tensor-parallel-size"),
+               ("context", "--max-model-len"), ("kv", "--kv-cache-memory-bytes"))
+
+
+def require_named_profile(args: argparse.Namespace) -> None:
+    """Every --apply acts on a profile named on the command line, never on the default."""
+    if getattr(args, "apply", False) and getattr(args, "cluster_config", None) is None:
+        raise SystemExit(
+            "--apply changes the nodes, so name the profile: bin/spark --cluster-config PATH ... --apply "
+            f"({DEFAULT_CLUSTER_CONFIG} is the default only for read-only commands)"
+        )
+
+
+def engine_shape(command: list[str]) -> dict[str, str | None]:
+    """Node count, tensor parallelism, context and KV bytes of a vLLM command."""
+    def value(flag: str) -> str | None:
+        return command[command.index(flag) + 1] if flag in command[:-1] else None
+
+    shape = {key: value(flag) for key, flag in SHAPE_FLAGS}
+    shape["nodes"] = shape["nodes"] or "1"
+    shape["tp"] = shape["tp"] or "1"
+    return shape
+
+
+def engine_text(shape: dict[str, str | None]) -> str:
+    context, kv = shape.get("context"), shape.get("kv")
+    context_text = f"{int(context):,}" if context and context.isdigit() else context or "default"
+    kv_text = f"{int(kv) / 2**30:.1f} GiB" if kv and kv.isdigit() else kv or "default"
+    return f"{shape['nodes']} nodes, TP{shape['tp']}, context {context_text}, KV {kv_text}"
+
+
+def head_node(nodes: dict) -> dict:
+    return next(node for node in nodes["nodes"] if node["head"])
+
+
+def live_engine(cluster: dict, nodes: dict) -> dict | None:
+    """The engine container on the profile's head node, running or stopped; None if absent.
+
+    Raises RuntimeError when the head node cannot be reached."""
+    head = head_node(nodes)
+    result = run_ssh(nodes, head, "docker", "inspect", cluster["container"]["name"])
+    if result.returncode == 255:
+        raise RuntimeError(f"cannot reach {head['name']} to inspect the live engine: {result.stderr.strip()}")
+    if result.returncode:
+        return None
+    inspection = json.loads(result.stdout)[0]
+    return {
+        "shape": engine_shape(inspection["Config"]["Cmd"] or []),
+        "image": inspection["Config"]["Image"],
+        "running": bool(inspection["State"]["Running"]),
+        "profile": (inspection["Config"].get("Labels") or {}).get(PROFILE_LABEL),
+    }
+
+
+def describe_live(live: dict | None) -> str:
+    if live is None:
+        return "no engine container on the head node"
+    state = "running" if live["running"] else "stopped"
+    return (f"{state}: {engine_text(live['shape'])}, image {live['image']}, "
+            f"started from {live['profile'] or 'an unrecorded profile'}")
+
+
+def shape_changes(live: dict | None, planned: dict[str, str | None]) -> list[str]:
+    if live is None:
+        return []
+    return [key for key, _ in SHAPE_FLAGS if live["shape"].get(key) != planned.get(key)]
+
+
+def stop_own_profile(live: dict) -> str:
+    return f"bin/spark --cluster-config {live['profile'] or 'PATH'} cluster stop --apply"
+
+
+def start_refusal(live: dict | None, planned: dict[str, str | None], change_shape: bool) -> str | None:
+    """Why --apply must not start this profile over the live engine, or None."""
+    if live is None:
+        return None
+    if live["running"] and live["shape"]["nodes"] != planned["nodes"]:
+        return (f"a {live['shape']['nodes']}-node engine is running and this profile has {planned['nodes']} "
+                "nodes; replacing it here would leave its other nodes on a broken engine. Stop it with its "
+                f"own profile first: {stop_own_profile(live)}")
+    changes = shape_changes(live, planned)
+    if changes and not change_shape:
+        return (f"this start changes the engine's {', '.join(changes)} ({engine_text(live['shape'])} -> "
+                f"{engine_text(planned)}); pass --change-shape if that is intended")
+    return None
+
+
+def launch_command(cluster: dict, node: dict, config_relative: str) -> list[str]:
+    """The rank's docker run, labelled with the profile it was started from."""
+    command = rendered_docker_command(cluster, node)
+    return [*command[:5], "--label", f"{PROFILE_LABEL}={config_relative}", *command[5:]]
+
+
 def command_cluster_start(args: argparse.Namespace) -> int:
+    require_named_profile(args)
     cluster, nodes, upstreams = configuration(args)
     _, config_relative = cluster_config_path(args)
+    if args.apply and "shape" in cluster and "benchmark_reference" not in cluster and not args.unqualified_shape:
+        raise SystemExit(
+            f"no release benchmark qualifies this recipe's image on {cluster['shape']}: bench it in a lab "
+            "window first (experiments/2026-10-14-one-recipe/README.md), or pass --unqualified-shape"
+        )
     if args.apply and not cluster["deployment"]["launch_enabled"]:
         print(
             "ERROR: this cluster configuration is not authorized for launch",
@@ -1806,14 +2173,31 @@ def command_cluster_start(args: argparse.Namespace) -> int:
         return 1
     name = cluster["container"]["name"]
     order = deployment_order(nodes)
+    planned = engine_shape(expected_command(cluster, head_node(nodes)))
+    try:
+        live, unreachable = live_engine(cluster, nodes), None
+    except RuntimeError as error:
+        live, unreachable = None, str(error)
+    changes = shape_changes(live, planned)
+    print(f"profile: {config_relative} on {', '.join(node['name'] for node in nodes['nodes'])}")
+    print(f"live:    {unreachable or describe_live(live)}")
+    print(f"plan:    {engine_text(planned)}, image {cluster['container']['image']}")
+    print("shape:   " + (f"CHANGES {', '.join(changes)}" if changes else "new engine" if live is None else "unchanged"))
     print("start plan (fail-closed startup memory guards):")
     for node in order:
-        print(f"  {node['name']}: pre-arm startup memguard")
-        print(f"  {node['name']}: {shlex.join(rendered_docker_command(cluster, node))}")
+        print(f"  {node['name']}: pre-arm startup memguard, launch rank {node['rank']}")
+        if getattr(args, "verbose", False):
+            print(f"    {shlex.join(launch_command(cluster, node, config_relative))}")
     print("  wait for API/JIT readiness, then switch every node to steady memguard")
+    refusal = unreachable or start_refusal(live, planned, getattr(args, "change_shape", False))
     if not args.apply:
-        print("plan only; pass --apply to start the cluster")
+        if refusal:
+            print(f"--apply would refuse: {refusal}")
+        print("plan only; pass --apply to start the cluster (--verbose prints each docker command)")
         return 0
+    if refusal:
+        print(f"ERROR: {refusal}", file=sys.stderr)
+        return 1
 
     revision = require_local_deployment_state(cluster, nodes, upstreams)
     problems = remote_runtime_problems(
@@ -1872,20 +2256,13 @@ def command_cluster_start(args: argparse.Namespace) -> int:
             if errors:
                 raise RuntimeError("; ".join(errors))
         for node in order:
-            start_memguard(
-                cluster,
-                nodes,
-                node,
-                config_relative,
-                "startup",
-                prelaunch=True,
-            )
+            start_memguard(cluster, nodes, node, "startup", prelaunch=True)
             if not memguard_is_active(cluster, nodes, node):
                 raise RuntimeError(
                     f"{node['name']}: pre-armed startup memguard is not active; "
                     "refusing launch"
                 )
-            result = run_ssh(nodes, node, *rendered_docker_command(cluster, node))
+            result = run_ssh(nodes, node, *launch_command(cluster, node, config_relative))
             if result.returncode:
                 detail = result.stderr.strip() or result.stdout.strip()
                 raise RuntimeError(f"{node['name']}: launch failed: {detail}")
@@ -1893,7 +2270,7 @@ def command_cluster_start(args: argparse.Namespace) -> int:
             print(f"{node['name']}: launched {result.stdout.strip()} ({elapsed()})", flush=True)
         wait_for_api(cluster, nodes)
         print(f"API ready at {elapsed()}", flush=True)
-        start_memguards(cluster, nodes, config_relative, "steady")
+        start_memguards(cluster, nodes, "steady")
     except (RuntimeError, KeyboardInterrupt) as error:
         detail = str(error) if str(error) else "cluster start interrupted"
         print(f"ERROR: {detail}", file=sys.stderr)
@@ -1907,11 +2284,11 @@ def command_cluster_start(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
         print("rolling back containers started by this command", file=sys.stderr)
-        restore_containers(cluster, nodes, backups, started, config_relative)
+        restore_containers(cluster, nodes, backups, started)
         if backups:
             try:
                 wait_for_api(cluster, nodes)
-                start_memguards(cluster, nodes, config_relative, "steady")
+                start_memguards(cluster, nodes, "steady")
             except RuntimeError as rollback_error:
                 print(f"WARN: rollback health check failed: {rollback_error}", file=sys.stderr)
         return 130 if isinstance(error, KeyboardInterrupt) else 1
@@ -1931,14 +2308,32 @@ def command_cluster_start(args: argparse.Namespace) -> int:
 
 
 def command_cluster_stop(args: argparse.Namespace) -> int:
+    require_named_profile(args)
     cluster, nodes, _ = configuration(args)
     name = cluster["container"]["name"]
     action = "stop and remove" if args.remove else "stop"
+    covered = engine_shape(expected_command(cluster, head_node(nodes)))["nodes"]
+    refusal = None
+    try:
+        live = live_engine(cluster, nodes)
+        print(f"live: {describe_live(live)}")
+        if live and live["running"] and live["shape"]["nodes"] != covered:
+            refusal = (f"the running engine spans {live['shape']['nodes']} nodes and this profile covers "
+                       f"{covered}; stopping only these would leave the rest on a broken engine. Stop it with "
+                       f"its own profile: {stop_own_profile(live)}")
+    except RuntimeError as error:
+        # Stopping is the safe direction: an unreachable head does not block it.
+        print(f"WARN: {error}")
     for node in nodes["nodes"]:
         print(f"{node['name']}: {action} exact container {name} and stop its memguard")
     if not args.apply:
+        if refusal:
+            print(f"--apply would refuse: {refusal}")
         print("plan only; pass --apply to stop the cluster")
         return 0
+    if refusal:
+        print(f"ERROR: {refusal}", file=sys.stderr)
+        return 1
 
     def stop_node(node: dict) -> tuple[list[str], list[str]]:
         """Stop one node's memguard and container; return (messages, errors)."""
@@ -2682,7 +3077,7 @@ def smoke_image(cluster: dict, tag: str, script: str = SMOKE_SCRIPT) -> None:
         )
     subprocess.run(
         [
-            "docker", "run", "--rm", "-i", "--gpus", "all",
+            "docker", "run", "--rm", "-i", "--gpus", "all", "--ulimit=core=0",
             f"--memory={SMOKE_MEMORY_GIB}g", f"--memory-swap={SMOKE_MEMORY_GIB}g",
             "--entrypoint", "/usr/bin/python3", tag, "-",
         ],
@@ -2693,6 +3088,7 @@ def smoke_image(cluster: dict, tag: str, script: str = SMOKE_SCRIPT) -> None:
 
 
 def command_build_image(args: argparse.Namespace) -> int:
+    require_named_profile(args)
     cluster, _, upstreams = configuration(args)
     inputs = build_inputs(upstreams)
     directory = build_directory(inputs)
@@ -4796,6 +5192,7 @@ def bench_identity(cluster: dict, nodes: dict, config_name: str, config_path: Pa
         "kernel_backend": kernel_backend.backend(cluster),
         "promoted_baseline": cluster.get("promoted_baseline"),
         "image": cluster["container"]["image"],
+        "dspark_cost_dir": dspark_cost_dir(cluster),
         "client_commit": repository_revision(),
         "client_dirty": bool(repository_dirty()),
         "client_host": socket.gethostname(),
@@ -4849,6 +5246,19 @@ def shape_text(shape: dict, keys: list[str]) -> str:
     return ", ".join(f"{key} {shape[key]}" for key in keys)
 
 
+def reference_identity(path: Path) -> dict:
+    """The identity a reference run records: a bench report's, or a servebench suite run's
+    (the metadata bench --suite stores in the run directory's suite.json)."""
+    if path.is_dir():
+        index = json.loads((path / "suite.json").read_text(encoding="utf-8"))
+        return (index.get("metadata") or {}).get("identity") or {}
+    return json.loads(path.read_text(encoding="utf-8")).get("identity") or {}
+
+
+def is_suite_run(path: Path) -> bool:
+    return (path / "suite.json").is_file()
+
+
 def benchmark_reference(cluster: dict) -> tuple[Path, bool]:
     """A profile's default reference run, and whether the profile names it. A
     profile whose topology differs from its baseline's reference run names its
@@ -4864,11 +5274,11 @@ def benchmark_reference_problems(cluster: dict, nodes: dict) -> list[str]:
     if raw is None:
         return []
     if not isinstance(raw, str) or not raw or Path(raw).is_absolute() or not (ROOT / raw).resolve().is_relative_to(ROOT):
-        return ["benchmark_reference must be a bench.json path relative to the repository root"]
+        return ["benchmark_reference must be a bench.json or suite run directory relative to the repository root"]
     path = ROOT / raw
-    if not path.is_file():
+    if not (path.is_file() or is_suite_run(path)):
         return [f"benchmark_reference does not exist: {raw}"]
-    reference = bench_shape(json.loads(path.read_text(encoding="utf-8")).get("identity") or {})
+    reference = bench_shape(reference_identity(path))
     profile = profile_shape(cluster, nodes)
     differing, unrecorded = shape_differences(profile, reference)
     problems: list[str] = []
@@ -5029,9 +5439,157 @@ def bench_rows(report: dict, reference: dict | None, tolerance: float) -> tuple[
     return lines, regressions
 
 
+# bench --suite exits 2 when it measured nothing (it refused), 1 when a step failed or the
+# run was halted (the other steps' results stand), 0 otherwise.
+SUITE_REFUSED, SUITE_FAILED = 2, 1
+
+
+def suite_reference(args: argparse.Namespace, cluster: dict, nodes: dict, definition: dict,
+                    digest: str) -> tuple[Path | None, str | None]:
+    """The suite run to compare with, or a reason to refuse. The default is the profile's
+    benchmark_reference when it is a run of the same suite and shape; a default of another
+    suite or shape is refused, an explicit one of another shape only warns."""
+    if args.compare == "none":
+        return None, None
+    if args.compare is None:
+        path, _ = benchmark_reference(cluster)
+        if not is_suite_run(path):
+            print(f"no suite run to compare with ({path.relative_to(ROOT) if path.is_relative_to(ROOT) else path} "
+                  "is not one)")
+            return None, None
+    else:
+        path = Path(args.compare) if Path(args.compare).is_absolute() else ROOT / args.compare
+        if not is_suite_run(path):
+            return None, f"--compare {args.compare} is not a suite run directory (no suite.json)"
+    shown = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
+    index = json.loads((path / "suite.json").read_text(encoding="utf-8"))
+    if index["suite_sha256"] != digest:
+        return None, (f"reference {shown} is a run of suite {index['suite']['name']} {index['suite_sha256'][:12]}, "
+                      f"this run's is {definition['name']} {digest[:12]}; a changed suite is a new suite: "
+                      "pass --compare with a run of this suite, or --compare none")
+    run, ref = profile_shape(cluster, nodes), bench_shape(reference_identity(path))
+    differing, unrecorded = shape_differences(run, ref)
+    if unrecorded:
+        print(f"WARN: cannot compare {', '.join(unrecorded)} with reference {shown}: not recorded")
+    if differing:
+        mismatch = f"reference {shown} was measured with {shape_text(ref, differing)}; this run has {shape_text(run, differing)}"
+        if args.compare is None:
+            return None, mismatch + "; name the profile's own run in benchmark_reference, or pass --compare"
+        print(f"WARN: {mismatch}")
+    return path, None
+
+
+def bench_suite(args: argparse.Namespace, cluster: dict, nodes: dict, config_name: str, config_path: Path) -> int:
+    """Run a servebench suite (servebench/suites/<name>.json or a JSON file) on the live service
+    under every bench's conditions: the nodes cooled, the fan performance curve running,
+    memory and temperatures watched (a breach stops the run), and the deployment's identity
+    stored in the run's suite.json. conditions.json beside it records the rest."""
+    sys.path.insert(0, str(ROOT))
+    from servebench import suite as servebench_suite
+
+    try:
+        definition = servebench_suite.load(args.suite)
+    except (OSError, ValueError) as error:
+        print(f"ERROR: {error}")
+        return SUITE_REFUSED
+    if servebench_suite.needs_dev_rpc(definition) and cluster.get("environment", {}).get("VLLM_SERVER_DEV_MODE") != "1":
+        print(f"ERROR: suite {definition['name']} times the engine grid, which needs the dev-mode collective RPC "
+              "(VLLM_SERVER_DEV_MODE=1); production does not expose it, so run the suite on a development arm "
+              "in a lab window")
+        return SUITE_REFUSED
+    digest = servebench_suite.digest(definition)
+    reference_path, refusal = suite_reference(args, cluster, nodes, definition, digest)
+    if refusal:
+        print(f"ERROR: {refusal}")
+        return SUITE_REFUSED
+    head = next(node for node in nodes["nodes"] if node["head"])
+    base = (args.url or f"http://{head['management_ip']}:{serve_arg(cluster, '--port')}").rstrip("/")
+    identity = bench_identity(cluster, nodes, config_name, config_path)
+    for warning in identity["live_warnings"]:
+        print(f"WARN: {warning}")
+    if identity["live_problems"]:
+        for problem in identity["live_problems"]:
+            print(f"ERROR: {problem}")
+        if not args.allow_mismatch:
+            print("refusing to benchmark a cluster that differs from its configuration")
+            return SUITE_REFUSED
+    output = Path(args.output) if args.output else ROOT / "results/private/suites" / time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    if not output.is_absolute():
+        output = ROOT / output
+    output.mkdir(parents=True, exist_ok=True)
+    conditions: dict = {"cooling": None, "fan_curve": []}
+    halted: list[str] = []
+    child: dict[str, subprocess.Popen] = {}
+
+    def halt(reason: str) -> None:
+        if halted:
+            return
+        halted.append(reason)
+        print(f"HALT: {reason}", flush=True)
+        if "process" in child and child["process"].poll() is None:
+            child["process"].send_signal(signal.SIGINT)
+
+    memory = MemoryWatch(nodes, float(cluster["host"]["memguard_gib"]) + 1, halt)
+    code = SUITE_REFUSED
+    try:
+        try:
+            conditions["cooling"] = cool_nodes(nodes, nodes["nodes"], args.cool_below, args.cool_timeout,
+                                               fan_control=fan_control_enabled(cluster))
+        except RuntimeError as error:
+            print(f"ERROR: cooling failed: {error}")
+            return SUITE_REFUSED
+        conditions["fan_curve"] = start_fan_curve(nodes, nodes["nodes"], fan_control=fan_control_enabled(cluster))
+        missing_curve = fan_curve_problems(conditions["fan_curve"])
+        if missing_curve:
+            print("ERROR: the fan performance curve is not running everywhere: " + "; ".join(missing_curve))
+            return SUITE_REFUSED
+        try:
+            memory.wait_ready()
+        except BenchAbort as error:
+            print(f"ERROR: {error}")
+            return SUITE_REFUSED
+        handle, metadata = tempfile.mkstemp(suffix=".json")
+        with os.fdopen(handle, "w", encoding="utf-8") as stream:
+            json.dump({"identity": identity}, stream)
+        argv = [sys.executable, "-m", "servebench", "suite", base, "--suite", args.suite, "--out", str(output),
+                "--label", args.label or definition["name"], "--metadata", metadata]
+        if args.corpus:
+            argv += ["--corpus", args.corpus]
+        print(f"benchmarking {base} ({config_name}) with suite {definition['name']} {digest[:12]}; writing {output}",
+              flush=True)
+        try:
+            child["process"] = subprocess.Popen(argv, cwd=ROOT)
+            try:
+                returncode = child["process"].wait()
+            except KeyboardInterrupt:
+                halt("interrupted")
+                returncode = child["process"].wait()
+        finally:
+            os.unlink(metadata)
+        code = SUITE_FAILED if returncode or halted else 0
+    finally:
+        conditions["fan_stop_failures"] = stop_fan_curve(nodes, nodes["nodes"], conditions["fan_curve"])
+        conditions["thermal"] = memory.thermal_summary()
+        conditions["memory"] = memory.close()
+        conditions["halted"] = halted[0] if halted else None
+        (output / "conditions.json").write_text(json.dumps(conditions, indent=1) + "\n", encoding="utf-8")
+    for name, thermal in conditions["thermal"].items():
+        if thermal.get("thermal_slowdown_ms"):
+            print(f"FAIL: {name} spent {thermal['thermal_slowdown_ms']} ms in thermal slowdown; results are not comparable")
+            code = code or SUITE_FAILED
+    for failure in conditions["fan_stop_failures"]:
+        print(f"WARN: {failure}")
+    if reference_path:
+        subprocess.run([sys.executable, "-m", "servebench", "compare", str(reference_path), str(output)], cwd=ROOT)
+        print(f"reference: {reference_path}")
+    return code
+
+
 def command_bench(args: argparse.Namespace) -> int:
     cluster, nodes, _ = configuration(args)
     config_path, config_name = cluster_config_path(args)
+    if args.suite:
+        return bench_suite(args, cluster, nodes, config_name, config_path)
     if args.suites is None:
         args.suites = ",".join(FULL_SUITES) if args.full else "quality,decode"
     if args.min_samples is None:
@@ -5066,7 +5624,13 @@ def command_bench(args: argparse.Namespace) -> int:
     reference_path = None
     if args.compare is None:
         reference_path, named = benchmark_reference(cluster)
-        if not reference_path.is_file():
+        if is_suite_run(reference_path):
+            # A shape released on the servebench suite has no bench report to compare with;
+            # bench --suite compares with its run.
+            print(f"NOTE: benchmark_reference {cluster['benchmark_reference']} is a servebench suite run; "
+                  "this bench compares with nothing (bench --suite compares with it, or pass --compare PATH)")
+            reference_path = None
+        elif not reference_path.is_file():
             if named:
                 raise SystemExit(f"benchmark_reference does not exist: {cluster['benchmark_reference']}")
             reference_path = None
@@ -5249,11 +5813,24 @@ def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(prog="spark")
     root.add_argument(
         "--cluster-config",
-        default=DEFAULT_CLUSTER_CONFIG,
+        default=None,
         metavar="PATH",
-        help="repository-relative cluster config (default: config/cluster.json)",
+        help="repository-relative cluster config (default for read-only commands: config/cluster.json; "
+        "every --apply needs it named)",
+    )
+    root.add_argument(
+        "--shape",
+        default=None,
+        metavar="NAME",
+        help=f"the recipe's shape to use instead of the site's cabling ({cluster_recipe.SITE_FILE})",
     )
     commands = root.add_subparsers(dest="command", required=True)
+    site = commands.add_parser("site", help="this site's cabling: the recipe shape it serves")
+    site_commands = site.add_subparsers(dest="site_command", required=True)
+    site_shape = site_commands.add_parser("shape", help="show or set the shape this site is cabled as")
+    site_shape.add_argument("name", nargs="?", help="a shape of config/cluster.json (after re-cabling)")
+    site_shape.add_argument("--apply", action="store_true")
+    site_shape.set_defaults(func=command_site_shape)
     doctor = commands.add_parser("doctor", help="validate repository and optional live state")
     doctor.add_argument("--live", action="store_true")
     doctor.add_argument(
@@ -5291,7 +5868,8 @@ def parser() -> argparse.ArgumentParser:
     cluster_sync = cluster_commands.add_parser(
         "sync", help="detach every clean node checkout at one published commit"
     )
-    cluster_sync.add_argument("--revision", help="published commit; defaults to local HEAD")
+    cluster_sync.add_argument("--revision", help="published commit or ref, resolved after a fetch "
+                                                    "(origin/main is the latest main); defaults to local HEAD")
     cluster_sync.add_argument(
         "--apply", action="store_true", help="perform the planned synchronization"
     )
@@ -5304,6 +5882,17 @@ def parser() -> argparse.ArgumentParser:
     )
     cluster_start.add_argument(
         "--apply", action="store_true", help="perform the planned coordinated start"
+    )
+    cluster_start.add_argument(
+        "--change-shape", action="store_true",
+        help="allow a start that changes the engine's node count, tensor parallelism, context or KV size",
+    )
+    cluster_start.add_argument(
+        "--unqualified-shape", action="store_true",
+        help="start a recipe shape that no release benchmark has qualified for the recipe's image",
+    )
+    cluster_start.add_argument(
+        "--verbose", action="store_true", help="print each rank's docker command in the plan"
     )
     cluster_start.set_defaults(func=command_cluster_start)
     cluster_stop = cluster_commands.add_parser(
@@ -5371,6 +5960,17 @@ def parser() -> argparse.ArgumentParser:
         "the default is the quality gate and decode with 3-4 samples (about 6 minutes)",
     )
     bench.add_argument(
+        "--suite",
+        metavar="NAME",
+        help="run this servebench suite (servebench/suites/<NAME>.json, or a JSON file) instead of the "
+        "bench below, under the same cooling, fan curve, memory and temperature watch, with the "
+        "deployment's identity stored in the run; --output is the run directory (default "
+        "results/private/suites/<UTC time>); exits 2 when refused, 1 when a step failed",
+    )
+    bench.add_argument("--label", help="--suite: the run's name in tables (default: the suite's)")
+    bench.add_argument("--corpus", metavar="PATH",
+                       help="--suite: model steps score this earlier model result's text (the first arm's)")
+    bench.add_argument(
         "--suites",
         help="comma-separated subset of: " + ", ".join(BENCH_SUITES),
     )
@@ -5381,7 +5981,7 @@ def parser() -> argparse.ArgumentParser:
     bench.add_argument(
         "--compare",
         metavar="PATH",
-        help="reference bench.json (default: the profile's benchmark_reference, else "
+        help="reference bench.json, or with --suite a suite run directory (default: the profile's benchmark_reference, else "
         "manifests/benchmarks/<promoted_baseline>.json when present; a default measured on another "
         "node count, transport or kernel backend is refused, an explicit one only warns; "
         "'none' skips the comparison)",

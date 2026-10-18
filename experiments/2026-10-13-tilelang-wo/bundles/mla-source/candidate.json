@@ -1,0 +1,27 @@
+{
+  "description": "Sparse MLA extend and decode CUDA source (SWA-only, 16 heads, IEEE math) and route equality on one-, two- and three-key rows.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "VLLM_DS41_MLA_FAST_MATH": "0"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "/b/dump.py"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm__models__deepseek_v4_1__tilelang__sparse_mla.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/sparse_mla.py"
+    ],
+    [
+      "dump.py",
+      "/b/dump.py"
+    ],
+    [
+      "check_mla_routes.py",
+      "/b/check_mla_routes.py"
+    ]
+  ]
+}

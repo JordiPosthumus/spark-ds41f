@@ -1,0 +1,28 @@
+{
+  "experiment": "experiments/2026-10-13-r6i",
+  "run": "r6i-release-tp4",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "profile": "release",
+      "bracket": false,
+      "arms": [
+        {
+          "config": "experiments/2026-10-13-r6i/r6i-candidate.json",
+          "label": "r6i"
+        },
+        {
+          "config": "experiments/2026-10-13-r6i/r6h.json",
+          "label": "r6h"
+        },
+        {
+          "config": "experiments/2026-10-13-r6i/r6i-candidate.json",
+          "label": "r6i-again"
+        }
+      ]
+    }
+  ]
+}

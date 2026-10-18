@@ -10,12 +10,19 @@ changes](#what-changes-on-your-machines) before you start.
 
 ## Requirements and tested configurations
 
-| Sparks | Cabling | Profile | Context | Sequences | KV per rank | Kernel | Memory saver | Status |
-| --- | --- | --- | ---: | ---: | ---: | --- | --- | --- |
-| 3 | triangle | [config/cluster-4k.json](../config/cluster-4k.json) | 262,144 | 8 | 2.2 GiB | stock 4 KiB | not needed | supported fallback |
-| 3 | triangle | [config/cluster.json](../config/cluster.json) (= `cluster-64k.json`) | 524,288 | 8 | 3.5 GiB | 64 KiB | required | promoted |
-| 4 | ring | [config/cluster-tp4.json](../config/cluster-tp4.json) | 1,048,576 | 16 | 10.5 GiB | 64 KiB | required | promoted |
-| 2 | — | — | — | — | — | — | — | not supported |
+One recipe, [config/cluster.json](../config/cluster.json), serves every
+shape on one image; a shape changes only its cabling and its memory sizing.
+
+| Sparks | Cabling | Shape | Context | Sequences | KV per rank | Kernel | Memory saver |
+| --- | --- | --- | ---: | ---: | ---: | --- | --- |
+| 3 | triangle | `tp3-triangle-4k` | 262,144 | 8 | 2.2 GiB | stock 4 KiB | not needed |
+| 3 | triangle | `tp3-triangle` | 524,288 | 8 | 3.5 GiB | 64 KiB | required |
+| 4 | ring | `tp4-ring` | 1,048,576 | 16 | 10.5 GiB | 64 KiB | required |
+| 2 | — | — | — | — | — | — | — |
+
+A shape is qualified for the recipe's image when the recipe names its release
+benchmark (`benchmark_reference`); `cluster start` refuses an unqualified one
+unless given `--unqualified-shape`. Two Sparks are not supported.
 
 **Two Sparks** cannot hold this model with useful context. At three Sparks,
 the head node already runs within about 3 GiB of its memory guard during a
@@ -46,12 +53,13 @@ Each node needs:
 | [Kernel mode setting](#kernel-mode-setting) (`nvidia-drm modeset=Y`) | required | required | `doctor --live` | reinstall `nvidia-drm-options-modeset0` |
 | [`vm.watermark_boost_factor=0`](#memory-accounting) | recommended | recommended | — | delete the sysctl file |
 | [NVMe interrupt coalescing off](#nvme-interrupt-coalescing) | optional | optional | `doctor --live` (warn) | unmask the service |
+| [NVMe sleeps only when idle](#nvme-power-states-apst) (APST timeouts 2 s / 60 s) | recommended | recommended | `doctor --live` (warn) | delete the modprobe file |
 | [UEFI boot order](#boot-order) | optional | optional | `doctor --live` (warn) | `efibootmgr --bootorder` |
 | [Fan-floor control](#fan-floor-control) | recommended | recommended | `doctor --live` (error until installed) | its [uninstall guide](https://github.com/christopherowen/dgx-spark-fan-control/blob/main/docs/maintenance.md#uninstall) |
 | [64 KiB kernel, swap and memory policy](#2-kernel-64-kib-profiles) | — | required | `doctor --live`, launch | [boot the 4 KiB kernel](#revert-the-64-kib-kernel) |
 | [Memory saver](#2-kernel-64-kib-profiles) (signed DKMS UVM module) | — | required | `doctor --live`, launch | its [removal guide](https://github.com/christopherowen/dgx-spark-memory-saver/blob/main/docs/dkms.md#remove-and-restore-stock-uvm) |
 | [ConnectX-7 addressing](#3-fabric-cabling-and-addressing) (netplan) | required | required | `doctor --live`, launch | remove `40-cx7.yaml` |
-| Docker image and container | required | required | `doctor --live` | `bin/spark cluster stop --apply`, `docker image rm` |
+| Docker image and container | required | required | `doctor --live` | `bin/spark --cluster-config <profile> cluster stop --apply`, `docker image rm` |
 
 The repository changes nothing on the hosts by itself. Each change is a
 command you run, and `doctor` only reports and prints fixes ([doctor.md](doctor.md)).
@@ -178,6 +186,33 @@ sudo /usr/bin/nvidia-nvme-interrupt-coalescing.sh disable
 Revert: `sudo systemctl unmask nvidia-nvme-interrupt-coalescing.service` and
 reboot.
 
+### NVMe power states (APST)
+
+With the kernel's defaults the drive enters a sleep state 100 ms after its last
+I/O (PS3, 11 ms to wake) and a deeper one 2 s later (PS4, 46 ms). Engram reads
+its tables from the drive on the decode critical path, so the first read after a
+pause waits for the drive to wake. On TP3 at eight streams the steps are longer
+than 100 ms: the GPU waited 1.5 s for Engram rows in a 62 s run, and throughput
+was 3% higher with the drive kept awake
+([measurement](../experiments/2026-10-16-r6p/README.md)). Longer timeouts keep
+the drive awake while serving and let it sleep when idle:
+
+```sh
+echo 2000 | sudo tee /sys/module/nvme_core/parameters/apst_primary_timeout_ms
+echo 60000 | sudo tee /sys/module/nvme_core/parameters/apst_secondary_timeout_ms
+for c in /sys/class/nvme/nvme*; do  # re-arm APST with the new timeouts
+  t=$(cat "$c/power/pm_qos_latency_tolerance_us")
+  echo $((t - 1)) | sudo tee "$c/power/pm_qos_latency_tolerance_us" >/dev/null
+  echo "$t" | sudo tee "$c/power/pm_qos_latency_tolerance_us" >/dev/null
+done
+echo 'options nvme_core apst_primary_timeout_ms=2000 apst_secondary_timeout_ms=60000' \
+  | sudo tee /etc/modprobe.d/nvme-apst.conf
+sudo update-initramfs -u   # nvme_core loads from the initramfs
+```
+
+Revert: delete `/etc/modprobe.d/nvme-apst.conf`, `sudo update-initramfs -u` and
+reboot.
+
 ### Boot order
 
 A firmware update can leave a network (PXE) entry ahead of the installed OS,
@@ -231,7 +266,7 @@ reboot:
 
 ## 2. Kernel (64 KiB profiles)
 
-Skip this stage for `config/cluster-4k.json`.
+Skip this stage for the `tp3-triangle-4k` shape.
 
 The 64 KiB profiles run Ubuntu's `7.0.0-1019-nvidia-64k` kernel with NVIDIA
 580.178.04 and the memory saver, a patched, signed `nvidia-uvm` DKMS module
@@ -244,6 +279,9 @@ yours to run, as root, with the service stopped:
 1. **Kernel packages.** Install the five `7.0.0-1019-nvidia-64k` packages at
    the versions in `config/kernel-trial.json` (image, modules, headers,
    `linux-tools` for the CPU governor, and `linux-modules-nvidia-580-open`).
+   The NVIDIA modules package carries the kernel version plus a packaging suffix
+   (`+1`, `+2`, ...) that Ubuntu raises on a resync; install the archive's current
+   one, which `doctor --live` accepts.
    Keep the 4 KiB kernel installed: it is the fallback. With fan control
    installed, also run `sudo dkms autoinstall -k 7.0.0-1019-nvidia-64k` so
    its module is built for the new kernel. The memory saver's [kernel guide](https://github.com/christopherowen/dgx-spark-memory-saver/blob/main/docs/kernel.md)
@@ -258,7 +296,7 @@ yours to run, as root, with the service stopped:
    reboot or touch the running system.
 3. **Memory saver.** Run `bash experiments/2026-10-02-memory-saver-capacity/install-dkms.sh`
    from a clean checkout. It clones the memory saver at the revision pinned
-   in `config/kernel-trial.json`, then builds and installs DKMS 0.2.0 for the
+   in `config/kernel-trial.json`, then builds and installs DKMS 0.4.1 for the
    64 KiB kernel. It signs with the key that dgx-spark-fan-control created
    (`/root/.local/share/dgx-spark-fan-control/keys`) and refuses to run unless
    that key is enrolled in MOK. Without fan control, follow the memory
@@ -304,7 +342,7 @@ Stop the service. On every node, put the retained 4 KiB entry in the pin
 file (`gnulinux-advanced-$uuid>gnulinux-7.0.0-1019-nvidia-advanced-$uuid`),
 run `sudo update-grub` and reboot. The memory service activates the original swap and leaves THP alone,
 and the memory saver is not built for the 4 KiB kernel, so stock UVM loads.
-Serve with `--cluster-config config/cluster-4k.json`. To remove everything,
+Serve the `tp3-triangle-4k` shape (`bin/spark site shape tp3-triangle-4k --apply`). To remove everything,
 follow the memory saver's [removal guide](https://github.com/christopherowen/dgx-spark-memory-saver/blob/main/docs/maintenance.md),
 disable `spark3-kernel-memory.service`, restore
 `/var/lib/spark3/kernel-64k-boot/fstab.before`, and delete `/swap-64k.img`
@@ -380,9 +418,11 @@ Two files describe your site and stay out of git:
   to the head (the `dgxN-internal` names in `/etc/hosts`) keeps large copies
   off a struggling LAN switch; the head's `known_hosts` must know that name.
   A node the head is not cabled to keeps its LAN route.
-- **The profile.** In the profile you will run (`config/cluster.json`, its
-  named copies, or `config/cluster-tp4.json`), set
-  `distributed.master_addr` to the head's management IP, `host.home`,
+- **The shape.** Name your cabling once: `bin/spark site shape tp3-triangle
+  --apply` (or `tp3-triangle-4k`, `tp4-ring`) writes the git-ignored
+  `config/site.json`, which `cluster sync` copies to every node. Every command
+  then resolves the recipe at that shape; `--shape NAME` overrides it.
+- **The recipe.** In `config/cluster.json`, set `distributed.master_addr` to the head's management IP, `host.home`,
   `deployment.repository` if you use a fork (the launch checks every node's
   `origin` against it), and the interface names in `GLOO_SOCKET_IFNAME`, `NCCL_SOCKET_IFNAME`,
   `TP_SOCKET_IFNAME` and `NCCL_IB_HCA`. Keep `distributed.master_port` below
@@ -390,12 +430,12 @@ Two files describe your site and stay out of git:
   inside it, an outgoing connection can take the port and the head fails to
   start.
 
-`bin/spark cluster sync --apply` moves every node's checkout to the head's
+`bin/spark --cluster-config <profile> cluster sync --apply` moves every node's checkout to the head's
 commit and copies the head's node map to the others.
 
-For any profile other than `config/cluster.json`, put `--cluster-config` before
-the subcommand of every command, for example
-`bin/spark --cluster-config config/cluster-tp4.json doctor`.
+Commands that change the nodes need the configuration named with
+`--cluster-config` before the subcommand, for example
+`bin/spark --cluster-config config/cluster.json cluster start --apply`.
 
 ### Check
 
@@ -403,13 +443,22 @@ the subcommand of every command, for example
 
 ## 5. Model
 
-On every node, download the pinned revision into the Hugging Face cache the
-profile mounts:
+On every node, download the pinned revision of the recipe's model,
+DeepSeek-V4.1-Flash-1017 (476 GiB), into the Hugging Face cache the profile
+mounts:
 
 ```sh
-huggingface-cli download deepseek-ai/DeepSeek-V4.1-Flash \
-  --revision dba1be0a40aa45a94ad051997016db3960a90277
+hf download deepseek-ai/DeepSeek-V4.1-Flash-1017 \
+  --revision 1bae0e1088993b9b82de08f59de5be5a34e42170
 ```
+
+The profile (`models.v41-flash-1017` in [config/cluster.json](../config/cluster.json))
+mounts the whole hub cache, because recent `hf` versions link a repository's blobs
+into a shared store under `hub/blobs`. To copy the checkpoint between nodes, copy
+both `hub/blobs` and the repository's folder. The original checkpoint
+(`deepseek-ai/DeepSeek-V4.1-Flash`, revision
+`dba1be0a40aa45a94ad051997016db3960a90277`) still serves with `"model": "v41-flash"`;
+its config, tokenizer and tensor layout are the same, and every weight shard differs.
 
 ## 6. Image
 
@@ -417,7 +466,7 @@ On one idle node (the build host), from a clean checkout of `main`:
 
 ```sh
 bin/spark build prepare
-bin/spark build image --apply
+bin/spark --cluster-config config/cluster.json build image --apply
 ```
 
 `build prepare` fetches the pinned vLLM, B12X, NCCL, TileLang, TileKernels
@@ -459,13 +508,14 @@ experiments/2026-09-23-canonical-minimal/prebuild_flashinfer.sh \
 Then, from the head node, with a clean checkout of a published commit:
 
 ```sh
-bin/spark cluster sync --apply
-bin/spark cluster start --apply
-bin/spark doctor --live
+bin/spark --cluster-config config/cluster.json cluster sync --apply
+bin/spark --cluster-config config/cluster.json cluster start --apply
+bin/spark --cluster-config config/cluster.json doctor --live
 ```
 
-For TP4, give each of these `--cluster-config config/cluster-tp4.json` before
-the subcommand; `sync` then reaches the fourth node too.
+On a ring the site's shape is `tp4-ring`, and `sync` reaches the fourth node
+too. Every `--apply` needs the configuration named: there is no default for a
+command that changes the nodes.
 
 `cluster start` runs the [launch preflight](doctor.md#launch-preflight),
 arms a 5 GiB startup memory guard on every node, starts the ranks, waits for
@@ -477,8 +527,10 @@ The API is OpenAI-compatible on the head node's port 8000, model
 `deepseek-v4.1-flash`. Reasoning is on by default; pass
 `"chat_template_kwargs": {"thinking": false}` to turn it off per request.
 
-Stop: `bin/spark cluster stop --apply`. It stops the exact containers and
-their memory guards and keeps the containers for inspection.
+Stop: `bin/spark --cluster-config <profile> cluster stop --apply`, with the
+profile the engine was started from (the plan names it). It stops the exact
+containers and their memory guards and keeps the containers for inspection. It
+refuses a profile that covers only some of the running engine's nodes.
 
 ## 8. Verify
 

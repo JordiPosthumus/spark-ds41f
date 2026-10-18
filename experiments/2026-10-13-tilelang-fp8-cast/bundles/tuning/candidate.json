@@ -1,0 +1,27 @@
+{
+  "description": "Fused-cast MXFP8 GEMM: bits against per_token_cast + gemm_mxfp8 and time per call (B6 and WO-B shapes); then WO-B decode tiles against today's path.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "-c",
+    "import subprocess, sys; codes = [subprocess.call([sys.executable, '/b/check_gemm_cast.py', '--time']), subprocess.call([sys.executable, '/b/sweep_fp8_decode.py'])]; print('exit codes', codes); print(f'{2 - sum(1 for c in codes if c)} passed'); sys.exit(max(codes))"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm__models__deepseek_v4_1__tilelang__gemm.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/gemm.py"
+    ],
+    [
+      "check_gemm_cast.py",
+      "/b/check_gemm_cast.py"
+    ],
+    [
+      "sweep_fp8_decode.py",
+      "/b/sweep_fp8_decode.py"
+    ]
+  ]
+}

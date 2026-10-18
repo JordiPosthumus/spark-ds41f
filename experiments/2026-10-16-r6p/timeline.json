@@ -1,0 +1,59 @@
+{
+ "experiment": "experiments/2026-10-16-r6p",
+ "run": "r6p-tp3-timeline",
+ "jobs": [
+  {
+   "kind": "sync"
+  },
+  {
+   "kind": "measure",
+   "bench": false,
+   "bracket": false,
+   "telemetry": true,
+   "extras": [
+    [
+     "scripts/distinct_streams.py",
+     [
+      "--streams",
+      "8",
+      "--samples",
+      "4",
+      "--tokens",
+      "256"
+     ],
+     "c8-distinct"
+    ],
+    [
+     "scripts/distinct_streams.py",
+     [
+      "--streams",
+      "1",
+      "--samples",
+      "4",
+      "--tokens",
+      "256"
+     ],
+     "c1-distinct"
+    ],
+    [
+     "experiments/2026-10-12-r6g/token_determinism_text.py",
+     [
+      "--tokens",
+      "192",
+      "--long-lines",
+      "700",
+      "--wide",
+      "--no-logprobs"
+     ],
+     "greedy"
+    ]
+   ],
+   "arms": [
+    {
+     "config": "r6p-tp3-timeline.json",
+     "label": "r6p-timeline"
+    }
+   ]
+  }
+ ]
+}

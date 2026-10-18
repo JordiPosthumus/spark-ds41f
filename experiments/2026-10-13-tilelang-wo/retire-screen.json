@@ -1,0 +1,96 @@
+{
+  "experiment": "experiments/2026-10-13-tilelang-wo",
+  "run": "retire-screen",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "bracket": false,
+      "bench_args": [
+        "--suites",
+        "quality,prefill",
+        "--prefill-text",
+        "source",
+        "--prefill-sizes",
+        "32768,262144",
+        "--prefill-repeats",
+        "2",
+        "--compare",
+        "none"
+      ],
+      "extras": [
+        [
+          "experiments/2026-10-12-r6g/token_determinism_text.py",
+          [
+            "--tokens",
+            "192",
+            "--long-lines",
+            "700",
+            "--wide"
+          ],
+          "determinism"
+        ],
+        [
+          "scripts/acceptance_sweep.py",
+          [
+            "--tokens",
+            "256"
+          ],
+          "sweep"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "16",
+            "--samples",
+            "4",
+            "--tokens",
+            "256"
+          ],
+          "c16-distinct"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "8",
+            "--samples",
+            "4",
+            "--tokens",
+            "256"
+          ],
+          "c8-distinct"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "4",
+            "--samples",
+            "3",
+            "--tokens",
+            "256"
+          ],
+          "c4-distinct"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "retire.json",
+          "label": "retire"
+        },
+        {
+          "config": "r6j.json",
+          "label": "r6j"
+        },
+        {
+          "config": "retire.json",
+          "label": "retire-again"
+        }
+      ]
+    }
+  ]
+}

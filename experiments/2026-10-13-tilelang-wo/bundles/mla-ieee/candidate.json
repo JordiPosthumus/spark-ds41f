@@ -1,0 +1,30 @@
+{
+  "description": "Sparse MLA with fast math on and off: route equality (check_mla_routes.py) and time per route at TP4/TP3 shapes (time_mla.py).",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "/b/run.py"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm__models__deepseek_v4_1__tilelang__sparse_mla.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/sparse_mla.py"
+    ],
+    [
+      "run.py",
+      "/b/run.py"
+    ],
+    [
+      "check_mla_routes.py",
+      "/b/check_mla_routes.py"
+    ],
+    [
+      "time_mla.py",
+      "/b/time_mla.py"
+    ]
+  ]
+}

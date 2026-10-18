@@ -1,0 +1,27 @@
+{
+  "experiment": "experiments/2026-10-12-r6h-loss",
+  "run": "r6h-loss-w1",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "profile",
+      "workloads": [
+        "code16",
+        "c8",
+        "prefill"
+      ],
+      "arms": [
+        {
+          "config": "r6h-fixed.json",
+          "label": "r6h"
+        },
+        {
+          "config": "r6d-fixed.json",
+          "label": "r6d"
+        }
+      ]
+    }
+  ]
+}

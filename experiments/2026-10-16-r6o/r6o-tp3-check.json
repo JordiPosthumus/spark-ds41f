@@ -1,0 +1,11 @@
+{
+ "notes": "r6o on TP3 with the debug check that every Engram row ID the host hashed equals the GPU's (a difference fails the step and names the lookup).",
+ "extends": {
+  "config": "experiments/2026-10-16-r6o/r6o-tp3.json"
+ },
+ "set": {
+  "environment": {
+   "SPARK3_ENGRAM_CHECK_EARLY_IDS": "1"
+  }
+ }
+}

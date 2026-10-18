@@ -1,0 +1,18 @@
+{
+  "experiment": "experiments/2026-10-15-r6n",
+  "run": "r6n-engram-debug",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "kernel",
+      "bundles": [
+        {
+          "node": "dgx4",
+          "bundle": "experiments/2026-10-15-r6n/bundles/engram-debug"
+        }
+      ]
+    }
+  ]
+}

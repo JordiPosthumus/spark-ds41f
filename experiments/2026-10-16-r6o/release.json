@@ -1,0 +1,27 @@
+{
+ "experiment": "experiments/2026-10-16-r6o",
+ "run": "r6o-tp3-release",
+ "jobs": [
+  {
+   "kind": "sync"
+  },
+  {
+   "kind": "measure",
+   "suite": "release-tp3",
+   "arms": [
+    {
+     "config": "r6o-tp3-dev.json",
+     "label": "r6o"
+    },
+    {
+     "config": "experiments/2026-10-15-r6n-tp3/r6n-tp3-dev.json",
+     "label": "r6n"
+    },
+    {
+     "config": "r6o-tp3-dev.json",
+     "label": "r6o-again"
+    }
+   ]
+  }
+ ]
+}

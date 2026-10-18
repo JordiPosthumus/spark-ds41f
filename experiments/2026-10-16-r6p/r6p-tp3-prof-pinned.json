@@ -1,0 +1,11 @@
+{
+ "notes": "r6p profiled on TP3 with production r6n's DSpark cost curves, so every arm verifies the same drafts and decode steps have the same shapes (a profiling arm's own serve arguments would otherwise give it fresh curves).",
+ "extends": {
+  "config": "experiments/2026-10-16-r6p/r6p-tp3-prof.json"
+ },
+ "set": {
+  "environment": {
+   "SPARK3_DSPARK_COST_DIR": "/cache/kkref/dspark-costs/build-77b3fa3c35f1ce6d"
+  }
+ }
+}

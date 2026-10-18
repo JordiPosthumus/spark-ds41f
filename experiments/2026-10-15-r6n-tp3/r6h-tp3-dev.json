@@ -1,0 +1,40 @@
+{
+ "notes": "r6h's TP3 production record with the dev-mode collective RPC and the engine-grid worker files (experiments/2026-10-14-servebench, as the TP4 releases' r6h and r6k arms), for the release suite's engine grid.",
+ "extends": {
+  "config": "experiments/2026-10-14-one-recipe/tp3-r6h-production.json"
+ },
+ "set": {
+  "environment": {
+   "VLLM_SERVER_DEV_MODE": "1"
+  },
+  "container": {
+   "mounts": [
+    [
+     "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/dba1be0a40aa45a94ad051997016db3960a90277",
+     "/models",
+     "ro"
+    ],
+    [
+     "{home}/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs",
+     "/blobs",
+     "ro"
+    ],
+    [
+     "{home}/projects/spark-ds41f/cache",
+     "/cache",
+     "rw"
+    ],
+    [
+     "{home}/projects/spark-ds41f/experiments/2026-10-14-servebench/overlay/vllm/v1/worker/gpu/model_runner.py",
+     "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu/model_runner.py",
+     "ro"
+    ],
+    [
+     "{home}/projects/spark-ds41f/experiments/2026-10-14-servebench/overlay/vllm/v1/worker/gpu_worker.py",
+     "/opt/spark3/candidate/vllm/vllm/v1/worker/gpu_worker.py",
+     "ro"
+    ]
+   ]
+  }
+ }
+}

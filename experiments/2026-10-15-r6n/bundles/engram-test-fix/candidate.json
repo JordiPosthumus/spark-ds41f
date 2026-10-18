@@ -1,0 +1,26 @@
+{
+  "description": "The Engram model test with its reader counters compared once the readers are idle: the race test five times, then the whole file, on r6n's image.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6n",
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "ENGRAM_ROWS_TEST_DIR": "/c/engram-rows-test",
+    "PYTHONPATH": "/b"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "io_uring": true,
+  "argv": [
+    "-c",
+    "import subprocess, sys; STEPS = [('race-0', ['tests/models/test_deepseek_v4_1_engram.py', '-k', 'refreshes_graph'], 600), ('race-1', ['tests/models/test_deepseek_v4_1_engram.py', '-k', 'refreshes_graph'], 600), ('race-2', ['tests/models/test_deepseek_v4_1_engram.py', '-k', 'refreshes_graph'], 600), ('race-3', ['tests/models/test_deepseek_v4_1_engram.py', '-k', 'refreshes_graph'], 600), ('race-4', ['tests/models/test_deepseek_v4_1_engram.py', '-k', 'refreshes_graph'], 600), ('model', ['tests/models/test_deepseek_v4_1_engram.py'], 1200)]; codes = []\nfor name, args, limit in STEPS:\n    print(f'==== {name}', flush=True)\n    cmd = [sys.executable, '-m', 'pytest', '-q', '-rfEs', '-p', 'no:cacheprovider', '--noconftest', '-p', 'engram_fixtures',\n           '-o', 'faulthandler_timeout=240', '--basetemp', '/c/pytest-tmp-fix-' + name, *args]\n    try:\n        codes.append(subprocess.run(cmd, timeout=limit).returncode)\n    except subprocess.TimeoutExpired:\n        print(f'==== {name} TIMED OUT after {limit} s', flush=True); codes.append('timeout')\nprint('exit codes', [s[0] for s in STEPS], codes, flush=True); sys.exit(0 if codes == [0] * len(STEPS) else 1)\n"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "overlay/tests/models/test_deepseek_v4_1_engram.py",
+      "/opt/spark3/candidate/vllm/tests/models/test_deepseek_v4_1_engram.py"
+    ],
+    [
+      "engram_fixtures.py",
+      "/b/engram_fixtures.py"
+    ]
+  ]
+}

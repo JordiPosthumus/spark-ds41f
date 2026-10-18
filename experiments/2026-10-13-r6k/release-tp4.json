@@ -1,0 +1,28 @@
+{
+  "experiment": "experiments/2026-10-13-r6k",
+  "run": "r6k-release-tp4",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "profile": "release",
+      "bracket": false,
+      "arms": [
+        {
+          "config": "experiments/2026-10-13-r6k/r6k-release.json",
+          "label": "r6k"
+        },
+        {
+          "config": "experiments/2026-10-13-r6i/r6h.json",
+          "label": "r6h"
+        },
+        {
+          "config": "experiments/2026-10-13-r6k/r6k-release.json",
+          "label": "r6k-again"
+        }
+      ]
+    }
+  ]
+}

@@ -10,6 +10,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -148,6 +149,36 @@ class PlanTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             lab.plan(dict(SPEC, jobs=[{"kind": "mystery"}]))
 
+    def test_kernel_cooling_honours_the_site_fan_policy(self) -> None:
+        """A no-fan site must not be made to take a fan floor before a kernel job.
+
+        The same site flag command_bench passes has to reach cool_nodes here: on a
+        board that cannot select a fan floor, cool_nodes raises and the job dies.
+        """
+        step = {"kind": "kernel", "out": "results/private/lab/r",
+                "bundles": [{"bundle": "bundles/mhc", "node": "dgx2"}]}
+        seen = {}
+
+        def cool(nodes, targets, below_c, timeout_s, poll_s=None, fan_control=True):
+            seen["fan_control"] = fan_control
+            return []
+
+        cluster = json.loads((ROOT / "config/cluster.json").read_text())
+        cluster["host"]["fan_control"] = False
+        nodes = json.loads((ROOT / "config/nodes.example.json").read_text())
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(lab, "ROOT", Path(directory)), \
+                mock.patch.object(lab.spark.repository_path, "__call__", create=True), \
+                mock.patch.object(lab, "production_configuration", return_value=(cluster, nodes, None)), \
+                mock.patch.object(lab.spark, "cool_nodes", side_effect=cool), \
+                mock.patch.object(lab.spark, "run_ssh", return_value=subprocess.CompletedProcess([], 0, "{}", "")), \
+                mock.patch.object(lab.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, "", "")):
+            bundle = Path(directory) / "bundles" / "mhc"
+            bundle.mkdir(parents=True)
+            (bundle / "candidate.json").write_text(json.dumps({"sync": []}))
+            lab.run_kernel_bundles(step)
+        self.assertIs(seen.get("fan_control"), False)
+
 
 class BootTimeTest(unittest.TestCase):
     def test_boot_rejects_a_different_physical_topology_before_launch(self) -> None:
@@ -169,7 +200,17 @@ class BootTimeTest(unittest.TestCase):
         self.assertIsNone(lab.ready_seconds(["boot failed"]))
 
 
-TP4 = "config/cluster-tp4.json"
+def setUpModule() -> None:
+    # These tests ran against the default profile when it was TP3 on config/nodes.json;
+    # the recipe resolves the same shape for them.
+    patcher = mock.patch.object(lab.spark.cluster_recipe, "site_shape", return_value="tp3-triangle")
+    patcher.start()
+    unittest.addModuleCleanup(patcher.stop)
+
+
+# A production profile other than the recipe: the archived TP4 r6k file (a
+# site restores an archived release this way while a shape is unqualified).
+TP4 = "experiments/2026-10-14-one-recipe/tp4-r6k-production.json"
 RING4 = {"nodes": [{"name": f"dgx{rank + 1}", "rank": rank, "head": rank == 0,
                     "management_ip": f"192.0.2.{71 + rank}"} for rank in range(4)]}
 
@@ -221,14 +262,14 @@ class ProductionProfileTest(unittest.TestCase):
 
     def test_the_window_record_wins_then_the_option_then_the_default(self) -> None:
         self.assertEqual(lab.resolve_production(None, None), "config/cluster.json")
-        self.assertEqual(lab.resolve_production("./config/cluster-tp4.json", None), TP4)
+        self.assertEqual(lab.resolve_production("./experiments/2026-10-14-one-recipe/tp4-r6k-production.json", None), TP4)
         ours = lab.new_hold(10, "", at=1_000_000.0)
         ours["production_config"] = TP4
         self.assertEqual(lab.resolve_production(None, ours), TP4)
         self.assertEqual(lab.resolve_production(TP4, ours), TP4)
         with self.assertRaises(SystemExit) as refused:
             lab.resolve_production("config/cluster.json", ours)
-        self.assertIn("restores config/cluster-tp4.json", str(refused.exception))
+        self.assertIn("restores experiments/2026-10-14-one-recipe/tp4-r6k-production.json", str(refused.exception))
         foreign = {"holder": "codex tool-eval-bench", "production_config": TP4}
         self.assertEqual(lab.resolve_production(None, foreign), "config/cluster.json")
         legacy = {k: v for k, v in ours.items() if k != "production_config"}
@@ -250,12 +291,12 @@ class ProductionProfileTest(unittest.TestCase):
             self.assertTrue(lab.stop_cluster(dry=True))
             self.assertTrue(lab.stop_cluster(dry=True, remove=True))
         kept, removed = [line for line in out.getvalue().splitlines() if "$" in line]
-        self.assertTrue(kept.endswith("--cluster-config config/cluster-tp4.json cluster stop --apply --parallel"))
+        self.assertTrue(kept.endswith("--cluster-config experiments/2026-10-14-one-recipe/tp4-r6k-production.json cluster stop --apply --parallel"))
         self.assertTrue(removed.endswith("cluster stop --remove --apply --parallel"))
         steps = lab.plan(dict(SPEC, jobs=[SPEC["jobs"][2], dict(SPEC["jobs"][2], remove_stopped=True)]))
         stops = [lab.describe_step(step) for step in steps if step["kind"] == "stop"]
-        self.assertEqual(stops, ["bin/spark --cluster-config config/cluster-tp4.json cluster stop --apply --parallel",
-                                 "bin/spark --cluster-config config/cluster-tp4.json cluster stop --remove "
+        self.assertEqual(stops, ["bin/spark --cluster-config experiments/2026-10-14-one-recipe/tp4-r6k-production.json cluster stop --apply --parallel",
+                                 "bin/spark --cluster-config experiments/2026-10-14-one-recipe/tp4-r6k-production.json cluster stop --remove "
                                  "--apply --parallel"])
 
     def test_doctor_live_checks_the_profile(self) -> None:
@@ -276,28 +317,30 @@ class ProductionProfileTest(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as out:
             self.assertTrue(lab.boot("experiments/x/cluster-tp4-candidate.json", dry=True))
             self.assertFalse(lab.boot("config/cluster.json", dry=True))
-        self.assertIn("--cluster-config experiments/x/cluster-tp4-candidate.json cluster start --replace --apply",
+        self.assertIn("--cluster-config experiments/x/cluster-tp4-candidate.json cluster start --replace --change-shape --apply",
                       out.getvalue())
-        self.assertIn("lab windows require the promoted node topology (config/cluster-tp4.json)", out.getvalue())
+        self.assertIn("lab windows require the promoted node topology (experiments/2026-10-14-one-recipe/tp4-r6k-production.json)", out.getvalue())
         self.assertEqual(out.getvalue().count("cluster start"), 1)
 
     def test_dry_run_shows_the_profile_for_every_cluster_action(self) -> None:
         spec = self.state / "spec.json"
         spec.write_text(json.dumps(SPEC))
-        code, out = self.main("run", str(spec), "--dry-run", "--production-config", TP4)
+        # SPEC's arms predate the current locks; their own checks are not this test's subject.
+        with mock.patch.object(lab, "arm_problems", return_value=[]):
+            code, out = self.main("run", str(spec), "--dry-run", "--production-config", TP4)
         self.assertEqual(code, 0)
-        self.assertIn("steps; production config/cluster-tp4.json", out.splitlines()[0])
-        self.assertIn("bin/spark --cluster-config config/cluster-tp4.json cluster stop --apply --parallel", out)
+        self.assertIn("steps; production experiments/2026-10-14-one-recipe/tp4-r6k-production.json", out.splitlines()[0])
+        self.assertIn("bin/spark --cluster-config experiments/2026-10-14-one-recipe/tp4-r6k-production.json cluster stop --apply --parallel", out)
         self.assertNotIn("--remove", out)
         code, out = self.main("window", "open", "--dry-run", "--production-config", TP4)
-        self.assertIn("window restoring config/cluster-tp4.json", out)
+        self.assertIn("window restoring experiments/2026-10-14-one-recipe/tp4-r6k-production.json", out)
         self.assertFalse(lab.HOLD.exists())
 
     def test_close_restores_the_profile_the_window_recorded(self) -> None:
         self.hold(TP4)
         code, out = self.main("window", "close", "--dry-run")
         self.assertEqual(code, 0)
-        self.assertIn("--cluster-config config/cluster-tp4.json cluster start --replace --apply", out)
+        self.assertIn("--cluster-config experiments/2026-10-14-one-recipe/tp4-r6k-production.json cluster start --replace --change-shape --apply", out)
         self.assertTrue(lab.HOLD.exists())
         with self.assertRaises(SystemExit):
             self.main("window", "close", "--dry-run", "--production-config", "config/cluster.json")
@@ -307,7 +350,7 @@ class ProductionProfileTest(unittest.TestCase):
         _, out = self.main("window", "close", "--dry-run")
         self.assertIn("--cluster-config config/cluster.json cluster start", out)
         _, out = self.main("window", "close", "--dry-run", "--production-config", TP4)
-        self.assertIn("--cluster-config config/cluster-tp4.json cluster start", out)
+        self.assertIn("--cluster-config experiments/2026-10-14-one-recipe/tp4-r6k-production.json cluster start", out)
 
     def test_open_refuses_unless_the_profile_is_live(self) -> None:
         def down(problems=None):
@@ -339,7 +382,7 @@ class ProductionProfileTest(unittest.TestCase):
             lab.window_open(30, "test")
         self.assertEqual(lab.read_hold()["production_config"], TP4)
         self.assertEqual(popen.call_args.args[0][-3:], ["watchdog", "--production-config", TP4])
-        self.assertIn("restores config/cluster-tp4.json", out.getvalue())
+        self.assertIn("restores experiments/2026-10-14-one-recipe/tp4-r6k-production.json", out.getvalue())
 
     def test_watchdog_restores_the_recorded_profile(self) -> None:
         self.hold(TP4, heartbeat_at=1_000_000.0)  # stale
@@ -349,7 +392,7 @@ class ProductionProfileTest(unittest.TestCase):
                 mock.patch.object(lab.subprocess, "Popen", side_effect=no_subprocesses):
             code, out = self.main("watchdog", "--once")
         self.assertEqual(code, 0)
-        self.assertEqual(cli.call_args.args, ("--cluster-config", TP4, "cluster", "start", "--replace", "--apply"))
+        self.assertEqual(cli.call_args.args, ("--cluster-config", TP4, "cluster", "start", "--replace", "--change-shape", "--apply"))
         self.assertFalse(lab.HOLD.exists())
         self.assertIn("window closed; hold removed", out)
 
@@ -390,7 +433,8 @@ class ProfilePlanTest(unittest.TestCase):
 class QueueTest(unittest.TestCase):
     def test_add_validates_and_orders_specs(self) -> None:
         with tempfile.TemporaryDirectory() as directory, \
-                mock.patch.object(lab, "QUEUE", Path(directory) / "queue"):
+                mock.patch.object(lab, "QUEUE", Path(directory) / "queue"), \
+                mock.patch.object(lab, "arm_problems", return_value=[]):
             good = Path(directory) / "a.json"
             good.write_text(json.dumps(SPEC))
             with contextlib.redirect_stdout(io.StringIO()) as log:
@@ -405,6 +449,338 @@ class QueueTest(unittest.TestCase):
     def test_sync_is_a_job(self) -> None:
         steps = lab.plan(dict(SPEC, jobs=[{"kind": "sync"}]))
         self.assertEqual([s["kind"] for s in steps], ["sync"])
+
+    def test_gpu_clocks_jobs(self) -> None:
+        steps = lab.plan(dict(SPEC, jobs=[{"kind": "gpu_clocks", "lock_mhz": [2400, 2400]},
+                                          {"kind": "gpu_clocks", "reset": True}]))
+        self.assertEqual([s["lock"] for s in steps], [[2400, 2400], None])
+        self.assertEqual(lab.describe_step(steps[0]), "lock GPU SM clocks to 2400-2400 MHz on every node")
+        self.assertEqual(lab.describe_step(steps[1]), "reset GPU clocks on every node")
+        for bad in ([2400, 2000], [0, 2400]):
+            with self.assertRaises(SystemExit):
+                lab.plan(dict(SPEC, jobs=[{"kind": "gpu_clocks", "lock_mhz": bad}]))
+
+
+class NewCommitTest(unittest.TestCase):
+    def test_a_sync_to_another_commit_restarts_the_job(self) -> None:
+        """The steps after the sync never run on the code this process loaded; a sync that
+        leaves the commit where it was continues the job."""
+        steps = [{"kind": "sync"}, {"kind": "boot", "config": "arm.json", "label": "arm"}]
+
+        def run(commit_after_sync):
+            with mock.patch.object(lab, "plan", return_value=steps), \
+                    mock.patch.object(lab, "read_hold", return_value={}), \
+                    mock.patch.object(lab, "hold_is_ours", return_value=True), \
+                    mock.patch.object(lab, "window_should_close", return_value=None), \
+                    mock.patch.object(lab, "production_configuration",
+                                      return_value=({"host": {"home": "/h"}}, None, None)), \
+                    mock.patch.object(lab, "beat"), \
+                    mock.patch.object(lab, "sync_checkouts", return_value=True), \
+                    mock.patch.object(lab, "checkout_commit", return_value=commit_after_sync), \
+                    mock.patch.object(lab, "COMMIT_AT_START", "loaded"), \
+                    mock.patch.object(lab, "plan_problems", return_value=[]), \
+                    mock.patch.object(lab.spark, "read_cluster", side_effect=RuntimeError("boot step")), \
+                    mock.patch.object(lab, "boot") as boot, \
+                    mock.patch.object(lab, "window_close") as close, \
+                    contextlib.redirect_stdout(io.StringIO()):
+                code = lab.execute({"run": "r"}, dry=False, keep_open=True, close_on_failure=False)
+            return code, boot, close
+
+        code, boot, close = run("synced")
+        self.assertEqual(code, lab.RESTART_ON_NEW_COMMIT)
+        boot.assert_not_called()
+        close.assert_not_called()
+        code, _, _ = run("loaded")  # same commit: the job goes on (to a boot step that fails here)
+        self.assertEqual(code, 1)
+
+
+class PlanProblemsTest(unittest.TestCase):
+    """Mistakes that would cost a boot are found from the spec alone."""
+
+    def test_an_arm_cluster_start_would_refuse_is_named(self) -> None:
+        # r6o's first gate stopped at its boot: its lock still named r6n's own baseline.
+        arm = "experiments/2026-10-16-r6o/r6o-tp3.json"
+        real = lab.spark.configuration
+
+        def stale(args):
+            cluster, nodes, upstreams = real(args)
+            return cluster, nodes, dict(upstreams, generated_from_baseline="2026-10-13-karmic-kraken-r6k")
+
+        with mock.patch.object(lab.spark, "configuration", stale):
+            problems = lab.plan_problems([{"kind": "boot", "config": arm}])
+        self.assertIn(f"{arm}: cluster and upstream locks name different baselines", problems)
+        self.assertNotIn(f"{arm}: cluster and upstream locks name different baselines",
+                         lab.plan_problems([{"kind": "boot", "config": arm}]))
+
+    def measure(self, extras: list) -> dict:
+        return {"experiment": "experiments/2026-10-14-servebench", "run": "r", "jobs": [
+            {"kind": "measure", "bench": False, "extras": extras,
+             "arms": [{"config": "experiments/2026-10-14-servebench/engine-r6k.json", "label": "a"}]}]}
+
+    def test_good_servebench_arguments_pass(self) -> None:
+        spec = self.measure([["scripts/servebench_run.py", ["--mode", "closed", "--concurrency", "16"], "c16"],
+                             ["scripts/servebench_engine.py", ["--replays", "100"], "grid"]])
+        self.assertEqual(lab.plan_problems(lab.plan(spec)), [])
+
+    def test_extras_name_each_arm(self) -> None:
+        spec = self.measure([["scripts/servebench_engine.py", ["--label", "{label}", "--output", "out/{run}-{label}.json"], "g"]])
+        spec["jobs"][0]["arms"].append({"config": "experiments/2026-10-14-servebench/engine-r6h.json", "label": "b"})
+        with mock.patch.object(lab, "head_url", return_value="http://h:8000"):
+            outputs = [s["argv"][-1] for s in lab.plan(spec) if s["kind"] == "script"]
+        self.assertEqual(outputs, ["out/r-a.json", "out/r-b.json"])
+
+    def test_telemetry_switch(self) -> None:
+        spec = self.measure([["scripts/servebench_run.py", ["--mode", "closed"], "c"]])
+        with mock.patch.object(lab, "head_url", return_value="http://h:8000"):
+            on = [s for s in lab.plan(spec) if s["kind"] == "script"]
+            spec["jobs"][0]["telemetry"] = False
+            off = [s for s in lab.plan(spec) if s["kind"] == "script"]
+        self.assertEqual((on[0]["telemetry"], off[0]["telemetry"]), (True, False))
+
+    def test_suite_job(self) -> None:
+        spec = {"experiment": "experiments/2026-10-14-servebench", "run": "s", "jobs": [
+            {"kind": "measure", "suite": "screen",
+             "arms": [{"config": "experiments/2026-10-14-servebench/engine-r6k.json", "label": "cand"},
+                      {"config": "experiments/2026-10-14-servebench/engine-r6h.json", "label": "base"}]}]}
+        with mock.patch.object(lab, "head_url", return_value="http://h:8000"):
+            steps = lab.plan(spec)
+            self.assertEqual(lab.plan_problems(steps), [])
+        # Each arm runs the suite through bin/spark bench (cooling, fan curve, identity).
+        benches = [s for s in steps if s["kind"] == "cli"]
+        self.assertEqual(benches[0]["argv"],
+                         ["--cluster-config", "experiments/2026-10-14-servebench/engine-r6k.json", "bench",
+                          "--suite", "screen", "--compare", "none", "--output", "results/private/suites/s/cand",
+                          "--label", "cand"])
+        self.assertEqual(benches[1]["argv"][-2:], ["--corpus", "results/private/suites/s/cand/model.json.gz"])
+        self.assertEqual(benches[0]["telemetry_out"], "results/private/determinism/s/suite-cand")
+        self.assertEqual(steps[-1]["argv"], ["scripts/servebench_suite_table.py", "s", "cand", "base"])
+        spec["jobs"][0]["suite"] = "no-such-suite"
+        with mock.patch.object(lab, "head_url", return_value="http://h:8000"):
+            self.assertTrue(lab.plan_problems(lab.plan(spec)))
+        # The engine grid needs the dev-mode collective RPC: refused before any boot.
+        spec["jobs"][0]["suite"] = "screen"
+        spec["jobs"][0]["arms"][1]["config"] = "experiments/2026-10-15-r6n/r6n-release.json"
+        with mock.patch.object(lab, "head_url", return_value="http://h:8000"):
+            problems = lab.plan_problems(lab.plan(spec))
+        self.assertEqual(problems, ["suite screen times the engine grid, but experiments/2026-10-15-r6n/r6n-release.json "
+                                    "lacks VLLM_SERVER_DEV_MODE=1 (the dev-mode collective RPC)"])
+
+    def test_suite_job_with_a_companion_suite(self) -> None:
+        """A list of suites: the release suite first, a companion (single-stream) on the same
+        boot in its own run directory and table; the release suite's outputs are unchanged."""
+        spec = {"experiment": "experiments/2026-10-14-servebench", "run": "s", "jobs": [
+            {"kind": "measure", "suite": ["screen", "single-stream"],
+             "arms": [{"config": "experiments/2026-10-14-servebench/engine-r6k.json", "label": "cand"},
+                      {"config": "experiments/2026-10-14-servebench/engine-r6h.json", "label": "base"}]}]}
+        with mock.patch.object(lab, "head_url", return_value="http://h:8000"):
+            steps = lab.plan(spec)
+            self.assertEqual(lab.plan_problems(steps), [])
+        self.assertEqual([s["kind"] for s in steps],
+                         ["boot", "curves", "cli", "cli", "boot", "curves", "cli", "cli", "table", "table"])
+        benches = [s for s in steps if s["kind"] == "cli"]
+        self.assertEqual([b["suite"] for b in benches], ["screen", "single-stream"] * 2)
+        self.assertEqual(benches[0]["argv"][-4:], ["--output", "results/private/suites/s/cand", "--label", "cand"])
+        self.assertEqual(benches[1]["argv"][-4:],
+                         ["--output", "results/private/suites/s-single-stream/cand", "--label", "cand"])
+        self.assertEqual(benches[2]["argv"][-2:], ["--corpus", "results/private/suites/s/cand/model.json.gz"])
+        self.assertNotIn("--corpus", benches[3]["argv"])
+        self.assertEqual(benches[3]["telemetry_out"], "results/private/determinism/s/suite-base-single-stream")
+        tables = [s for s in steps if s["kind"] == "table"]
+        self.assertEqual([t["argv"][1] for t in tables], ["s", "s-single-stream"])
+        self.assertEqual([t["out"] for t in tables],
+                         ["results/private/lab/s-table.txt", "results/private/lab/s-single-stream-table.txt"])
+
+    def test_bad_arguments_missing_files_and_configs(self) -> None:
+        spec = self.measure([["scripts/servebench_run.py", ["--mode", "sideways"], "c16"],
+                             ["no_such_script.py", [], "x"]])
+        spec["jobs"][0]["arms"].append({"config": "missing.json", "label": "b"})
+        problems = lab.plan_problems(lab.plan(spec))
+        self.assertTrue(any("servebench_run.py" in p and "invalid choice" in p for p in problems), problems)
+        self.assertTrue(any("no_such_script.py does not exist" in p for p in problems), problems)
+        self.assertTrue(any("missing.json does not exist" in p for p in problems), problems)
+
+    def test_queue_rejects_without_a_sync_and_warns_with_one(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(lab, "QUEUE", Path(directory) / "q"):
+            bad = self.measure([["scripts/servebench_run.py", ["--mode", "sideways"], "c16"]])
+            path = Path(directory) / "bad.json"
+            path.write_text(json.dumps(bad))
+            with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+                lab.queue_add(str(path))
+            path.write_text(json.dumps(dict(bad, jobs=[{"kind": "sync"}, *bad["jobs"]])))
+            with contextlib.redirect_stderr(io.StringIO()) as warned, contextlib.redirect_stdout(io.StringIO()):
+                lab.queue_add(str(path))
+            self.assertIn("checked again after the run's sync", warned.getvalue())
+
+
+class TelemetryTest(unittest.TestCase):
+    """Node telemetry around a measured step: summarized, saved, never fatal."""
+
+    LINES = "".join(f"2026/10/14 07:00:{i:02d}.000, {2400 + i}, 4266, {50 + i}.0, 60, 0x0000000000000000\n"
+                    for i in range(10)) + "2026/10/14 07:00:10.000, 1100, 4266, 30.0, 61, 0x0000000000000004\n"
+
+    def test_summary(self) -> None:
+        summary = lab.summarize_telemetry(self.LINES + "garbage line\n")
+        self.assertEqual(summary["samples"], 11)
+        self.assertEqual(summary["clocks.sm"]["min"], 1100)
+        self.assertEqual(summary["clocks.sm"]["max"], 2409)
+        self.assertEqual(summary["event_reasons"], {"0x0000000000000000": 10, "0x0000000000000004": 1})
+
+    def test_step_writes_beside_its_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            process = mock.Mock()
+            process.communicate.return_value = (self.LINES, "")
+            marker = Path(directory) / "locked.json"
+            marker.write_text(json.dumps({"lock_mhz": [2400, 2400]}))
+            with mock.patch.object(lab, "ROOT", Path(directory)), \
+                    mock.patch.object(lab, "GPU_CLOCKS_MARKER", marker), \
+                    mock.patch.object(lab, "nodes_config", return_value={"ssh_user": "u", "nodes": [{"name": "n1"}, {"name": "n2"}]}), \
+                    mock.patch.object(lab.spark, "ssh_options", return_value=[]), \
+                    mock.patch.object(lab.subprocess, "Popen", return_value=process) as popen:
+                with lab.Telemetry("results/x/c16-arm.jsonl"):
+                    pass
+            saved = json.loads((Path(directory) / "results/x/c16-arm.jsonl.telemetry.json").read_text())
+        self.assertEqual(sorted(saved["nodes"]), ["n1", "n2"])
+        self.assertEqual(saved["gpu_clocks_lock"], {"lock_mhz": [2400, 2400]})
+        self.assertEqual(saved["nodes"]["n1"]["samples"], 11)
+        self.assertEqual(popen.call_count, 4)  # clocks and threads on each node
+        commands = [call.args[0] for call in popen.call_args_list]
+        self.assertTrue(any("nvidia-smi" in c[-1] for c in commands))
+        self.assertTrue(any(c[-4:-2] == ["python3", "-"] for c in commands))  # the thread sampler
+        process.terminate.assert_called()
+
+    def test_thread_summary(self) -> None:
+        lines = [json.dumps({"fast": [5, 6]})]
+        for step in range(3):
+            lines.append(json.dumps({"t": 100.0 + 2 * step, "threads": {
+                "11": ["VLLM::Worker_TP", 1.8 * step, 5],
+                "12": ["engram", 0.5 * step, 1],
+                "13": ["idle", 0.01 * step, 2]}}))
+        summary = lab.summarize_threads("\n".join(lines))
+        self.assertEqual(summary["window_s"], 4.0)
+        self.assertEqual([(t["name"], t["core_share"], t["slow_share"]) for t in summary["busy_threads"]],
+                         [("VLLM::Worker_TP", 0.9, 0.0), ("engram", 0.25, 1.0)])
+        self.assertAlmostEqual(summary["slow_core_share"], 1.02 / 4.62, places=3)
+        self.assertEqual(lab.summarize_threads("not json")["samples"], 0)
+
+    def test_buddy_free(self) -> None:
+        text = ("Node 0, zone      DMA      2      0      0      0      0      1\n"
+                "Node 0, zone   Normal      4      0      0      0      0      3\n")
+        free = lab.buddy_free(text, 65536)
+        self.assertEqual(free["free_gib_2mib_blocks"], round(4 * 2 ** 21 / 2 ** 30, 3))
+        self.assertEqual(free["free_gib_by_block"]["64 KiB"], round(6 * 65536 / 2 ** 30, 3))
+
+    def test_boot_step_memory_options(self) -> None:
+        self.assertNotIn("memory_out", lab.boot_step("r", {"label": "a"}, "c.json"))
+        step = lab.boot_step("r", {"label": "a", "compact_memory": True}, "c.json")
+        self.assertEqual((step["memory_out"], step["compact"]), ("results/private/determinism/r/memory-a.json", True))
+        self.assertIn("compact memory first", lab.describe_step(step))
+        self.assertIn("memory snapshot first", lab.describe_step(lab.boot_step("r", {"label": "b", "memory_snapshot": True}, "c.json")))
+
+    def test_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(lab, "ROOT", Path(directory)):
+            run = Path(directory) / "results/private/determinism/r"
+            run.mkdir(parents=True)
+            (Path(directory) / "results/private/lab").mkdir(parents=True)
+            (Path(directory) / "results/private/lab/r-table.txt").write_text("TABLE\n")
+            (run / "suite-a.jsonl.telemetry.json").write_text(json.dumps({
+                "seconds": 12.0, "gpu_clocks_lock": {"lock_mhz": [2489, 2489]},
+                "nodes": {"n1": lab.summarize_telemetry(self.LINES)}}))
+            text = lab.report("r")
+        self.assertIn("TABLE", text)
+        self.assertIn("suite-a.jsonl: 12 s, clocks locked to 2489-2489 MHz", text)
+        self.assertIn("n1: SM 1100/2404/2408 MHz (min 1100), 54 W, 61 °C max", text)
+        self.assertIn("clock events {'0x0000000000000004': 1}", text)
+
+    def test_real_processes_close_cleanly(self) -> None:
+        """Real pipes, as on the cluster: the sampler's stdin is written and closed at start."""
+        real = subprocess.Popen
+
+        def local(command, **kwargs):
+            script = "import sys; sys.stdin.read(); print('2026/10/14 07:00:00.000, 2400, 4266, 40.0, 60, 0x0')"
+            return real([sys.executable, "-c", script], **kwargs)
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(lab, "ROOT", Path(directory)), mock.patch.object(lab, "log"), \
+                mock.patch.object(lab, "GPU_CLOCKS_MARKER", Path(directory) / "none.json"), \
+                mock.patch.object(lab, "nodes_config", return_value={"ssh_user": "u", "nodes": [{"name": "n1"}]}), \
+                mock.patch.object(lab.spark, "ssh_options", return_value=[]), \
+                mock.patch.object(lab.subprocess, "Popen", side_effect=local):
+            with lab.Telemetry("results/z/out.jsonl") as telemetry:
+                time.sleep(0.3)
+                # Python 3.12's communicate() flushes a closed stdin and raises (3.13 does not):
+                # the sampler's stdin must be released once the script is sent.
+                self.assertTrue(all(process.stdin is None for process in telemetry.threads.values()))
+            saved = json.loads((Path(directory) / "results/z/out.jsonl.telemetry.json").read_text())
+        self.assertNotIn("error", saved["nodes"]["n1"])
+        self.assertIn("threads", saved["nodes"]["n1"])
+
+    def test_engine_logs_saved(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(lab, "ROOT", Path(directory)), \
+                mock.patch.object(lab, "log"), \
+                mock.patch.object(lab, "nodes_config", return_value={"nodes": [{"name": "n1"}, {"name": "n2"}]}), \
+                mock.patch.object(lab.spark, "run_ssh", return_value=mock.Mock(stdout="Traceback: boom\n", stderr="")):
+            lab.save_engine_logs("results/r/goodput.jsonl")
+            saved = (Path(directory) / "results/r/goodput.jsonl.engine-n2.log").read_text()
+        self.assertIn("boom", saved)
+
+    def test_never_fails_the_step(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(lab, "ROOT", Path(directory)), mock.patch.object(lab, "log"), \
+                mock.patch.object(lab, "nodes_config", side_effect=RuntimeError("no map")):
+            with lab.Telemetry("results/y/out.jsonl"):
+                ran = True
+            self.assertTrue(ran)
+            self.assertTrue((Path(directory) / "results/y/out.jsonl.telemetry.json").exists())
+
+
+class GpuClocksTest(unittest.TestCase):
+    """A lock applies to every node or to none, and restoring production resets it."""
+
+    NODES = {"nodes": [{"name": "n1"}, {"name": "n2"}]}
+
+    def setUp(self) -> None:
+        self.directory = tempfile.TemporaryDirectory()
+        self.patches = [mock.patch.object(lab, "GPU_CLOCKS_MARKER", Path(self.directory.name) / "locked.json"),
+                        mock.patch.object(lab, "nodes_config", return_value=self.NODES),
+                        mock.patch.object(lab, "log")]
+        for patch in self.patches:
+            patch.start()
+        self.calls = []
+
+    def tearDown(self) -> None:
+        for patch in self.patches:
+            patch.stop()
+        self.directory.cleanup()
+
+    def ssh(self, fail_on: str | None = None):
+        def run(nodes, node, *command):
+            self.calls.append((node["name"], command))
+            failed = fail_on == node["name"] and "-lgc" in command
+            return mock.Mock(returncode=1 if failed else 0, stdout="2400 MHz, 3003 MHz", stderr="no")
+        return run
+
+    def test_lock_and_reset(self) -> None:
+        with mock.patch.object(lab.spark, "run_ssh", self.ssh()):
+            self.assertTrue(lab.set_gpu_clocks([2400, 2400]))
+            self.assertTrue(lab.GPU_CLOCKS_MARKER.exists())
+            self.assertTrue(lab.set_gpu_clocks(None))
+        self.assertFalse(lab.GPU_CLOCKS_MARKER.exists())
+        sudo = [command for _, command in self.calls if command[0] == "sudo"]
+        self.assertEqual(sudo, [("sudo", "-n", "nvidia-smi", "-lgc", "2400,2400")] * 2
+                         + [("sudo", "-n", "nvidia-smi", "-rgc")] * 2)
+
+    def test_partial_lock_resets_every_node(self) -> None:
+        with mock.patch.object(lab.spark, "run_ssh", self.ssh(fail_on="n2")):
+            self.assertFalse(lab.set_gpu_clocks([2400, 2400]))
+        self.assertFalse(lab.GPU_CLOCKS_MARKER.exists())
+        resets = [name for name, command in self.calls if command[-1] == "-rgc"]
+        self.assertEqual(resets, ["n1", "n2"])
+
+    def test_restore_resets_a_lock_first(self) -> None:
+        lab.GPU_CLOCKS_MARKER.write_text("{}")
+        with mock.patch.object(lab, "set_gpu_clocks") as clocks, \
+                mock.patch.object(lab, "production_live", return_value=True):
+            self.assertTrue(lab.restore_production())
+        clocks.assert_called_once_with(None)
 
 
 class QueueFailureTest(unittest.TestCase):
@@ -584,10 +960,21 @@ class KernelLabTest(unittest.TestCase):
             plain = lab.bundle_command(bundle, self.CANDIDATE, bundle / "out")
             carveout = lab.bundle_command(bundle, dict(self.CANDIDATE, display_carveout=True), bundle / "out")
         self.assertFalse([arg for arg in plain if "dri" in arg or "226" in arg])
-        serving = json.loads((ROOT / "config/cluster.json").read_text())["container"]["docker_run_args"]
+        serving = lab.spark.read_cluster("config/cluster.json", "tp3-triangle")["container"]["docker_run_args"]
         for arg in ("--mount=type=bind,source=/dev/dri/by-path/pci-000f:01:00.0-card,target=/dev/dri/card0",
                     "--device-cgroup-rule=c 226:* rw"):
             self.assertIn(arg, carveout)
+            self.assertIn(arg, serving)
+
+    def test_io_uring_bundles_get_the_serving_io_uring_allowance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory)
+            plain = lab.bundle_command(bundle, self.CANDIDATE, bundle / "out")
+            uring = lab.bundle_command(bundle, dict(self.CANDIDATE, io_uring=True), bundle / "out")
+        self.assertFalse([arg for arg in plain if "seccomp" in arg or "memlock" in arg])
+        serving = json.loads((ROOT / "config/cluster.json").read_text())["container"]["docker_run_args"]
+        for arg in ("--security-opt=seccomp=unconfined", "--ulimit=memlock=-1:-1"):
+            self.assertIn(arg, uring)
             self.assertIn(arg, serving)
 
     def test_verdict_passes_only_invariant_and_bit_equal(self) -> None:
@@ -686,6 +1073,57 @@ class StepFailureTest(unittest.TestCase):
         self.assertEqual(code, 1)
         close.assert_called_once()
         self.assertIn("raised RuntimeError: cannot read dgx3", close.call_args.args[0])
+
+
+    def test_a_failing_bench_ends_the_job_before_its_scripts(self) -> None:
+        spec = {"experiment": "experiments/x", "run": "t1",
+                "jobs": [{"kind": "measure", "profile": "lean", "arms": [{"config": "a.json", "label": "a"}]}]}
+        with mock.patch.object(lab, "read_hold", return_value={"holder": "test"}), \
+                mock.patch.object(lab, "hold_is_ours", return_value=True), \
+                mock.patch.object(lab, "window_should_close", return_value=None), \
+                mock.patch.object(lab, "beat"), \
+                mock.patch.object(lab, "fence_problems", return_value=[]), \
+                mock.patch.object(lab, "overlay_manifest", return_value=[]), \
+                mock.patch.object(lab, "boot", return_value=True), \
+                mock.patch.object(lab, "save_curves"), \
+                mock.patch.object(lab, "spark_cli", return_value=1), \
+                mock.patch.object(lab, "plan_problems", return_value=[]), \
+                mock.patch.object(lab, "Telemetry", return_value=contextlib.nullcontext()), \
+                mock.patch.object(lab, "run_script") as script, \
+                mock.patch.object(lab.spark, "read_cluster", return_value={"container": {"mounts": [], "image": "i"}}), \
+                mock.patch.object(lab, "production_configuration", return_value=(
+                    {"host": {"home": "/h"}}, {"nodes": [{"name": "dgx1", "head": True, "management_ip": "1"}]}, {})), \
+                mock.patch.object(lab, "window_close", return_value=True) as close, \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = lab.execute(spec, dry=False, keep_open=True)
+        self.assertEqual(code, 1)
+        script.assert_not_called()
+        self.assertIn("bench a exited 1", close.call_args.args[0])
+
+    def test_a_failed_boot_keeps_every_node_s_log(self) -> None:
+        spec = {"experiment": "experiments/x", "run": "t2",
+                "jobs": [{"kind": "measure", "profile": "lean", "arms": [{"config": "a.json", "label": "a"}]}]}
+        with mock.patch.object(lab, "read_hold", return_value={"holder": "test"}), \
+                mock.patch.object(lab, "hold_is_ours", return_value=True), \
+                mock.patch.object(lab, "window_should_close", return_value=None), \
+                mock.patch.object(lab, "beat"), \
+                mock.patch.object(lab, "fence_problems", return_value=[]), \
+                mock.patch.object(lab, "overlay_manifest", return_value=[]), \
+                mock.patch.object(lab, "boot", return_value=False), \
+                mock.patch.object(lab, "save_engine_logs") as saved, \
+                mock.patch.object(lab, "plan_problems", return_value=[]), \
+                mock.patch.object(lab.spark, "read_cluster", return_value={"container": {"mounts": [], "image": "i"}}), \
+                mock.patch.object(lab, "production_configuration", return_value=(
+                    {"host": {"home": "/h"}}, {"nodes": [{"name": "dgx1", "head": True, "management_ip": "1"}]}, {})), \
+                mock.patch.object(lab, "window_close", return_value=True) as close, \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            code = lab.execute(spec, dry=False, keep_open=True)
+        self.assertEqual(code, 1)
+        saved.assert_called_once_with("results/private/lab/t2/boot-a")
+        self.assertIn("boot of experiments/x/a.json failed", close.call_args.args[0])
+
+    def test_the_lean_bench_does_not_override_its_live_check(self) -> None:
+        self.assertNotIn("--allow-mismatch", lab.BENCH_BASE)
 
 
 class AnalysisFailureTest(unittest.TestCase):
@@ -852,3 +1290,21 @@ class ReleaseTP3ProfileTest(unittest.TestCase):
         self.assertNotIn("c16-distinct", stems)
         self.assertIn("c8-distinct", stems)
         self.assertEqual(lab.PROFILES["release-tp3"]["table"], "scripts/release_table.py")
+
+
+class OverlayArmTest(unittest.TestCase):
+    """The lab reads every arm resolved: an overlay arm has no container or serve_args of its own."""
+
+    def test_the_lab_reads_overlay_arms_resolved(self) -> None:
+        files = {"arm.json": {"extends": {"config": "config/cluster.json", "shape": "tp4-ring"},
+                              "set": {"container": {"image": "vllm-ds41f-kkref:overlay"}}}}
+        read = lab.spark.read_json
+        with mock.patch.object(lab.spark, "read_json", lambda path: files[path] if path in files else read(path)):
+            arm = lab.spark.read_cluster("arm.json")
+            self.assertEqual(arm["container"]["image"], "vllm-ds41f-kkref:overlay")
+            self.assertTrue(arm["container"]["mounts"])
+            files["profiled.json"] = {
+                "extends": {"config": "arm.json"},
+                "set": {"serve_args": [*arm["serve_args"], "--profiler-config",
+                                       json.dumps({"torch_profiler_dir": "/cache/profile"})]}}
+            self.assertEqual(lab.profiler_dir("profiled.json"), "/cache/profile")

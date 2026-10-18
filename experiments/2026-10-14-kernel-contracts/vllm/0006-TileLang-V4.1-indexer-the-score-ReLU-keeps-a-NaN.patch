@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Christopher Owen <3221756+christopherowen@users.noreply.github.com>
+Date: Wed, 14 Oct 2026 08:43:19 +0100
+Subject: [PATCH 6/6] TileLang V4.1 indexer: the score ReLU keeps a NaN
+
+max(dot, 0) lowers to fmaxf and turns a NaN head dot (an infinite query or
+key quantizes to the UE8M0 scale 0xFF) into zero, so the head silently
+contributed nothing. DeepSeek's indexer uses relu_, which keeps the NaN.
+Pass a NaN through and keep max for everything else, so every other value,
+signed zeros included, has the same bits as before. The generated code
+evaluates the two values of each pair in a short loop instead of one
+float2 max.
+---
+ vllm/models/deepseek_v4_1/tilelang/indexer.py | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/vllm/models/deepseek_v4_1/tilelang/indexer.py b/vllm/models/deepseek_v4_1/tilelang/indexer.py
+index d12b37e8c..a08b330e2 100644
+--- a/vllm/models/deepseek_v4_1/tilelang/indexer.py
++++ b/vllm/models/deepseek_v4_1/tilelang/indexer.py
+@@ -170,8 +170,11 @@ def indexer_score_v41(
+                 sf_b_granularity_k=SF_BLOCK,
+             )
+             # The published rounding stages: BF16 dot, ReLU, BF16 weighted product.
++            # The ReLU keeps a NaN, as the reference's relu_ does; max alone would
++            # drop it. Every other value, signed zeros included, takes max's bits.
+             for p, h in T.Parallel(block_P, heads):
+-                dot = T.max(T.cast(T.cast(acc[p, h], T.bfloat16), accum_dtype), 0.0)
++                dot = T.cast(T.cast(acc[p, h], T.bfloat16), accum_dtype)
++                dot = T.if_then_else(T.isnan(dot), dot, T.max(dot, 0.0))
+                 contrib[p, h] = T.cast(
+                     T.cast(T.fmul(dot, W_shared[h]), T.bfloat16), accum_dtype
+                 )
+-- 
+2.54.0 (Apple Git-157)
+

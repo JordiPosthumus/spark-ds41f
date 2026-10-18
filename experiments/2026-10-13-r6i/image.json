@@ -1,0 +1,64 @@
+{
+  "experiment": "experiments/2026-10-13-r6i",
+  "run": "r6i-image",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "image",
+      "config": "r6i-tp4.json",
+      "node": "dgx4",
+      "copies": [
+        [
+          "dgx4",
+          "10.14.1.1"
+        ],
+        [
+          "dgx4",
+          "10.34.1.3"
+        ],
+        [
+          "dgx1",
+          "dgx2-internal"
+        ]
+      ]
+    },
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "experiments/2026-10-12-r6g/token_determinism_text.py",
+          [
+            "--tokens",
+            "192",
+            "--long-lines",
+            "700",
+            "--wide"
+          ],
+          "determinism"
+        ],
+        [
+          "experiments/2026-10-12-r6g/token_determinism_text.py",
+          [
+            "--tokens",
+            "192",
+            "--long-lines",
+            "700",
+            "--wide",
+            "--no-logprobs"
+          ],
+          "greedy"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "r6i-tp4.json",
+          "label": "r6i-image"
+        }
+      ]
+    }
+  ]
+}

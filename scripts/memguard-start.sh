@@ -2,43 +2,36 @@
 set -euo pipefail
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-config_relative=${1:-config/cluster.json}
-phase=${2:-steady}
-mode=${3:-running}
-if [[ "$config_relative" = /* ]]; then
-  echo "cluster config must be relative to the repository root" >&2
-  exit 1
+# bin/spark passes the settings from the resolved configuration (an arm overlay or a
+# recipe has no container or host fields of its own).
+if (($# != 6)); then
+  echo "usage: $0 <container> <startup|steady> <threshold-gib> <interval-seconds> <wait-seconds> <running|prelaunch>" >&2
+  exit 2
 fi
-config_path=$(realpath "$repo_root/$config_relative")
-case "$config_path" in
-  "$repo_root"/*) ;;
-  *)
-    echo "cluster config must remain inside the repository" >&2
-    exit 1
-    ;;
-esac
-if [[ ! -f "$config_path" ]]; then
-  echo "cluster config does not exist: $config_relative" >&2
-  exit 1
+name=$1
+phase=$2
+guard_gib=$3
+interval=$4
+wait_seconds=$5
+mode=$6
+number='^[0-9]+([.][0-9]+)?$'
+if [[ ! "$name" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+  echo "memguard container name is not a container name: $name" >&2
+  exit 2
 fi
-
-name=$(jq -er '.container.name' "$config_path")
 case "$phase" in
-  startup)
-    guard_gib=$(jq -er '.host.startup_memguard_gib' "$config_path")
-    interval=$(jq -er '.host.startup_memguard_interval_seconds' "$config_path")
-    wait_seconds=$(jq -er '.host.startup_memguard_wait_seconds' "$config_path")
-    ;;
-  steady)
-    guard_gib=$(jq -er '.host.memguard_gib' "$config_path")
-    interval=$(jq -er '.host.memguard_interval_seconds' "$config_path")
-    wait_seconds=0
-    ;;
+  startup | steady) ;;
   *)
     echo "memguard phase must be startup or steady" >&2
     exit 2
     ;;
 esac
+for value in "$guard_gib" "$interval" "$wait_seconds"; do
+  if [[ ! "$value" =~ $number ]]; then
+    echo "memguard threshold, interval and wait must be non-negative numbers: $value" >&2
+    exit 2
+  fi
+done
 unit="${name}-memguard.service"
 
 case "$mode" in

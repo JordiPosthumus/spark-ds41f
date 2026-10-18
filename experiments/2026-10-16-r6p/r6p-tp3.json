@@ -1,0 +1,16 @@
+{
+ "notes": "r6p on the three-node triangle: r6o with Engram's wkv product exchanged all-to-all under prefill sequence parallelism.",
+ "extends": {
+  "config": "experiments/2026-10-16-r6s/r6n/cluster.json",
+  "shape": "tp3-triangle"
+ },
+ "set": {
+  "container": {
+   "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6p",
+   "expected_labels": {
+    "local.spark3.vllm.tree": "3b2492ebb0bba4385c5699d3009f44469094d154"
+   }
+  },
+  "upstreams_config": "experiments/2026-10-16-r6p/upstreams.lock.json"
+ }
+}

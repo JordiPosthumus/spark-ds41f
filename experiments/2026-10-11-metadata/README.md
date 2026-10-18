@@ -67,3 +67,18 @@ table, still one launch. Window 3 ([w3.json](w3.json)) is the kernel bundle agai
 
 vLLM `18ac093ba` makes blocks as wide as the window (128 threads), with the page part
 looping. Window 4 ([w4.json](w4.json)) is the kernel bundle again.
+
+### Window 4 (2026-10-11, kernel only)
+
+85 tests passed: every output identical to Triton's. With window-wide blocks:
+
+| Path | Triton | TileLang | Ratio |
+| --- | ---: | ---: | ---: |
+| Builder (eager, host launch included), every step | 20.1-21.1 us | 17.2-17.6 us | 0.83-0.86x |
+| Layer metadata under graphs, decode 1-96 rows (warm / cold) | 1.96-2.30 / 6.14 us | 1.31-1.44 / 4.10-4.26 us | 0.63-0.69x |
+| Layer metadata, 2048-row prefill chunk | 8.52 / 12.32 us | 7.10 / 10.53 us | 0.83 / 0.86x |
+| Layer metadata, 8192-row prefill | 40.63 / 42.98 us | 41.13 / 41.02 us | 1.01 / 0.96x |
+
+Faster everywhere except 8192-row prefill, which is level (0.5 us slower warm, 2 us
+faster cold, of about 40 us). This is the version that shipped in r6f (the layer
+metadata rows of `bench_metadata.py` label the Triton column `b12x`).

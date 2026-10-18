@@ -31,7 +31,13 @@ docker run \
   "$image" \
   300 >/dev/null
 
-if "$repo_root/scripts/memguard-start.sh" "$config" startup running; then
+settings=(
+  "$(jq -er '.container.name' "$repo_root/$config")" startup
+  "$(jq -er '.host.startup_memguard_gib' "$repo_root/$config")"
+  "$(jq -er '.host.startup_memguard_interval_seconds' "$repo_root/$config")"
+  "$(jq -er '.host.startup_memguard_wait_seconds' "$repo_root/$config")"
+)
+if "$repo_root/scripts/memguard-start.sh" "${settings[@]}" running; then
   echo "memguard unexpectedly accepted the deliberately impossible threshold" >&2
   exit 1
 fi

@@ -1,0 +1,54 @@
+{
+  "description": "Engram rows v2 (one wait per table, masked gather, tables read in layer order) on the r6m image: the reader and gather tests, then the gather and a two-table step against B12X on the same data.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6m",
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "ENGRAM_ROWS_TEST_DIR": "/c/engram-prefill",
+    "PYTHONPATH": "/b"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "io_uring": true,
+  "argv": [
+    "-c",
+    "import subprocess, sys; codes = [subprocess.call([sys.executable, '-m', 'pytest', '-q', '-rfEs', '-p', 'no:cacheprovider', '--noconftest', '-p', 'engram_fixtures', '--basetemp', '/c/pytest-tmp-rows-v2', 'tests/kernels/test_deepseek_v41_engram_rows.py']), subprocess.call([sys.executable, '/b/bench_engram_rows_v2.py'])]; print('exit codes (rows tests, bench)', codes); sys.exit(max(codes))"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "overlay/tests/kernels/test_deepseek_v41_engram_rows.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/test_deepseek_v41_engram_rows.py"
+    ],
+    [
+      "overlay/vllm/models/deepseek_v4_1/engram_rows/_native.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/engram_rows/_native.py"
+    ],
+    [
+      "overlay/vllm/models/deepseek_v4_1/engram_rows/_reader.c",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/engram_rows/_reader.c"
+    ],
+    [
+      "overlay/vllm/models/deepseek_v4_1/engram_rows/_row_plan.h",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/engram_rows/_row_plan.h"
+    ],
+    [
+      "overlay/vllm/models/deepseek_v4_1/engram_rows/rows.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/engram_rows/rows.py"
+    ],
+    [
+      "overlay/vllm/models/deepseek_v4_1/tilelang/engram_rows.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/engram_rows.py"
+    ],
+    [
+      "engram_fixtures.py",
+      "/b/engram_fixtures.py"
+    ],
+    [
+      "kbench.py",
+      "/b/kbench.py"
+    ],
+    [
+      "bench_engram_rows_v2.py",
+      "/b/bench_engram_rows_v2.py"
+    ]
+  ]
+}

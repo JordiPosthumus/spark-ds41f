@@ -1,0 +1,246 @@
+{
+ "schema": "servebench-suite/1",
+ "suite": {
+  "name": "release-tp3",
+  "version": 1,
+  "description": "Release measurement for three nodes (8 streams, 512K context), about 51 minutes a build: model behaviour on all 256 prompts at eight streams, the engine grid up to eight requests, eight and four streams in a closed loop, Poisson arrivals at 0.42 requests/s (about 80% of eight streams' rate on r6h) with goodput under a 2 s time to first token and 100 ms per output token, and real-text prefill from 32K to 500K. Its grid needs the dev-mode collective RPC.",
+  "steps": [
+   {
+    "id": "model",
+    "command": "model",
+    "args": {
+     "concurrency": 8,
+     "max_tokens": 256,
+     "top": 20
+    }
+   },
+   {
+    "id": "grid",
+    "command": "engine",
+    "args": {
+     "replays": 100,
+     "settle": 1,
+     "max_requests": 8
+    }
+   },
+   {
+    "id": "c8",
+    "command": "run",
+    "args": {
+     "mode": "closed",
+     "concurrency": 8,
+     "warmup": 60,
+     "duration": 300,
+     "extra_body": {
+      "chat_template_kwargs": {
+       "thinking": false
+      }
+     }
+    }
+   },
+   {
+    "id": "c4",
+    "command": "run",
+    "args": {
+     "mode": "closed",
+     "concurrency": 4,
+     "warmup": 60,
+     "duration": 300,
+     "extra_body": {
+      "chat_template_kwargs": {
+       "thinking": false
+      }
+     }
+    }
+   },
+   {
+    "id": "poisson",
+    "command": "run",
+    "args": {
+     "mode": "poisson",
+     "rate": 0.42,
+     "warmup": 60,
+     "duration": 300,
+     "slo_ttft": 2,
+     "slo_tpot": 100,
+     "extra_body": {
+      "chat_template_kwargs": {
+       "thinking": false
+      }
+     }
+    }
+   },
+   {
+    "id": "prefill",
+    "command": "prefill",
+    "args": {
+     "sizes": [
+      32768,
+      131072,
+      262144,
+      500000
+     ],
+     "repeats": 3
+    }
+   }
+  ]
+ },
+ "suite_sha256": "fc769b27a99f09f02219935f5da827af5ce87eb0c94399ea9fbd4da7c111e0fa",
+ "label": "r6n",
+ "corpus": null,
+ "started_utc": "2026-10-15T22:02:15+00:00",
+ "steps": [
+  {
+   "id": "model",
+   "command": "model",
+   "output": "model.json.gz",
+   "exit": 0,
+   "seconds": 515.8
+  },
+  {
+   "id": "grid",
+   "command": "engine",
+   "output": "grid.json",
+   "exit": 0,
+   "seconds": 84.8
+  },
+  {
+   "id": "c8",
+   "command": "run",
+   "output": "c8.json",
+   "exit": 0,
+   "seconds": 368.8
+  },
+  {
+   "id": "c4",
+   "command": "run",
+   "output": "c4.json",
+   "exit": 0,
+   "seconds": 367.4
+  },
+  {
+   "id": "poisson",
+   "command": "run",
+   "output": "poisson.json",
+   "exit": 0,
+   "seconds": 375.2
+  },
+  {
+   "id": "prefill",
+   "command": "prefill",
+   "output": "prefill.json",
+   "exit": 0,
+   "seconds": 741.0
+  }
+ ],
+ "metadata": {
+  "identity": {
+   "cluster_config": "experiments/2026-10-15-r6n-tp3/r6n-tp3-dev.json",
+   "cluster_config_sha256": "0b605f411f6af4c6c8ba18d2051448870532276c2ccc144de1ba07af1498768b",
+   "nodes_config": "config/nodes.json",
+   "topology": {
+    "schema_version": 1,
+    "ssh_user": "swank",
+    "nodes": [
+     {
+      "name": "dgx1",
+      "rank": 0,
+      "management_ip": "10.0.1.71",
+      "head": true,
+      "roce_peer_hcas": {
+       "1": [
+        "rocep1s0f0",
+        "roceP2p1s0f0"
+       ],
+       "2": [
+        "rocep1s0f1",
+        "roceP2p1s0f1"
+       ]
+      },
+      "roce_subnets": {
+       "rocep1s0f0": "10.12.1.0/24",
+       "roceP2p1s0f0": "10.12.2.0/24",
+       "rocep1s0f1": "10.13.1.0/24",
+       "roceP2p1s0f1": "10.13.2.0/24"
+      },
+      "roce_gid_index": 3
+     },
+     {
+      "name": "dgx2",
+      "rank": 1,
+      "management_ip": "10.0.1.72",
+      "head": false,
+      "roce_peer_hcas": {
+       "0": [
+        "rocep1s0f1",
+        "roceP2p1s0f1"
+       ],
+       "2": [
+        "rocep1s0f0",
+        "roceP2p1s0f0"
+       ]
+      },
+      "roce_subnets": {
+       "rocep1s0f0": "10.23.1.0/24",
+       "roceP2p1s0f0": "10.23.2.0/24",
+       "rocep1s0f1": "10.12.1.0/24",
+       "roceP2p1s0f1": "10.12.2.0/24"
+      },
+      "roce_gid_index": 3
+     },
+     {
+      "name": "dgx3",
+      "rank": 2,
+      "management_ip": "10.0.1.73",
+      "head": false,
+      "roce_peer_hcas": {
+       "0": [
+        "rocep1s0f0",
+        "roceP2p1s0f0"
+       ],
+       "1": [
+        "rocep1s0f1",
+        "roceP2p1s0f1"
+       ]
+      },
+      "roce_subnets": {
+       "rocep1s0f0": "10.13.1.0/24",
+       "roceP2p1s0f0": "10.13.2.0/24",
+       "rocep1s0f1": "10.23.1.0/24",
+       "roceP2p1s0f1": "10.23.2.0/24"
+      },
+      "roce_gid_index": 3
+     }
+    ]
+   },
+   "transport": "oneshot-direct",
+   "kernel_backend": "tilelang",
+   "promoted_baseline": "2026-10-15-karmic-kraken-r6n",
+   "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6n",
+   "dspark_cost_dir": "/cache/kkref/dspark-costs/build-77b3fa3c35f1ce6d",
+   "client_commit": "e683633c7f7892aa089c4517cc7078841103753d",
+   "client_dirty": false,
+   "client_host": "dgx1",
+   "nodes": {
+    "dgx1": {
+     "image_id": "sha256:5ec81bee6944e5a08c0a15599b9f826cad9593a76b36e9523652a91fe6fee755",
+     "container_started_at": "2026-10-15T22:00:36.239509594Z",
+     "checkout": "e683633c7f7892aa089c4517cc7078841103753d"
+    },
+    "dgx2": {
+     "image_id": "sha256:5ec81bee6944e5a08c0a15599b9f826cad9593a76b36e9523652a91fe6fee755",
+     "container_started_at": "2026-10-15T22:00:35.446561265Z",
+     "checkout": "e683633c7f7892aa089c4517cc7078841103753d"
+    },
+    "dgx3": {
+     "image_id": "sha256:5ec81bee6944e5a08c0a15599b9f826cad9593a76b36e9523652a91fe6fee755",
+     "container_started_at": "2026-10-15T22:00:35.850868722Z",
+     "checkout": "e683633c7f7892aa089c4517cc7078841103753d"
+    }
+   },
+   "live_problems": [],
+   "live_warnings": []
+  }
+ },
+ "finished_utc": "2026-10-15T22:43:08+00:00"
+}

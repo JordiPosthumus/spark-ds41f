@@ -1,0 +1,18 @@
+{
+  "experiment": "experiments/2026-10-13-tilelang-wo",
+  "run": "wo-a-sweep2",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "kernel",
+      "bundles": [
+        {
+          "node": "dgx3",
+          "bundle": "experiments/2026-10-13-tilelang-wo/bundles/wo-a-sweep"
+        }
+      ]
+    }
+  ]
+}

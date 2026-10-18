@@ -1,0 +1,31 @@
+{
+ "experiment": "experiments/2026-10-16-r6r",
+ "run": "r6r-tp3-profile",
+ "jobs": [
+  {
+   "kind": "sync"
+  },
+  {
+   "kind": "profile",
+   "workloads": [
+    "prefill",
+    "decode",
+    "c8"
+   ],
+   "arms": [
+    {
+     "config": "r6r-tp3-prof-pinned.json",
+     "label": "r6r"
+    },
+    {
+     "config": "experiments/2026-10-16-r6q/r6q-tp3-prof-pinned.json",
+     "label": "r6q"
+    },
+    {
+     "config": "r6r-tp3-prof-pinned.json",
+     "label": "r6r-again"
+    }
+   ]
+  }
+ ]
+}

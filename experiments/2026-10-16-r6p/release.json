@@ -1,0 +1,27 @@
+{
+ "experiment": "experiments/2026-10-16-r6p",
+ "run": "r6p-tp3-release",
+ "jobs": [
+  {
+   "kind": "sync"
+  },
+  {
+   "kind": "measure",
+   "suite": "release-tp3",
+   "arms": [
+    {
+     "config": "r6p-tp3-dev.json",
+     "label": "r6p"
+    },
+    {
+     "config": "experiments/2026-10-15-r6n-tp3/r6n-tp3-dev.json",
+     "label": "r6n"
+    },
+    {
+     "config": "r6p-tp3-dev.json",
+     "label": "r6p-again"
+    }
+   ]
+  }
+ ]
+}

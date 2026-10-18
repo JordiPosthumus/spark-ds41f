@@ -1,0 +1,16 @@
+{
+ "notes": "r6q on the three-node triangle: r6p with Engram's exchanged wkv blocks read in place by the TileLang gate.",
+ "extends": {
+  "config": "experiments/2026-10-16-r6s/r6n/cluster.json",
+  "shape": "tp3-triangle"
+ },
+ "set": {
+  "container": {
+   "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6q",
+   "expected_labels": {
+    "local.spark3.vllm.tree": "0643f0d2e236e1cb80459c9586499c30d731cda7"
+   }
+  },
+  "upstreams_config": "experiments/2026-10-16-r6q/upstreams.lock.json"
+ }
+}

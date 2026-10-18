@@ -1,0 +1,81 @@
+{
+  "experiment": "experiments/2026-10-12-r6h-loss",
+  "run": "r6h-loss-w2",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "experiments/2026-10-09-tilelang-migration/token_determinism.py",
+          [
+            "--tokens",
+            "192",
+            "--long-lines",
+            "700",
+            "--wide"
+          ],
+          "determinism"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "16",
+            "--samples",
+            "6",
+            "--tokens",
+            "256"
+          ],
+          "c16-distinct"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "8",
+            "--samples",
+            "6",
+            "--tokens",
+            "256"
+          ],
+          "c8-distinct"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "headout.json",
+          "label": "headout"
+        },
+        {
+          "config": "r6h.json",
+          "label": "r6h"
+        },
+        {
+          "config": "headout-curves.json",
+          "label": "headout-curves"
+        },
+        {
+          "config": "headout.json",
+          "label": "headout-again"
+        }
+      ]
+    },
+    {
+      "kind": "profile",
+      "workloads": [
+        "code16"
+      ],
+      "arms": [
+        {
+          "config": "headout-fixed.json",
+          "label": "headout"
+        }
+      ]
+    }
+  ]
+}

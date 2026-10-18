@@ -1,0 +1,11 @@
+{
+ "notes": "r6r profiled on TP3 with production r6n's DSpark cost curves.",
+ "extends": {
+  "config": "experiments/2026-10-16-r6r/r6r-tp3-prof.json"
+ },
+ "set": {
+  "environment": {
+   "SPARK3_DSPARK_COST_DIR": "/cache/kkref/dspark-costs/build-77b3fa3c35f1ce6d"
+  }
+ }
+}

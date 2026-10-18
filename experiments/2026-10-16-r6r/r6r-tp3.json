@@ -1,0 +1,16 @@
+{
+ "notes": "r6r on the three-node triangle: r6q with disk Engram shards on whole hash columns (rows all-gathered, not all-reduced).",
+ "extends": {
+  "config": "experiments/2026-10-16-r6s/r6n/cluster.json",
+  "shape": "tp3-triangle"
+ },
+ "set": {
+  "container": {
+   "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6r",
+   "expected_labels": {
+    "local.spark3.vllm.tree": "139751497e4bc44a8dd46d36782b529d690a7e8d"
+   }
+  },
+  "upstreams_config": "experiments/2026-10-16-r6r/upstreams.lock.json"
+ }
+}

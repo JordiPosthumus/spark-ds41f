@@ -41,6 +41,20 @@ TILELANG_EXPERIMENTS = (
     "experiments/2026-10-11-r6f",
     "experiments/2026-10-12-r6g",
     "experiments/2026-10-12-r6h",
+    "experiments/2026-10-13-r6i",
+    "experiments/2026-10-13-kernel-names",
+    "experiments/2026-10-13-r6k",
+    "experiments/2026-10-14-r6l",
+    "experiments/2026-10-14-r6m",
+    "experiments/2026-10-15-r6n",
+    "experiments/2026-10-16-r6o",
+    "experiments/2026-10-16-r6p",
+    "experiments/2026-10-16-r6q",
+    "experiments/2026-10-16-r6r",
+    "experiments/2026-10-16-r6s",
+    "experiments/2026-10-17-r6t",
+    "experiments/2026-10-17-r6u",
+    "experiments/2026-10-17-r6v",
 )
 FLAGS = ("--attention-backend", "--linear-backend", "--moe-backend")
 # Each TileLang profile and the B12X configuration it mirrors, with that
@@ -104,12 +118,13 @@ class KernelBackendTest(unittest.TestCase):
     def errors(self, cluster, lock):
         return [p for p in spark.local_doctor(cluster, self.nodes, lock) if not isinstance(p, spark.Warn)]
 
-    def test_promoted_profiles_run_tilelang(self):
-        # The TP3 profiles stay on r6 (unqualified on the ring cabling) and pin its lock.
-        for name in ("config/cluster.json", "config/cluster-64k.json", "config/cluster-4k.json"):
-            with self.subTest(name=name):
-                cluster = spark.read_json(name)
-                lock = spark.read_json(cluster.get("upstreams_config", "upstreams.lock.json"))
+    def test_every_recipe_shape_runs_tilelang(self):
+        # One recipe: every shape runs the same image, lock and kernel family.
+        lock = spark.read_json("upstreams.lock.json")
+        for shape in ("tp3-triangle", "tp3-triangle-4k"):
+            with self.subTest(shape=shape):
+                cluster = spark.read_cluster("config/cluster.json", shape)
+                self.assertNotIn("upstreams_config", cluster)
                 self.assertEqual(cluster["promoted_baseline"], lock["generated_from_baseline"])
                 cluster["distributed"]["master_addr"] = self.base["distributed"]["master_addr"]
                 self.assertEqual(cluster["kernel_backend"], "tilelang")
@@ -118,11 +133,11 @@ class KernelBackendTest(unittest.TestCase):
                 self.assertEqual(self.errors(cluster, lock), [])
 
     def test_promoted_tp4_profile_runs_tilelang(self):
-        # config/cluster-tp4.json reads the site's git-ignored ring map; check it
+        # The tp4-ring shape reads the site's git-ignored ring map; check it
         # against the example map of the same topology.
         lock = spark.read_json("upstreams.lock.json")
         nodes = spark.read_json("config/examples/nodes-ring4.json")
-        cluster = spark.read_json("config/cluster-tp4.json")
+        cluster = spark.read_cluster("config/cluster.json", "tp4-ring")
         self.assertEqual(cluster["nodes_config"], "config/nodes-ring4.local.json")
         self.assertNotIn("upstreams_config", cluster)
         self.assertEqual(cluster["promoted_baseline"], lock["generated_from_baseline"])

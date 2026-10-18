@@ -1,0 +1,45 @@
+{
+  "experiment": "experiments/2026-10-13-tilelang-wo",
+  "run": "wo-debug",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "experiments/2026-10-12-r6g/token_determinism_text.py",
+          [
+            "--tokens",
+            "192",
+            "--long-lines",
+            "700",
+            "--wide"
+          ],
+          "determinism"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "debug-clone.json",
+          "label": "dbg-clone"
+        },
+        {
+          "config": "debug-private.json",
+          "label": "dbg-private"
+        },
+        {
+          "config": "debug-noslice.json",
+          "label": "dbg-noslice"
+        },
+        {
+          "config": "debug-clone-private-noslice.json",
+          "label": "dbg-clone-private-noslice"
+        }
+      ]
+    }
+  ]
+}

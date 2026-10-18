@@ -1,0 +1,11 @@
+{
+  "notes": "r6n on an empty TileLang cache on every rank (a first boot, as on a new site): shows what compiles inside a collective phase. The cache directory is new and left on the nodes' /cache volume.",
+  "extends": {
+    "config": "experiments/2026-10-15-r6n/r6n-release.json"
+  },
+  "set": {
+    "environment": {
+      "TILELANG_CACHE_DIR": "/cache/kkref/jit/tilelang-cold-r6n"
+    }
+  }
+}

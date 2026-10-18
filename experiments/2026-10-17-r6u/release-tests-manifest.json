@@ -1,0 +1,389 @@
+{
+ "base": "19f2c20ed4d64ae22bd009ceacadd85e2a81e354",
+ "files": {
+  "tests/distributed/test_b12x_pcie_all_reduce.py": [
+   "stack"
+  ],
+  "tests/distributed/test_b12x_tp2_startup_oracle.py": [
+   "stack"
+  ],
+  "tests/distributed/test_engram_dp_shard.py": [
+   "stack"
+  ],
+  "tests/distributed/test_roce_policy_no_fallback.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/jit_monitor/test_hooks.py": [
+   "stack"
+  ],
+  "tests/jit_monitor/test_hooks_gpu.py": [
+   "stack"
+  ],
+  "tests/jit_monitor/test_no_runtime_jit.py": [
+   "stack"
+  ],
+  "tests/kernels/attention/test_deepseek_v41_tilelang.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/mamba/test_gdn_prefill_b12x.py": [
+   "stack"
+  ],
+  "tests/kernels/mamba/test_gdn_prefill_b12x_checkpoint_clone.py": [
+   "stack"
+  ],
+  "tests/kernels/moe/test_b12x.py": [
+   "stack"
+  ],
+  "tests/kernels/moe/test_deepseek_v41_tilelang_moe.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/moe/test_deepseek_v41_tilelang_router.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/moe/test_flashinfer_b12x_moe.py": [
+   "stack"
+  ],
+  "tests/kernels/quantization/test_deepseek_v41_tilelang_linear.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/quantization/test_deepseek_v41_tilelang_vocab.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/quantization/test_deepseek_v41_tilelang_wo.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_engram_rows.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_activation.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_cache_writer.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_collectives.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_compress.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_engram.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_engram_hash.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_metadata.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_mhc.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v41_tilelang_rope.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/kernels/test_deepseek_v4_cpu_kernels.py": [
+   "stack"
+  ],
+  "tests/kernels/test_dflash2_grouped_conv.py": [
+   "stack"
+  ],
+  "tests/kernels/test_engram.py": [
+   "stack"
+  ],
+  "tests/kernels/test_fused_deepseek_v4_qnorm_rope_kv_insert.py": [
+   "stack"
+  ],
+  "tests/kernels/test_mhc_tilelang_jit.py": [
+   "stack"
+  ],
+  "tests/model_executor/kernels/test_b12x_linear.py": [
+   "stack"
+  ],
+  "tests/model_executor/model_loader/test_b12x_loader.py": [
+   "stack"
+  ],
+  "tests/model_executor/model_loader/test_weight_transfer.py": [
+   "changed by the series"
+  ],
+  "tests/model_executor/test_b12x_op_boundary.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/model_executor/test_b12x_warmup.py": [
+   "stack"
+  ],
+  "tests/models/kimi_k3/test_dspark_compact_rope.py": [
+   "stack"
+  ],
+  "tests/models/kimi_k3/test_dspark_dcp_cache.py": [
+   "stack"
+  ],
+  "tests/models/quantization/test_mimo_v2_router_dflash.py": [
+   "stack"
+  ],
+  "tests/models/qwen4_exp/test_b12x_config.py": [
+   "stack"
+  ],
+  "tests/models/qwen4_exp/test_b12x_model.py": [
+   "stack"
+  ],
+  "tests/models/qwen4_exp/test_b12x_qsa.py": [
+   "stack"
+  ],
+  "tests/models/qwen4_exp/test_b12x_weight_loading.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v41_sp_project_reduce_scatter.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_attention.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_1_ced_model.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_compressor.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_1_compressor_prepare.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_config.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_engram.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_prepare.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_prepared_projections.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_rmsnorm.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_1_sp_prefill.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_deepseek_v4_1_vision.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_dspark_context_kv.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_fi_moe_ep.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_mega_moe.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_rocm_compressor_gemm_fusion.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_vision.py": [
+   "stack"
+  ],
+  "tests/models/test_deepseek_v4_vl_rocm.py": [
+   "stack"
+  ],
+  "tests/models/test_dflash2_mla.py": [
+   "stack"
+  ],
+  "tests/models/test_dspark_mla.py": [
+   "stack"
+  ],
+  "tests/models/test_glm53_dspark.py": [
+   "stack"
+  ],
+  "tests/models/test_glm5next_model.py": [
+   "changed by the series"
+  ],
+  "tests/models/test_glm5next_tilelang_l2_prefetch.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/models/test_qwen3_dflash_streaming.py": [
+   "stack"
+  ],
+  "tests/models/test_qwen3_dspark_tp_padding.py": [
+   "stack"
+  ],
+  "tests/parser/engine/test_deepseek_v4.py": [
+   "stack"
+  ],
+  "tests/parser/engine/test_deepseek_v41.py": [
+   "stack"
+  ],
+  "tests/test_custom_op_fill_defaults.py": [
+   "changed by the series"
+  ],
+  "tests/tokenizers_/test_deepseek_v4.py": [
+   "stack"
+  ],
+  "tests/tokenizers_/test_deepseek_v41.py": [
+   "stack"
+  ],
+  "tests/tokenizers_/test_deepseek_v41_effort.py": [
+   "stack"
+  ],
+  "tests/transformers_utils/test_dflash2_mla_config.py": [
+   "stack"
+  ],
+  "tests/transformers_utils/test_dspark_mla_config.py": [
+   "stack"
+  ],
+  "tests/transformers_utils/test_speculators_dspark_config.py": [
+   "stack"
+  ],
+  "tests/utils_/test_jit_monitor_dynamo.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/attention/test_b12x.py": [
+   "stack"
+  ],
+  "tests/v1/attention/test_b12x_indexer_draft_decode.py": [
+   "stack"
+  ],
+  "tests/v1/attention/test_b12x_sparse_mla_api.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/attention/test_b12x_v41_ced_metadata.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/attention/test_b12x_v41_workspace.py": [
+   "stack"
+  ],
+  "tests/v1/attention/test_deepseek_v4_dspark_metadata.py": [
+   "stack"
+  ],
+  "tests/v1/attention/test_deepseek_v4_swa_visible.py": [
+   "stack"
+  ],
+  "tests/v1/attention/test_dflash_attn.py": [
+   "stack"
+  ],
+  "tests/v1/attention/test_dspark_noncausal_sparse_mla.py": [
+   "stack"
+  ],
+  "tests/v1/attention/test_indexer_deepseek_v4_slot_mapping.py": [
+   "stack"
+  ],
+  "tests/v1/core/test_aligned_prefill_chunks.py": [
+   "changed by the series"
+  ],
+  "tests/v1/core/test_kv_cache_utils.py": [
+   "changed by the series"
+  ],
+  "tests/v1/e2e/spec_decode/acceptance_rates/dflash/test_dflash.py": [
+   "stack"
+  ],
+  "tests/v1/e2e/spec_decode/acceptance_rates/dspark/test_dspark.py": [
+   "stack"
+  ],
+  "tests/v1/executor/test_b12x_output.py": [
+   "stack"
+  ],
+  "tests/v1/executor/test_b12x_startup.py": [
+   "stack"
+  ],
+  "tests/v1/executor/test_b12x_terminal.py": [
+   "stack"
+  ],
+  "tests/v1/spec_decode/test_adaptive_verification.py": [
+   "changed by the series"
+  ],
+  "tests/v1/spec_decode/test_dflash2.py": [
+   "stack"
+  ],
+  "tests/v1/spec_decode/test_dflash_causality.py": [
+   "stack"
+  ],
+  "tests/v1/spec_decode/test_dflash_dcp.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/spec_decode/test_dflash_lookahead.py": [
+   "stack"
+  ],
+  "tests/v1/spec_decode/test_dflash_prepare_inputs.py": [
+   "stack"
+  ],
+  "tests/v1/spec_decode/test_dspark_topk.py": [
+   "stack"
+  ],
+  "tests/v1/spec_decode/test_dspark_v41_gathered_markov.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/spec_decode/test_dspark_vocab_parallel.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/worker/gpu/test_greedy_verification.py": [
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_b12x_roce_health.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_dead_rows.py": [
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_display_carveout.py": [
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_dspark_greedy_markov.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_dspark_utils.py": [
+   "stack"
+  ],
+  "tests/v1/worker/test_gpu_pcp_manager.py": [
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_kv_block_zeroer.py": [
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_prepare_kernels.py": [
+   "stack",
+   "changed by the series"
+  ],
+  "tests/v1/worker/test_startup_rendezvous.py": [
+   "stack",
+   "changed by the series"
+  ]
+ },
+ "head": "799964ce1d5cfb3ad79baf5654d9e94a7258cd47",
+ "repo": "/Users/christopherowen/projects/vllm-ds41-kernel-contracts"
+}

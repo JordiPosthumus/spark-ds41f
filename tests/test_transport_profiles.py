@@ -211,7 +211,7 @@ class TransportProfilesTest(unittest.TestCase):
                 args.func(args)
 
     def test_cli_rejects_ambiguous_base_and_protected_output(self):
-        for argv in (["--cluster-config", "config/cluster-4k.json", "tuning", "show", "tp4"],
+        for argv in (["--cluster-config", "experiments/2026-10-14-one-recipe/tp3-4k-r6h.json", "tuning", "show", "tp4"],
                      ["tuning", "create", "tp4", "--nodes-config", "config/examples/nodes-ring4.json",
                       "--output", "config/new.json"]):
             args = spark.parser().parse_args(argv)

@@ -4,13 +4,42 @@ Reproducible Docker/vLLM deployment, tuning, and benchmarks for DeepSeek V4.1
 Flash on a switchless three-node DGX Spark fabric, and the same deployment on
 a four-node ring.
 
-Production is the four-node TP4 1M profile on **r6f** (2026-10-11,
-[promotion record](experiments/2026-10-11-r6f/README.md)), and the three-node
-profiles are promoted to r6f too. r6f is r6d plus arithmetic at DeepSeek's
-reference precision (FP32 logits, an exact FP32 mHC projection, the shared
-expert's SwiGLU in FP32, MoE partials rounded once), more TileLang ports and a
-per-request attention split, so temperature-0 outputs do not depend on the
-batch even when decode requests share a step with a prefill.
+Production is **r6v**, serving DeepSeek-V4.1-Flash-1017 on both profiles: the
+four-node TP4 1M profile on the ring the site is cabled as (2026-10-17,
+[promotion record](experiments/2026-10-17-r6v/README.md)), and the three-node TP3
+512K profile on the triangle, whose path is r6u's (2026-10-17,
+[promotion record](experiments/2026-10-17-r6u/README.md)). r6v is r6u with
+Engram's sequence-parallel row exchange relayed through the neighbours on the
+four-node ring, which has no cable between ranks two apart; against r6n, the
+ring's previous release, prefill is 3.2-4.2% faster from 32K to 1M and decode is
+level. r6u's recipe and lock are frozen in `experiments/2026-10-17-r6v/r6u` (r6s's in
+`experiments/2026-10-17-r6u/r6s`, r6n's in `experiments/2026-10-16-r6s/r6n`). r6u is r6s with every kernel prepared before
+any distributed work: each rank compiles its declared TileLang calls, TileKernels'
+warm calls and the step's Triton kernels before memory profiling, freezes
+TileLang's cache, and meets the other ranks on liveness, so a rank with a cold
+cache can no longer stall a one-shot collective at startup. It follows DeepSeek's
+current reference for both V4.1 Flash checkpoints (WO-A's input through
+`act_quant`, prepared once per row in the attention's output store; the
+2026-10-16 encoding fix), serves the 1017 checkpoint with DeepSeek's sampling
+defaults (temperature 1.0, top_p 1.0), and passes the release tests
+([docs/testing.md](docs/testing.md)) as part of every promotion. Prefill and
+decode are level with r6s on 1017; outputs differ from r6s's by WO-A's input
+quantization. r6s is r6n with faster Engram prefill: the rows of tokens the host already knows are read before the
+step, Engram's sequence-parallel product is exchanged all-to-all instead of
+all-gathered, and each rank's disk shard is whole hash columns, every third (or
+fourth), so every rank reads every n-gram order and the ranks finish together.
+Prefill is 4.8-5.6% faster, decode is level, and the temperature-0 text and the
+model's distributions are identical to r6n's. r6n is r6k with Engram rows
+read by a native worker in layer order and gathered in TileLang (one bounded
+wait per table, this rank's rows only), collectives that stop on a timed-out
+wait instead of falling back or computing on unwritten buffers, a host
+rendezvous at startup, no compile on the decode path, and kernels that keep a
+NaN rather than hide it. Its decode steps are 2.2% shorter, prefill and
+throughput are level, and its temperature-0 text is identical to r6k's. r6k
+before it removed the last known deviation from DeepSeek's reference
+precision: FP32 logits, an exact FP32 mHC projection, the shared expert's
+SwiGLU in FP32, MoE partials rounded once, WO on BF16 activations, and
+temperature-0 outputs that do not depend on the batch.
 
 The promoted kernel family is **TileLang** (r6): TileLang kernels for SM121,
 with DeepSeek's TileKernels and the one-shot RoCE collectives of
@@ -27,19 +56,20 @@ shapes, number formats, one decoder layer, attention, mHC, Engram, DSpark, and
 how TP3 and TP4 split the layers.
 
 The deployment tools also generate and validate a
-[four-node switchless ring profile](docs/switchless-topology.md). The
-[TP4 1M profile](config/cluster-tp4.json) serves the
-checkpoint's full 1,048,576-token context with 16 sequences on the same image
-as the three-node deployment, and was benchmarked at those limits (see
-[Performance](#performance)). The promoted configuration below is the
-three-node deployment.
+[four-node switchless ring](docs/switchless-topology.md). One recipe,
+[config/cluster.json](config/cluster.json), serves every shape on one image:
+four nodes in a ring (`tp4-ring`, the checkpoint's full 1,048,576-token
+context with 16 sequences, benchmarked at those limits, see
+[Performance](#performance)) and three in a triangle (`tp3-triangle`, 524,288
+tokens and 8 sequences). The shapes differ only in their cabling (node map,
+transport, NCCL settings) and their memory sizing.
 
 Named [TP3/TP4 transport tuning profiles](experiments/2026-10-03-transport-profiles/README.md)
 keep B12X's measured RoCEnante limits and NCCL settings together.
 `bin/spark tuning show tp4` shows the B12X TP4 recipe; `tuning create`
 generates a complete B12X configuration for a site node map, with launch
-disabled. The promoted TileLang profiles are [config/cluster.json](config/cluster.json)
-(TP3) and [config/cluster-tp4.json](config/cluster-tp4.json) (TP4).
+disabled. The promoted TileLang configuration is the recipe
+[config/cluster.json](config/cluster.json).
 
 This repository is being promoted from a forensic capture of the running cluster
 into its only operational source of truth. Until the transition checklist is
@@ -55,42 +85,51 @@ Two Sparks are not supported. [docs/setup.md](docs/setup.md) is the full
 guide: what each stage changes on your machines, how to check it, and how to
 undo it.
 
-| Sparks | Profile | Context | Kernel | [Memory saver](https://github.com/christopherowen/dgx-spark-memory-saver) |
+| Sparks | Shape of [config/cluster.json](config/cluster.json) | Context | Kernel | [Memory saver](https://github.com/christopherowen/dgx-spark-memory-saver) |
 | --- | --- | ---: | --- | --- |
-| 3 | [config/cluster-4k.json](config/cluster-4k.json) | 262,144 | stock 4 KiB | not needed |
-| 3 | [config/cluster.json](config/cluster.json) | 524,288 | 64 KiB | required |
-| 4 | [config/cluster-tp4.json](config/cluster-tp4.json) | 1,048,576 | 64 KiB | required |
+| 3 | `tp3-triangle-4k` | 262,144 | stock 4 KiB | not needed |
+| 3 | `tp3-triangle` | 524,288 | 64 KiB | required |
+| 4 | `tp4-ring` | 1,048,576 | 64 KiB | required |
 
-The 4 KiB profile needs no kernel change, so it is the shortest path to a
-running service.
+Name your cabling once with `bin/spark site shape NAME --apply`; every command
+then resolves the recipe at that shape (`--shape NAME` overrides it). The 4 KiB
+shape needs no kernel change, so it is the shortest path to a running service.
+A shape starts only once a release benchmark has qualified the recipe's image
+on it (`benchmark_reference`); `cluster start --unqualified-shape` overrides that.
 
 | Stage | Do | Check |
 | --- | --- | --- |
 | 1 | [Host baseline](docs/setup.md#1-host-baseline): `scripts/host-recovery apply`, headless boot, `nvidia-drm` mode setting, reboot | `scripts/host-recovery check` |
 | 2 | [64 KiB kernel and memory saver](docs/setup.md#2-kernel-64-kib-profiles) (64 KiB profiles only) | `getconf PAGESIZE` prints 65536 |
 | 3 | [Fabric](docs/setup.md#3-fabric-cabling-and-addressing): cable, then address with `sparknet topology discover` | 9000-byte pings on every cable path |
-| 4 | [Site configuration](docs/setup.md#4-site-configuration): node map, head address, interfaces | `bin/spark doctor` |
+| 4 | [Site configuration](docs/setup.md#4-site-configuration): node map, head address, interfaces, `bin/spark site shape NAME --apply` | `bin/spark doctor` |
 | 5 | [Model](docs/setup.md#5-model): the pinned checkpoint on every node | |
-| 6 | [Image](docs/setup.md#6-image): `bin/spark build prepare`, `bin/spark build image --apply`, copy to every node | one image ID everywhere |
-| 7 | [First start](docs/setup.md#7-first-start): `bin/spark cluster start --apply` | `bin/spark doctor --live` |
+| 6 | [Image](docs/setup.md#6-image): `bin/spark build prepare`, `bin/spark --cluster-config config/cluster.json build image --apply`, copy to every node | one image ID everywhere |
+| 7 | [First start](docs/setup.md#7-first-start): `bin/spark --cluster-config config/cluster.json cluster start --apply` | `bin/spark doctor --live` |
 | 8 | [Verify](docs/setup.md#8-verify): `bin/spark bench` | quality 5/5, no regressions |
 
-Use `--cluster-config <profile>` before the subcommand for any profile other
-than `config/cluster.json`. The repository never changes a host by itself:
+Read-only commands default to `config/cluster.json` at the site's shape; every command that takes
+`--apply` refuses to act until the profile is named with `--cluster-config <profile>`
+before the subcommand, so no node operation runs on a profile by accident. The
+repository never changes a host by itself:
 `bin/spark doctor` only reports, and prints each fix as a command for you to
 run ([docs/doctor.md](docs/doctor.md)). `cluster start` refuses to launch
-until the profile's kernel, fabric and image checks pass.
+until the profile's kernel, fabric, cabling and image checks pass, and refuses
+to change the running engine's shape (nodes, tensor parallelism, context, KV)
+unless told to ([launch preflight](docs/doctor.md#launch-preflight)).
 
 ## Current baseline
 
-The baseline for both shapes is
-[manifests/baselines/2026-10-11-karmic-kraken-r6f.json](manifests/baselines/2026-10-11-karmic-kraken-r6f.json)
-([promotion record](experiments/2026-10-11-r6f/README.md); see
-[docs/current-state.md](docs/current-state.md)). The three-node deployment:
+The baseline is
+[manifests/baselines/2026-10-17-karmic-kraken-r6v.json](manifests/baselines/2026-10-17-karmic-kraken-r6v.json)
+([promotion record](experiments/2026-10-17-r6v/README.md)), since 2026-10-17, on the ring
+and the triangle (whose release run is r6u's,
+[manifests/baselines/2026-10-17-karmic-kraken-r6u.json](manifests/baselines/2026-10-17-karmic-kraken-r6u.json)); see
+[docs/current-state.md](docs/current-state.md). The three-node deployment:
 
 - three DGX Spark nodes using tensor parallelism 3, on DGX Spark 26.09.2 with
   kernel `7.0.0-1019-nvidia-64k` (`kho=off`), signed memory-saver DKMS
-  0.2.0 with UVM leaf-table packing enabled, no desktop, and
+  0.4.1 with UVM leaf-table packing enabled, no desktop, and
   `vm.watermark_boost_factor=0`;
 - direct dual ConnectX-7 paths between every pair of nodes;
 - Local Inference Lab's `integration/karmic-kraken-beta` vLLM (plus Engram
@@ -106,15 +145,15 @@ The baseline for both shapes is
   - DeepSeek's TileKernels 2.0.0 for the MoE top-k gate, the SwiGLU and
     quantization casts and mHC, with the mHC projection a TileLang kernel;
   - TileLang kernels for RoPE, the CSA compressor and its projection, the KV
-    cache writers, the Engram gate and hash, the index-head weight scale and
-    the sparse-MLA metadata (the first port off Triton);
+    cache writers, the Engram gate, hash and row gather, the index-head weight
+    scale, the sparse-MLA metadata (the first port off Triton), the WO
+    projection and the drafter's context-KV projection;
   - sparknet's one-shot RoCE all-reduce and all-gather, explicit and
     fail-stop;
   - L2 weight prefetch during decode (the next layer's weights and scale
     words stream into L2 while latency-bound kernels run);
-  - B12X's fused WO projection, the drafter's context-KV projection, the
-    Engram row lookup and the vision tower's kernels, which the family does
-    not replace yet, and its checkpoint loader;
+  - B12X's vision tower kernels, which the family does not replace yet, and
+    its checkpoint loader;
 - B12X, with all its fixes, as the alternative backend in the same image: its
   FP4 KV writer rounds like DeepSeek's reference quantizer, its indexer top-k
   breaks score ties by position, its dense GEMM and prefill kernels fence
@@ -133,8 +172,9 @@ The baseline for both shapes is
   logits from the packed head, the mHC stream projection in FP32 (each FP32
   weight split into three exact TF32 parts), the shared expert's SwiGLU in
   FP32 with one rounding, and MoE partials rounded once per rank with the
-  shared expert added in the combine; WO-A's FP8 activations are the known
-  deviation left;
+  shared expert added in the combine, and WO-A on BF16 activations with its
+  input quantized as the reference's 2026-10-12 revision does (`act_quant`,
+  block 32, UE8M0);
 - every row's result is independent of its batch: each kernel adds its
   reduction in a fixed order, the collectives add every rank's partial in rank
   order with one FP32 rounding, prefill chunks leave room for every stream's
@@ -164,53 +204,194 @@ The baseline for both shapes is
 One content-addressed image runs on all three nodes and passes the LRU
 coherence gate 5/5; see [Performance](#performance).
 
-The machine-readable desired configuration is [config/cluster.json](config/cluster.json).
-The named [4 KiB and 64 KiB profiles](docs/memory-profiles.md) retain the
-previous capacity as a fallback and select the larger 64 KiB profile by default;
-[config/cluster-tp4.json](config/cluster-tp4.json) is the four-node TP4 1M
-profile on the same image (`--cluster-config config/cluster-tp4.json`).
+The machine-readable desired configuration is the recipe
+[config/cluster.json](config/cluster.json): everything the shapes share once,
+and a `shapes` table with each shape's node map, transport, NCCL settings,
+memory sizing, cost curves and qualifying benchmark
+([scripts/recipe.py](scripts/recipe.py) resolves it; the
+[memory profiles](docs/memory-profiles.md) explain the page-size variants). The
+per-shape files it replaced are archived as release records in
+[experiments/2026-10-14-one-recipe](experiments/2026-10-14-one-recipe/README.md).
 To reproduce the deployment on your own Sparks, follow
 [docs/setup.md](docs/setup.md).
 
 ## Performance
 
-r6f against r6d (2026-10-11), measured with the
-[release comparison](docs/lab.md#release-comparison): both releases in one
-session per topology, r6d first
-([results](experiments/2026-10-11-r6f-release-bench/README.md); reports for
-[TP4](manifests/benchmarks/2026-10-11-karmic-kraken-r6f-tp4.json) and
-[TP3](manifests/benchmarks/2026-10-11-karmic-kraken-r6f.json)). Each change is
-shown with its combined 95% interval and counts (**bold**) only beyond it.
+r6v against r6n on four nodes, both serving DeepSeek-V4.1-Flash-1017 (2026-10-17),
+measured with the `release` suite in one session (r6v, r6n on its production ring
+curves; [results](experiments/2026-10-17-r6v/README.md);
+[suite run](manifests/suites/2026-10-17-karmic-kraken-r6v-tp4/)).
 
-| Workload | TP4 r6d | TP4 r6f | TP3 r6d | TP3 r6f |
+| Workload | TP4 r6n | TP4 r6v |
+| --- | ---: | ---: |
+| Source-text prefill, 32K (tok/s) | 5,762 | 5,982 (**+3.8%** ±0.6) |
+| Prefill, 128K | 5,706 | 5,946 (**+4.2%** ±1.1) |
+| Prefill, 256K | 5,467 | 5,676 (**+3.8%** ±0.6) |
+| Prefill, 512K | 4,988 | 5,171 (**+3.7%** ±0.2) |
+| Prefill, 1M | 4,269 | 4,405 (**+3.2%** ±0.5) |
+| Decode step time, geometric mean of 20 shapes | | -0.05% ±0.14 |
+| Decode, 16 streams (tok/s) | 243.5 | 243.8 (+0.1% ±1.0) |
+| Decode, 8 streams | 185.4 | 185.4 (0.0% ±1.1) |
+| Poisson arrivals at 0.7 req/s, output (tok/s) | 180.2 | 180.4 (+0.1% ±17) |
+| One conversation at a time (tok/s, `single-stream`) | | 71.1 (TTFT p50 0.10 s) |
+
+No greedy response is identical to r6n's (WO-A's input quantization, DeepSeek's current
+reference); acceptance length is level (2.27).
+
+r6u against r6s on three nodes, both serving DeepSeek-V4.1-Flash-1017 (2026-10-17),
+measured with the `release-tp3` suite ([results](experiments/2026-10-17-r6u/README.md);
+[suite run](manifests/suites/2026-10-17-karmic-kraken-r6u-tp3/)). r6u is measured with
+vLLM 0179 mounted over its image through 0178 (the promoted image carries the same
+files), in the session after r6s's, so the decode step time is cross-session (the same
+build read 1.5% apart in two sessions that day).
+
+| Workload | TP3 r6s | TP3 r6u |
+| --- | ---: | ---: |
+| Source-text prefill, 32K (tok/s) | 4,414 | 4,405 (-0.2% ±1.2) |
+| Prefill, 128K | 4,346 | 4,343 (-0.1% ±0.6) |
+| Prefill, 256K | 4,153 | 4,154 (0.0% ±0.5) |
+| Prefill, 500K | 3,801 | 3,801 (0.0% ±0.2) |
+| Decode step time, geometric mean of 15 shapes | | -1.0% ±0.13 |
+| Decode, 8 different prompts at once (tok/s) | 146.6 | 145.6 (-0.7% ±1.3) |
+| Decode, 4 different prompts at once | 112.5 | 111.3 (-1.1% ±1.4) |
+| Poisson arrivals at 0.42 req/s, output (tok/s) | 117.7 | 117.3 (-0.3% ±21) |
+
+r6u's image through 0178 quantized WO-A's input in the GEMM's column tiles and was
+2.8-3.2% slower at prefill (the same afternoon, r6u / r6s / r6u again); 0179 prepares
+it once per row and changes no output bit. No greedy response is identical to r6s's
+(WO-A's input quantization); r6s's teacher-forced KL on r6u's text is 0.023 nats.
+
+r6s against r6n on three nodes (2026-10-16), measured with the `release-tp3` suite
+in one session (r6s, r6n, r6s again; [results](experiments/2026-10-16-r6s/README.md);
+[suite run](manifests/suites/2026-10-16-karmic-kraken-r6s-tp3/)), each on its own
+build's cost curves. Each change is shown with its 95% interval and judged against
+the run's own repeat; it counts (**bold**) only beyond both.
+
+| Workload | TP3 r6n | TP3 r6s |
+| --- | ---: | ---: |
+| Source-text prefill, 32K (tok/s) | 4,199 | 4,425 (**+5.4%** ±1.8) |
+| Prefill, 128K | 4,128 | 4,360 (**+5.6%** ±1.0) |
+| Prefill, 256K | 3,963 | 4,164 (**+5.1%** ±0.8) |
+| Prefill, 500K | 3,636 | 3,812 (**+4.8%** ±0.2) |
+| Decode step time, geometric mean of 15 shapes | | +0.5% ±0.14 (repeat -0.4%) |
+| Decode, 8 different prompts at once (tok/s) | 145.6 | 146.2 (+0.4% ±1.0) |
+| Decode, 4 different prompts at once | 112.5 | 112.3 (-0.2% ±2.0) |
+| Poisson arrivals at 0.42 req/s, output (tok/s) | 117.0 | 117.3 (+0.2% ±21) |
+
+Decode is level: the first r6s arm's +0.5% is within the run's own repeat (the second
+r6s arm is +0.1% against r6n). All 256 greedy responses are identical to r6n's, and the
+teacher-forced distributions are identical (KL 0). These r6n figures are 0.3-4% above
+r6n's own release run of 2026-10-15 (below, 8 streams the most); compare within a session.
+
+r6n against r6h on three nodes (2026-10-16), measured with the `release-tp3` suite
+in one session (r6n, r6h, r6n again; [results](experiments/2026-10-15-r6n-tp3/README.md);
+[suite run](manifests/suites/2026-10-15-karmic-kraken-r6n-tp3/)), r6n on its own
+build's cost curves. Each change is judged against the run's own repeat.
+
+| Workload | TP3 r6h | TP3 r6n |
+| --- | ---: | ---: |
+| Decode step time, geometric mean of 15 shapes | | **-5.5%** ±0.14 |
+| Decode, 8 different prompts at once (tok/s) | 137.1 | 139.7 (**+1.9%** ±1.3) |
+| Decode, 4 different prompts at once | 109.3 | 112.1 (**+2.5%** ±2.2) |
+| Poisson arrivals at 0.42 req/s, goodput (req/s) | 0.280 | 0.290 |
+| Source-text prefill, 32K (tok/s) | 4,200 | 4,181 (-0.4% ±1.5) |
+| Prefill, 128K | 4,128 | 4,114 (-0.3% ±1.2) |
+| Prefill, 256K | 3,970 | 3,948 (-0.5% ±1.2) |
+| Prefill, 500K | 3,638 | 3,625 (-0.4% ±0.3) |
+
+Every decode shape is shorter (3.2-7.3%); prefill moved within the repeat's own -0.4
+to -0.5%, so no size counts as slower. r6n's text differs from r6h's as r6k's did on
+TP4 (top-token agreement 95.0%, KL 0.022 nats).
+
+r6n against r6k on four nodes (2026-10-15), measured with the release suite
+in one session (r6n, r6k, r6n again; [results](experiments/2026-10-15-r6n/README.md#release-against-r6k-2026-10-15-1925-utc);
+[suite run](manifests/suites/2026-10-15-karmic-kraken-r6n-tp4/)). Each change
+is shown with its 95% interval and judged against the run's own repeat; it
+counts (**bold**) only beyond both.
+
+| Workload | TP4 r6k | TP4 r6n |
+| --- | ---: | ---: |
+| Greedy responses identical, 256 prompts | | 256 of 256 (KL 0) |
+| Decode step time, geometric mean of 20 shapes | | **-2.21%** ±0.15 |
+| Decode step, 1 stream x 3 rows at 4K (ms) | 19.61 | 19.21 (**-2.1%** ±1.3) |
+| Decode step, 1 stream x 3 rows at 256K | 19.75 | 18.88 (**-4.4%** ±1.2) |
+| Decode step, 16 streams x 96 rows at 4K | 51.49 | 51.01 (**-0.9%** ±0.7) |
+| Decode, 16 different prompts at once (tok/s) | 224.6 | 226.5 (+0.9% ±1.0) |
+| Decode, 8 different prompts at once | 180.8 | 181.2 (+0.2% ±0.7) |
+| Source-text prefill, 32K (tok/s) | 5,685 | 5,714 (+0.5% ±0.3) |
+| Prefill, 128K | 5,642 | 5,669 (+0.5% ±1.2) |
+| Prefill, 256K | 5,407 | 5,430 (+0.4% ±0.5) |
+| Prefill, 512K | 4,942 | 4,959 (+0.4% ±0.4) |
+| Prefill, 1M | 4,237 | 4,248 (+0.3% ±0.7) |
+
+Every one of the 20 decode shapes is shorter. The 32K prefill gain is beyond its
+interval but not beyond the repeat's -0.3%, so it counts as level. r6m, the
+candidate before r6n, was 10-13% slower at every prefill size because its Engram
+gather polled host memory from every block
+([engram-rows-v2](experiments/2026-10-15-engram-rows-v2/README.md)).
+
+r6k against r6h on four nodes (2026-10-13), measured with the
+[release comparison](docs/lab.md#release-comparison) in one session, candidate
+first ([results](experiments/2026-10-13-r6k/README.md);
+[report](manifests/benchmarks/2026-10-13-karmic-kraken-r6k-tp4.json)). Each
+change is shown with its combined 95% interval and counts (**bold**) only
+beyond it.
+
+| Workload | TP4 r6h | TP4 r6k |
+| --- | ---: | ---: |
+| Temperature 0, 15 streams + a long prompt (requests differing) | 0 of 16 | 0 of 16 |
+| Quality gate | 5/5 | 5/5 |
+| Decode, 1 stream, 16 prompts paired | | +0.6% ±2.4 |
+| Decode, 4 different prompts at once (tok/s) | 133.9 | 134.5 (+0.4% ±0.9) |
+| Decode, 8 different prompts at once | 177.2 | 178.3 (**+0.6%** ±0.3) |
+| Decode, 16 different prompts at once | 225.8 | 223.9 (-0.8% ±0.9) |
+| Source-text prefill, 32K (tok/s) | 5,835 | 5,825 (-0.2% ±1.4) |
+| Prefill, 128K | 5,717 | 5,761 (+0.8% ±0.9) |
+| Prefill, 256K | 5,490 | 5,519 (+0.5% ±0.6) |
+| Prefill, 512K | 5,046 | 5,086 (**+0.8%** ±0.3) |
+| Prefill, 1M | 4,378 | 4,400 (**+0.5%** ±0.1) |
+
+r6k is never slower on these measures, and it is faster at eight prompts and on
+the longest prefills, while computing WO at the reference's precision. Its
+temperature-0 text differs from r6h's: scored on the same tokens, r6h agrees
+with r6k on the most likely token at 95.1% of positions, with a KL divergence of
+0.021 nats ([servebench](experiments/2026-10-14-servebench/README.md)). The
+bench's single-prompt decode points follow the text and moved 9-14% either way
+with draft acceptance, so the table judges different prompts at once.
+
+r6h against r6d (2026-10-12), measured with the
+[release comparison](docs/lab.md#release-comparison) in one session per
+topology ([results](experiments/2026-10-12-r6h/README.md); reports for
+[TP4](manifests/benchmarks/2026-10-12-karmic-kraken-r6h-tp4.json) and
+[TP3](manifests/benchmarks/2026-10-12-karmic-kraken-r6h.json)). TP4 ran the
+candidate first after a 30-minute cool-down; the TP3 run is trimmed and ran r6d
+first. Each change is shown with its combined 95% interval and counts (**bold**)
+only beyond it.
+
+| Workload | TP4 r6d | TP4 r6h | TP3 r6d | TP3 r6h |
 | --- | ---: | ---: | ---: | ---: |
-| Temperature 0, 15 streams + a long prompt (requests differing) | 14 of 16 | **0 of 16** | 0 of 16 | 0 of 16 |
+| Temperature 0, 15 streams + a long prompt (requests differing) | 13 of 16 | **0 of 16** | 1 | **0** |
 | Quality gate | 5/5 | 5/5 | 5/5 | 5/5 |
-| Source-text prefill, 32K (tok/s) | 5,780 | 5,842 (**+1.1%** ±1.0) | 4,377 | 4,346 (-0.7%) |
-| Prefill, 128K | 5,634 | 5,763 (**+2.3%** ±1.4) | 4,237 | 4,260 (+0.5%) |
-| Prefill, 256K | 5,398 | 5,490 (**+1.7%** ±0.3) | 4,060 | 4,068 (+0.2%) |
-| Prefill, 512K (TP3 500K) | 4,989 | 5,064 (**+1.5%** ±0.4) | 3,770 | 3,774 (+0.1%) |
-| Prefill, 1M | 4,321 | 4,377 (**+1.3%** ±0.2) | | |
-| Decode, 1 stream, 16 prompts paired | | -0.1% ±2.4 | | -1.9% ±2.1 |
-| Decode, 4 different prompts at once (tok/s) | 132.1 | 133.1 (+0.7% ±2.4) | 107.3 | 104.0 (**-3.1%** ±0.2) |
-| Decode, 8 different prompts at once | 175.8 | 175.4 (-0.2% ±1.1) | 136.1 | 135.0 (-0.8% ±1.0) |
-| Decode, 16 different prompts at once | 222.1 | 218.0 (**-1.8%** ±0.6) | | |
+| Decode, 1 stream, 16 prompts paired | | **+2.6%** ±2.5 | | -1.0% ±2.3 |
+| Decode, 4 different prompts at once (tok/s) | 134.0 | 136.5 (+1.9% ±2.1) | 107.5 | 107.1 (-0.4% ±1.1) |
+| Decode, 8 different prompts at once | 178.5 | 184.7 (**+3.5%** ±1.5) | 137.2 | 134.9 (**-1.6%** ±0.6) |
+| Decode, 16 different prompts at once | 224.1 | 226.5 (+1.1% ±1.5) | | |
+| Source-text prefill, 32K (tok/s) | 5,781 | 5,870 (**+1.5%** ±0.8) | 4,304 | 4,252 (-1.2% ±1.5) |
+| Prefill, 128K | 5,669 | 5,726 (**+1.0%** ±1.0) | | |
+| Prefill, 256K | 5,429 | 5,496 (**+1.3%** ±0.4) | 4,123 | 4,060 (**-1.5%** ±0.4) |
+| Prefill, 512K (TP3 500K) | 4,998 | 5,074 (**+1.5%** ±0.2) | 3,797 | 3,753 (**-1.2%** ±1.0) |
+| Prefill, 1M | 4,346 | 4,391 (**+1.0%** ±0.3) | | |
 
-Real-row cost profiles of both releases put r6f's steps 1-5% above r6d's at
-a fixed batch size; what r6f adds to a decode step is mostly the
-reference-precision arithmetic, which costs more on three nodes, where each
-rank holds a third of the vocabulary and experts. The pieces that leave the
-bits unchanged pay for it on prefill: the sequence-parallel WO overlap (+2% at
-16K) and fused sum (about +1%), and the shared expert folded into the MoE
-combine (about +1%). The new TileLang kernels are each faster per call than
-what they replaced but a small share of a decode step. On four nodes prefill
-is faster at every size and decode is level, or 1.8% behind at sixteen
-streams. The bench's concurrent decode points send one prompt to
-every stream, so they follow the text, which a precision change alters; the
-release comparison judges throughput on different prompts at once and on the
-paired sweep. The r6f arms mounted r6f's sources on the r6d image; the
-promoted image builds the same vLLM tree and reproduces their temperature-0
-references.
+On four nodes r6h is at or above r6d on every metric: faster on prefill at
+every size, at eight concurrent prompts and on the paired sweep, level
+elsewhere (the mixed-traffic p95 stream gap read +3.9%, a single run without an
+interval). On three nodes it trails at eight prompts and on long prefill, by
+about 1.5%: each rank holds a third of the vocabulary and experts, so the
+reference-precision arithmetic costs more, and the head fix applies only past
+64 rows, which three nodes never reach. The bench's concurrent decode points send
+one prompt to every stream and follow the text, which a precision change
+alters (code at one stream read +21%, prose -5%); the release comparison
+judges throughput on different prompts at once and on the paired sweep.
 
 The r6 acceptance benchmark (2026-10-05, `bin/spark bench` from dgx1:
 quality, then prose and code prompts with reasoning on, temperature 0, 256
@@ -357,9 +538,9 @@ bin/spark doctor
 bin/spark doctor --live
 bin/spark status
 bin/spark render dgx1
-bin/spark cluster sync
-bin/spark cluster start --replace
-bin/spark cluster stop
+bin/spark --cluster-config config/cluster.json cluster sync
+bin/spark --cluster-config config/cluster.json cluster start --replace
+bin/spark --cluster-config config/cluster.json cluster stop
 bin/spark bench
 bin/spark upstream list
 bin/spark upstream prepare vllm
@@ -367,7 +548,7 @@ bin/spark upstream prepare b12x
 bin/spark build prepare
 bin/spark build check
 bin/spark build image
-bin/spark build image --apply
+bin/spark --cluster-config config/cluster.json build image --apply
 bin/spark build smoke
 scripts/host-recovery check
 scripts/host-recovery apply
@@ -538,8 +719,8 @@ The report is still written if the run stops early.
 
 With a reference run, each decode and prefill point shows its percent change
 with a Welch 95% interval. The default reference is the profile's
-`benchmark_reference` when it names one, as
-[config/cluster-tp4.json](config/cluster-tp4.json) does for its four-node run,
+`benchmark_reference` when it names one, as the recipe's `tp4-ring` shape
+does for its four-node run,
 and otherwise `manifests/benchmarks/<promoted_baseline>.json`. A run is only
 comparable with a reference of the same node count, transport and kernel
 backend. The bench refuses a default reference that differs in any of them;

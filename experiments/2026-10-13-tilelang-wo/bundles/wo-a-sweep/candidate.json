@@ -1,0 +1,26 @@
+{
+  "description": "WO-A W8A16 tiles the first sweep did not try: 96/128-row tiles at 72-128 rows, wide tiles, block_K 128, 3 stages, 256 threads from 256 rows; four shards.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "/b/sweep_wo_a_v2.py"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm__models__deepseek_v4_1__tilelang__gemm.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/gemm.py"
+    ],
+    [
+      "sweep_wo_a_v2.py",
+      "/b/sweep_wo_a_v2.py"
+    ],
+    [
+      "kbench.py",
+      "/b/kbench.py"
+    ]
+  ]
+}

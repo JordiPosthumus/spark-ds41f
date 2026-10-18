@@ -8,8 +8,8 @@ the fix is printed as a command for you to run.
 Select a profile the same way as for every other command:
 
 ```sh
-bin/spark doctor                                           # config/cluster.json
-bin/spark --cluster-config config/cluster-tp4.json doctor  # the TP4 profile
+bin/spark doctor                       # config/cluster.json at the site's shape
+bin/spark --shape tp3-triangle doctor  # the recipe at another shape
 ```
 
 ## Modes
@@ -80,6 +80,7 @@ revert it.
 | Kernel command line has no `splash` | warn | Plymouth leaves the console in graphics mode after boot | `scripts/host-recovery apply`, then reboot with the service stopped |
 | Unused desktop services | warn | Bluetooth, CUPS, snapd, fwupd's refresh timer and the DGX Dashboard hold memory; the dashboard's update checks peak near 850 MiB | `sudo systemctl disable --now …` (`scripts/host-recovery apply` does the same) |
 | NVMe interrupt coalescing off | warn | Engram's small direct disk reads wait for the coalescing timer | `sudo systemctl mask --now nvidia-nvme-interrupt-coalescing.service && sudo /usr/bin/nvidia-nvme-interrupt-coalescing.sh disable` |
+| NVMe APST: no sleep state of 5 ms or more to wake before 1 s idle, nor of 20 ms or more before 30 s | warn | the first Engram read after a pause waits for the drive to wake (11 ms from PS3, 46 ms from PS4) | `nvme_core apst_primary_timeout_ms=2000 apst_secondary_timeout_ms=60000` ([setup](setup.md#nvme-power-states-apst)) |
 | Fan-floor control: DKMS module, loaded module, cooling device | error, first missing layer | `bin/spark bench` and kernel-lab jobs pre-cool through it; serving does not need it | the printed `dkms autoinstall` or `modprobe` command ([dgx-spark-fan-control](https://github.com/christopherowen/dgx-spark-fan-control)) |
 | `dgx-fan-control.service` installed | error | `bin/spark bench` runs its performance curve while measuring and refuses to measure without it. Whether it also runs while serving is the site's choice and is not checked | the printed `install` and `daemon-reload` commands |
 
@@ -88,7 +89,7 @@ revert it.
 These compare each node with the kernel policy in
 [config/kernel-trial.json](../config/kernel-trial.json): the 4 KiB kernel
 `7.0.0-1019-nvidia`, the 64 KiB kernel `7.0.0-1019-nvidia-64k`, NVIDIA
-580.178.04 and memory-saver 0.2.0. Corrections are collected at the end under
+580.178.04 and memory-saver 0.4.1. Corrections are collected at the end under
 `Kernel corrections (not executed)`.
 
 | Check | Severity |
@@ -103,7 +104,7 @@ These compare each node with the kernel policy in
 | **The selected profile's kernel requirements**: the running kernel and page size equal the profile's `host.kernel`; for a profile with `memory_saver_required`, the memory saver is loaded with packing on and the driver is 580.178.04 | error |
 | All nodes agree on kernel, page size, driver, loaded NVIDIA module sources, packing, THP, free-memory reserve, Secure Boot state and CPU governors | error |
 
-The 4 KiB profile (`config/cluster-4k.json`) requires only the 4 KiB kernel,
+The 4 KiB shape (`tp3-triangle-4k`) requires only the 4 KiB kernel,
 so on that profile the memory-saver lines stay warnings.
 
 ### Fabric
@@ -128,6 +129,15 @@ NCCL then fails with an unhandled system error.
 | The image's source-tree labels equal the configuration's `expected_labels` | error |
 | While serving, the GPU clock is at least 1,000 MHz | error; a lower clock is the [GB10 clock latch](recovery.md#gb10-gpu-clock-latch), cleared only by removing AC power |
 
+### CPU pinning
+
+When a profile pins serving to CPUs (`--cpuset-cpus=` in `container.docker_run_args`),
+every node's running container must use exactly that set (Docker's
+`HostConfig.CpusetCpus`). The set must also be that node's fast cores: those whose
+`cpu_capacity` is above the midpoint of the smallest and largest, GB10's ten Cortex-X925
+(5-9 and 15-19). A pin to slow cores, or a container started without the pin, is an
+error. Profiles without a pin are not checked.
+
 ### Checkpoint fragmentation
 
 **Warn** when model shards on a node use more extents than ext4's best layout
@@ -137,20 +147,35 @@ fragmented file; run them with the service stopped.
 
 ## Launch preflight
 
-`bin/spark cluster start --apply` repeats the checks a start cannot survive,
-on every node, and refuses to launch on any failure:
+`bin/spark --cluster-config <profile> cluster start --apply` repeats the checks
+a start cannot survive, on every node, and refuses to launch on any failure:
 
+- the profile is named on the command line (every `--apply` refuses the
+  read-only default);
+- the engine on the head node, running or stopped, has the profile's shape:
+  node count, tensor parallelism, context (`--max-model-len`) and KV size
+  (`--kv-cache-memory-bytes`). A start that changes any of them needs
+  `--change-shape`. A running engine on a different number of nodes is refused
+  even then: stop it with its own profile first;
 - the configuration has `deployment.launch_enabled: true`;
 - local `doctor` is clean and the local checkout has no uncommitted files;
 - each node's checkout is at the same commit, clean, and its `origin` is the
   deployment repository;
 - the profile's kernel requirements (above);
-- the RDMA devices, GID index and cable subnets (above);
+- the RDMA devices, GID index and cable subnets (above). On more than one node,
+  every RoCE interface the profile uses needs its `roce_subnets` entry: without
+  it the start could not tell a triangle from a ring;
 - `bin/spark doctor` passes on the node itself;
 - every mount source exists (writable for read-write mounts);
 - the image is present with the expected tree labels;
 - no container with the serving name exists unless you pass `--replace`;
 - passwordless `sudo` works (the memory guards need it).
+
+The plan, without `--apply`, opens with the live engine (state, shape, image and
+the profile it was started from), the planned engine and whether the shape
+changes, and says when `--apply` would refuse; `--verbose` adds each rank's
+`docker run`. Each container is labelled `spark.cluster-config=<profile>`, so the
+next plan can name the profile that stops it.
 
 Then it arms a 5 GiB startup memory guard on every node before any container
 starts, starts the ranks, waits for the API, and switches to the 3 GiB steady

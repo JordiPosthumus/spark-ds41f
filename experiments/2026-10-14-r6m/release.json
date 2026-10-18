@@ -1,0 +1,27 @@
+{
+  "experiment": "experiments/2026-10-14-r6m",
+  "run": "r6m-release",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "suite": "release",
+      "arms": [
+        {
+          "config": "r6m-dev.json",
+          "label": "r6m"
+        },
+        {
+          "config": "experiments/2026-10-14-boot-spread/r6k-big.json",
+          "label": "r6k"
+        },
+        {
+          "config": "r6m-dev.json",
+          "label": "r6m-again"
+        }
+      ]
+    }
+  ]
+}

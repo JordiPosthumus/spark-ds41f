@@ -6,6 +6,7 @@ import importlib.machinery
 import importlib.util
 import json
 import unittest
+from unittest import mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,14 +25,21 @@ streams_module = load("distinct_streams", "scripts/distinct_streams.py")
 lab = load("lab_for_sweep", "scripts/lab.py")
 lab.spark.site_nodes = lambda: lab.spark.read_json("config/nodes.example.json")
 
-BASE_PATH = "config/cluster-tp4.json"
+
+def setUpModule() -> None:
+    # Planning resolves the recipe at the site's shape; the example map is a triangle.
+    patcher = mock.patch.object(lab.spark.cluster_recipe, "site_shape", return_value="tp3-triangle")
+    patcher.start()
+    unittest.addModuleCleanup(patcher.stop)
+
+BASE_PATH = "config/cluster.json"
 EXPERIMENT = "experiments/2026-10-06-prefetch-fill-rate"
 
 
 class SweepTest(unittest.TestCase):
     def setUp(self) -> None:
         # The writer, not the recipe's current value: start from a base that leaves the variable unset.
-        self.base = json.loads((ROOT / BASE_PATH).read_text())
+        self.base = lab.spark.read_cluster(BASE_PATH, "tp4-ring")
         self.base["environment"].pop("VLLM_L2_PREFETCH_GRID", None)
         self.files = sweep_module.sweep(self.base, BASE_PATH, "VLLM_L2_PREFETCH_GRID", ["1", "2", "6"],
                                         EXPERIMENT, "sweep-tp4", [1, 4, 16])

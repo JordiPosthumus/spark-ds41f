@@ -1,0 +1,11 @@
+{
+ "notes": "r6n on TP3 with the dev-mode collective RPC, for the release suite's engine grid.",
+ "extends": {
+  "config": "experiments/2026-10-15-r6n-tp3/r6n-tp3.json"
+ },
+ "set": {
+  "environment": {
+   "VLLM_SERVER_DEV_MODE": "1"
+  }
+ }
+}

@@ -1,0 +1,11 @@
+{
+ "notes": "r6n on TP3 with sparknet's per-op trace, for the first-request boots.",
+ "extends": {
+  "config": "experiments/2026-10-15-r6n-tp3/r6n-tp3.json"
+ },
+ "set": {
+  "environment": {
+   "SPARKNET_ROCE_TRACE": "1"
+  }
+ }
+}

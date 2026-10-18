@@ -1,0 +1,26 @@
+{
+  "notes": "r6l plus: the RoCE policy without fallbacks (vLLM 0142); a stopped collective named as the cause and host rendezvous at startup (vLLM 0143); sparknet timeout-stop (TileLang kernels only, timed waits, trap on timeout; 3bc8d10 with the fail-stop probe's dispatch bound and the trace clock fix); the draft budget run eagerly (vLLM 0144); disk Engram rows from a native reader in layer order, one wait per table, this rank's rows gathered in TileLang (vLLM 0145, experiments/2026-10-15-engram-rows-v2).",
+  "extends": {
+    "config": "experiments/2026-10-15-r6n/r6k/cluster.json",
+    "shape": "tp4-ring"
+  },
+  "set": {
+    "container": {
+      "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6n",
+      "expected_labels": {
+        "local.spark3.vllm.tree": "0c60314da7616831d52187b98fcc01760138d798",
+        "local.spark3.tile_kernels.tree": "cb2fa41c8af290204c81c547ed678ebf957cca53",
+        "local.spark3.sparknet.tree": "f72599fa212e894d67ee114553e628ab05daf2da"
+      }
+    },
+    "upstreams_config": "experiments/2026-10-15-r6n/upstreams.lock.json",
+    "environment": {
+      "SPARKNET_ROCE_TIMEOUT_MS": "10000"
+    }
+  },
+  "unset": [
+    "environment.SPARKNET_ROCE_KERNELS",
+    "environment.SPARKNET_ROCE_SPIN_LIMIT",
+    "environment.SPARK3_ENGRAM_ASYNC"
+  ]
+}

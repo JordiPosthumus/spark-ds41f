@@ -4,6 +4,7 @@
 !.env.example
 *.local.json
 config/nodes.json
+config/site.json
 *.local.env
 *.pem
 *.key

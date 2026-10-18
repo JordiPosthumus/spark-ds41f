@@ -402,7 +402,8 @@ PY
 
 # The TileLang runtime with sparknet's collectives. The proxy is built here,
 # into SPARKNET_ROCE_CACHE_DIR, so no compiler runs when serving starts; the
-# CuTe kernels compile on a node's first prepare into the mounted DSL cache.
+# one-shot kernels compile on a node's first prepare into the mounted TileLang
+# cache (sparknet 0.4 has TileLang kernels only; earlier pins also had CuTe).
 FROM runtime-tilelang AS runtime-tilelang-sparknet
 
 ARG SPARKNET_UPSTREAM=unrecorded

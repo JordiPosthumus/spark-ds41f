@@ -1,0 +1,27 @@
+{
+  "description": "Which arithmetic the sparse MLA extend route's segment fold performs, against decode's per-segment state (SWA-only, IEEE math, 2-3 keys per row).",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1",
+    "VLLM_DS41_MLA_FAST_MATH": "0"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "/b/fold_check.py"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm__models__deepseek_v4_1__tilelang__sparse_mla.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/sparse_mla.py"
+    ],
+    [
+      "fold_check.py",
+      "/b/fold_check.py"
+    ],
+    [
+      "check_mla_routes.py",
+      "/b/check_mla_routes.py"
+    ]
+  ]
+}

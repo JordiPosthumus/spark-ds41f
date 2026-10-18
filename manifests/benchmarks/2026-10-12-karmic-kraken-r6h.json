@@ -1,0 +1,405 @@
+{
+ "schema": 1,
+ "started_utc": "20261012T065622Z",
+ "identity": {
+  "cluster_config": "experiments/2026-10-12-r6h/r6h-tp3.json",
+  "cluster_config_sha256": "74776944a35b6aba3624b312c9ffd367963718ab64b348f44b96d66b1bf0d606",
+  "nodes_config": "config/nodes.json",
+  "topology": {
+   "schema_version": 1,
+   "ssh_user": "swank",
+   "nodes": [
+    {
+     "name": "dgx1",
+     "rank": 0,
+     "management_ip": "10.0.1.71",
+     "head": true,
+     "roce_peer_hcas": {
+      "1": [
+       "rocep1s0f0",
+       "roceP2p1s0f0"
+      ],
+      "2": [
+       "rocep1s0f1",
+       "roceP2p1s0f1"
+      ]
+     }
+    },
+    {
+     "name": "dgx2",
+     "rank": 1,
+     "management_ip": "10.0.1.72",
+     "head": false,
+     "roce_peer_hcas": {
+      "0": [
+       "rocep1s0f1",
+       "roceP2p1s0f1"
+      ],
+      "2": [
+       "rocep1s0f0",
+       "roceP2p1s0f0"
+      ]
+     }
+    },
+    {
+     "name": "dgx3",
+     "rank": 2,
+     "management_ip": "10.0.1.73",
+     "head": false,
+     "roce_peer_hcas": {
+      "0": [
+       "rocep1s0f0",
+       "roceP2p1s0f0"
+      ],
+      "1": [
+       "rocep1s0f1",
+       "roceP2p1s0f1"
+      ]
+     }
+    }
+   ]
+  },
+  "transport": "oneshot-direct",
+  "kernel_backend": "tilelang",
+  "promoted_baseline": "2026-10-11-karmic-kraken-r6f",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6h",
+  "client_commit": "f1a3f401908d2c25ee95f177b89e7a18c94463e6",
+  "client_dirty": false,
+  "client_host": "dgx1",
+  "nodes": {
+   "dgx1": {
+    "image_id": "sha256:0aaa5d8b9d753218ef65a06eef8430935b48816ef369175ce65745783d3b64d6",
+    "container_started_at": "2026-10-12T06:54:30.044940767Z",
+    "checkout": "f1a3f401908d2c25ee95f177b89e7a18c94463e6"
+   },
+   "dgx2": {
+    "image_id": "sha256:0aaa5d8b9d753218ef65a06eef8430935b48816ef369175ce65745783d3b64d6",
+    "container_started_at": "2026-10-12T06:54:29.237432241Z",
+    "checkout": "f1a3f401908d2c25ee95f177b89e7a18c94463e6"
+   },
+   "dgx3": {
+    "image_id": "sha256:0aaa5d8b9d753218ef65a06eef8430935b48816ef369175ce65745783d3b64d6",
+    "container_started_at": "2026-10-12T06:54:29.655914856Z",
+    "checkout": "f1a3f401908d2c25ee95f177b89e7a18c94463e6"
+   }
+  },
+  "live_problems": [],
+  "live_warnings": []
+ },
+ "workload": {
+  "url": "http://10.0.1.71:8000",
+  "suites": [
+   "quality",
+   "prefill"
+  ],
+  "seed": 0,
+  "precision_pct": 2.0,
+  "min_samples": 3,
+  "max_samples": 4,
+  "concurrency": [
+   1,
+   2,
+   4,
+   8
+  ],
+  "decode_cases": [
+   "prose",
+   "code"
+  ],
+  "converge_on": null,
+  "prefill_text": "source",
+  "sampled_requests": 32,
+  "prefill_sizes": [
+   32768,
+   262144,
+   500000
+  ],
+  "prefill_repeats": 2,
+  "prefix_tokens": 32768,
+  "admission_tokens": 65536,
+  "admission_output_tokens": 256,
+  "admission_force_length": false,
+  "memory_floor_gib": 4.0,
+  "prompts_sha256": "cc7f29400eff69775f0d9fb016be00924f46a81be7b42dc5c15a4eb9d82da779",
+  "precision_prompts_sha256": "a8703e4bf1f55b2360c351c335f00249653557d34ceb79d4e2e749570a2c91bb"
+ },
+ "reference": null,
+ "suites": {
+  "quality": {
+   "passed": 5,
+   "runs": [
+    {
+     "verdict": "pass",
+     "content": "```python\nfrom collections import OrderedDict\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        self.capacity = capacity\n        self.cache = OrderedDict()\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)\n```\n\nBoth `get` and `put` run in **O(1)** average time, since `OrderedDict` provides constant-time lookups, insertions, and `move_to_end`/`popitem` operations."
+    },
+    {
+     "verdict": "pass",
+     "content": "```python\nfrom collections import OrderedDict\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        self.capacity = capacity\n        self.cache = OrderedDict()\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)\n```\n\nBoth `get` and `put` run in **O(1)** average time, since `OrderedDict` provides constant-time lookups, insertions, and `move_to_end`/`popitem` operations."
+    },
+    {
+     "verdict": "pass",
+     "content": "```python\nfrom collections import OrderedDict\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        self.capacity = capacity\n        self.cache = OrderedDict()\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)\n```\n\nBoth `get` and `put` run in **O(1)** average time, since `OrderedDict` provides constant-time lookups, insertions, and `move_to_end`/`popitem` operations."
+    },
+    {
+     "verdict": "pass",
+     "content": "```python\nfrom collections import OrderedDict\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        self.capacity = capacity\n        self.cache = OrderedDict()\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)\n```\n\nBoth `get` and `put` run in **O(1)** average time, since `OrderedDict` provides constant-time lookups, insertions, and `move_to_end`/`popitem` operations."
+    },
+    {
+     "verdict": "pass",
+     "content": "```python\nfrom collections import OrderedDict\n\nclass LRUCache:\n    def __init__(self, capacity: int):\n        self.capacity = capacity\n        self.cache = OrderedDict()\n\n    def get(self, key):\n        if key not in self.cache:\n            return -1\n        self.cache.move_to_end(key)\n        return self.cache[key]\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.cache.move_to_end(key)\n        self.cache[key] = value\n        if len(self.cache) > self.capacity:\n            self.cache.popitem(last=False)\n```\n\nBoth `get` and `put` run in **O(1)** average time, since `OrderedDict` provides constant-time lookups, insertions, and `move_to_end`/`popitem` operations."
+    }
+   ],
+   "ok": true
+  },
+  "prefill": {
+   "points": {
+    "32768": {
+     "prefill_tps": {
+      "n": 2,
+      "mean": 4252.02,
+      "median": 4252.02,
+      "min": 4251.78,
+      "max": 4252.261,
+      "sd": 0.34,
+      "ci95": 3.057,
+      "ci95_pct": 0.07
+     },
+     "ttft_s": {
+      "n": 2,
+      "mean": 6.833,
+      "median": 6.833,
+      "min": 6.799,
+      "max": 6.867,
+      "sd": 0.048,
+      "ci95": 0.431,
+      "ci95_pct": 6.31
+     },
+     "prompt_tokens": 28907,
+     "failed_requests": 0
+    },
+    "262144": {
+     "prefill_tps": {
+      "n": 2,
+      "mean": 4059.825,
+      "median": 4059.825,
+      "min": 4052.32,
+      "max": 4067.33,
+      "sd": 10.614,
+      "ci95": 95.361,
+      "ci95_pct": 2.35
+     },
+     "ttft_s": {
+      "n": 2,
+      "mean": 57.636,
+      "median": 57.636,
+      "min": 57.118,
+      "max": 58.155,
+      "sd": 0.733,
+      "ci95": 6.589,
+      "ci95_pct": 11.43
+     },
+     "prompt_tokens": 231460,
+     "failed_requests": 0
+    },
+    "500000": {
+     "prefill_tps": {
+      "n": 2,
+      "mean": 3753.215,
+      "median": 3753.215,
+      "min": 3750.767,
+      "max": 3755.662,
+      "sd": 3.462,
+      "ci95": 31.103,
+      "ci95_pct": 0.83
+     },
+     "ttft_s": {
+      "n": 2,
+      "mean": 123.651,
+      "median": 123.651,
+      "min": 122.077,
+      "max": 125.226,
+      "sd": 2.226,
+      "ci95": 20.003,
+      "ci95_pct": 16.18
+     },
+     "prompt_tokens": 458480,
+     "failed_requests": 0
+    }
+   },
+   "samples": {
+    "32768": [
+     {
+      "ok": true,
+      "ttft_s": 6.7988,
+      "first_s": 6.7992,
+      "last_s": null,
+      "prompt_tokens": 28907,
+      "completion_tokens": 1,
+      "decode_tps": null,
+      "output_sha256": "e3b0c44298fc1c14",
+      "reasoning_chars": 0,
+      "content_chars": 0,
+      "error": null,
+      "finish_reason": "stop"
+     },
+     {
+      "ok": true,
+      "ttft_s": 6.8667,
+      "first_s": 6.867,
+      "last_s": null,
+      "prompt_tokens": 29199,
+      "completion_tokens": 1,
+      "decode_tps": null,
+      "output_sha256": "e3b0c44298fc1c14",
+      "reasoning_chars": 0,
+      "content_chars": 0,
+      "error": null,
+      "finish_reason": "stop"
+     }
+    ],
+    "262144": [
+     {
+      "ok": true,
+      "ttft_s": 57.1179,
+      "first_s": 57.1209,
+      "last_s": null,
+      "prompt_tokens": 231460,
+      "completion_tokens": 1,
+      "decode_tps": null,
+      "output_sha256": "e3b0c44298fc1c14",
+      "reasoning_chars": 0,
+      "content_chars": 0,
+      "error": null,
+      "finish_reason": "stop"
+     },
+     {
+      "ok": true,
+      "ttft_s": 58.1551,
+      "first_s": 58.1566,
+      "last_s": null,
+      "prompt_tokens": 236536,
+      "completion_tokens": 1,
+      "decode_tps": null,
+      "output_sha256": "e3b0c44298fc1c14",
+      "reasoning_chars": 0,
+      "content_chars": 0,
+      "error": null,
+      "finish_reason": "stop"
+     }
+    ],
+    "500000": [
+     {
+      "ok": true,
+      "ttft_s": 122.077,
+      "first_s": 122.0804,
+      "last_s": null,
+      "prompt_tokens": 458480,
+      "completion_tokens": 1,
+      "decode_tps": null,
+      "output_sha256": "e3b0c44298fc1c14",
+      "reasoning_chars": 0,
+      "content_chars": 0,
+      "error": null,
+      "finish_reason": "stop"
+     },
+     {
+      "ok": true,
+      "ttft_s": 125.2256,
+      "first_s": 125.2286,
+      "last_s": null,
+      "prompt_tokens": 469692,
+      "completion_tokens": 1,
+      "decode_tps": null,
+      "output_sha256": "e3b0c44298fc1c14",
+      "reasoning_chars": 0,
+      "content_chars": 0,
+      "error": null,
+      "finish_reason": "stop"
+     }
+    ]
+   }
+  }
+ },
+ "cooling": [
+  {
+   "node": "dgx1",
+   "start_c": 51.1,
+   "cooled": false,
+   "seconds": 0.0,
+   "final_c": 51.1
+  },
+  {
+   "node": "dgx2",
+   "start_c": 49.9,
+   "cooled": false,
+   "seconds": 0.0,
+   "final_c": 49.9
+  },
+  {
+   "node": "dgx3",
+   "start_c": 47.9,
+   "cooled": false,
+   "seconds": 0.0,
+   "final_c": 47.9
+  }
+ ],
+ "fan_curve": [
+  {
+   "node": "dgx1",
+   "service": "active",
+   "started": false
+  },
+  {
+   "node": "dgx2",
+   "service": "active",
+   "started": false
+  },
+  {
+   "node": "dgx3",
+   "service": "active",
+   "started": false
+  }
+ ],
+ "thermal": {
+  "dgx1": {
+   "max_gpu_c": 71.0,
+   "min_headroom_c": 20.0,
+   "max_system_c": 82.3,
+   "max_power_w": 65.41,
+   "thermal_slowdown_ms": 0.0,
+   "power_cap_ms": 0.0
+  },
+  "dgx2": {
+   "max_gpu_c": 69.0,
+   "min_headroom_c": 16.0,
+   "max_system_c": 80.3,
+   "max_power_w": 67.27,
+   "thermal_slowdown_ms": 0.0,
+   "power_cap_ms": 0.0
+  },
+  "dgx3": {
+   "max_gpu_c": 66.0,
+   "min_headroom_c": 25.0,
+   "max_system_c": 72.3,
+   "max_power_w": 64.32,
+   "thermal_slowdown_ms": 0.0,
+   "power_cap_ms": 0.0
+  }
+ },
+ "memory": {
+  "dgx1": {
+   "min_available_gib": 6.51,
+   "swap_growth_gib": 0.0
+  },
+  "dgx2": {
+   "min_available_gib": 7.21,
+   "swap_growth_gib": 0.0
+  },
+  "dgx3": {
+   "min_available_gib": 7.23,
+   "swap_growth_gib": 0.0
+  }
+ },
+ "discarded_samples": [],
+ "finished_utc": "20261012T070255Z"
+}

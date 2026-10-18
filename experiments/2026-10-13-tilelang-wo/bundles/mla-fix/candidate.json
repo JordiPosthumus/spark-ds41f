@@ -1,0 +1,31 @@
+{
+  "description": "Sparse MLA with every route folding as fma(l, b, L * a) (vLLM 2b0f96b27), production fast math: the attention tests (incl. short-row routes), the route check at serving shapes, time per route.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "-c",
+    "import subprocess, sys; codes = [subprocess.call([sys.executable, '-m', 'pytest', '-q', '--noconftest', '-p', 'no:cacheprovider', '-rfE', '-k', 'sparse_mla', 'tests/kernels/attention/test_deepseek_v41_tilelang.py']), subprocess.call([sys.executable, '/b/check_mla_routes.py']), subprocess.call([sys.executable, '/b/time_mla.py'])]; print('exit codes', codes); sys.exit(max(codes))"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm__models__deepseek_v4_1__tilelang__sparse_mla.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/sparse_mla.py"
+    ],
+    [
+      "tests__kernels__attention__test_deepseek_v41_tilelang.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/attention/test_deepseek_v41_tilelang.py"
+    ],
+    [
+      "check_mla_routes.py",
+      "/b/check_mla_routes.py"
+    ],
+    [
+      "time_mla.py",
+      "/b/time_mla.py"
+    ]
+  ]
+}

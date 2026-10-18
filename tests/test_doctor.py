@@ -215,6 +215,36 @@ class NvmeCoalescingTest(unittest.TestCase):
         self.assertIn("cannot read", warnings[0])
 
 
+class NvmeApstTest(unittest.TestCase):
+    EXITS = "0:1000 1:1000 2:1000 3:11000 4:46000"
+
+    def apst(self, enabled: str, chain: str) -> dict[str, str]:
+        return facts(nvme_apst=f"nvme0|en={enabled}|{chain}|{self.EXITS}")
+
+    def test_kernel_defaults_are_reported_with_the_fix(self) -> None:
+        # The fleet's drives under the kernel's apst_primary_timeout_ms=100.
+        warnings = spark.nvme_apst_warnings(
+            "dgx1", self.apst("1", "0>3@100 1>3@100 2>3@100 3>4@2000 "))
+        self.assertEqual(len(warnings), 2)
+        self.assertIn("PS3 (11 ms to wake) after 100 ms idle", warnings[0])
+        self.assertIn("PS4 (46 ms to wake) after 2100 ms idle", warnings[1])
+        self.assertIn("apst_primary_timeout_ms=2000", warnings[0])
+        self.assertTrue(all(isinstance(w, spark.Warn) for w in warnings))
+
+    def test_tuned_timeouts_pass(self) -> None:
+        self.assertEqual(spark.nvme_apst_warnings(
+            "dgx1", self.apst("1", "0>3@2000 1>3@2000 2>3@2000 3>4@60000 ")), [])
+
+    def test_disabled_apst_and_missing_facts_pass(self) -> None:
+        self.assertEqual(spark.nvme_apst_warnings("dgx1", self.apst("0", "")), [])
+        self.assertEqual(spark.nvme_apst_warnings("dgx1", facts()), [])
+
+    def test_unreadable_controller_is_reported(self) -> None:
+        warnings = spark.nvme_apst_warnings("dgx4", facts(nvme_apst="nvme0|en=||"))
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("cannot read NVMe APST", warnings[0])
+
+
 class IdleServicesTest(unittest.TestCase):
     def test_idle_services_are_reported_with_their_fix(self) -> None:
         problems = spark.idle_service_warnings(
@@ -486,10 +516,10 @@ class ClockLatchTest(unittest.TestCase):
 
 
 # HostConfig.Binds of the TP4 production container, as dgx1-4 reported it on 2026-10-06.
+# The production container's binds since r6u: the hub cache (1017's snapshot links into its
+# shared blob store) and the JIT caches.
 PRODUCTION_BINDS = [
-    "/home/swank/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/snapshots/"
-    "dba1be0a40aa45a94ad051997016db3960a90277:/models:ro",
-    "/home/swank/.cache/huggingface/hub/models--deepseek-ai--DeepSeek-V4.1-Flash/blobs:/blobs:ro",
+    "/home/swank/.cache/huggingface/hub:/hub:ro",
     "/home/swank/projects/spark-ds41f/cache:/cache:rw",
 ]
 SPARKNET_BIND = "/home/swank/sparknet-port/sparknet:/usr/local/lib/python3.12/dist-packages/sparknet:ro"
@@ -497,7 +527,7 @@ SPARKNET_BIND = "/home/swank/sparknet-port/sparknet:/usr/local/lib/python3.12/di
 
 class LiveMountsTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.cluster = spark.json.loads((ROOT / "config" / "cluster-tp4.json").read_text())
+        self.cluster = spark.read_cluster("config/cluster.json", "tp4-ring")
         self.wanted = spark.expected_binds(self.cluster)
 
     def test_docker_run_is_given_the_compared_binds(self) -> None:
@@ -524,8 +554,8 @@ class LiveMountsTest(unittest.TestCase):
 
     def test_missing_mount_is_reported(self) -> None:
         self.assertEqual(
-            spark.mount_problems("dgx3", self.wanted, PRODUCTION_BINDS[:2]),
-            [f"dgx3: missing mount {PRODUCTION_BINDS[2]!r}"],
+            spark.mount_problems("dgx3", self.wanted, PRODUCTION_BINDS[:1]),
+            [f"dgx3: missing mount {PRODUCTION_BINDS[1]!r}"],
         )
 
     def test_container_without_binds_misses_every_mount(self) -> None:
@@ -533,16 +563,14 @@ class LiveMountsTest(unittest.TestCase):
         self.assertEqual(problems, [f"dgx2: missing mount {bind!r}" for bind in self.wanted])
 
     def test_different_source_or_mode_is_reported_against_the_wanted_mount(self) -> None:
-        writable_models = PRODUCTION_BINDS[0].replace(":/models:ro", ":/models:rw")
+        writable_hub = PRODUCTION_BINDS[0].replace(":/hub:ro", ":/hub:rw")
         other_cache = "/home/swank/projects/spark-ds41f-lab/cache:/cache:rw"
-        problems = spark.mount_problems(
-            "dgx4", self.wanted, [writable_models, PRODUCTION_BINDS[1], other_cache]
-        )
+        problems = spark.mount_problems("dgx4", self.wanted, [writable_hub, other_cache])
         self.assertEqual(
             problems,
             [
-                f"dgx4: mount {writable_models!r}, expected {PRODUCTION_BINDS[0]!r}",
-                f"dgx4: mount {other_cache!r}, expected {PRODUCTION_BINDS[2]!r}",
+                f"dgx4: mount {writable_hub!r}, expected {PRODUCTION_BINDS[0]!r}",
+                f"dgx4: mount {other_cache!r}, expected {PRODUCTION_BINDS[1]!r}",
             ],
         )
 
@@ -569,7 +597,7 @@ def container_env(wanted: dict[str, str]) -> list[str]:
 
 class LiveEnvironmentTest(unittest.TestCase):
     def setUp(self) -> None:
-        self.cluster = spark.json.loads((ROOT / "config" / "cluster-tp4.json").read_text())
+        self.cluster = spark.read_cluster("config/cluster.json", "tp4-ring")
         site = spark.json.loads((ROOT / "config" / "examples" / "nodes-ring4.json").read_text())
         self.node = site["nodes"][0]
         self.wanted = spark.expected_environment(self.cluster, self.node)
@@ -594,7 +622,10 @@ class LiveEnvironmentTest(unittest.TestCase):
         arm["environment"]["VLLM_DS41_L2_PREFETCH_FFN_MB"] = "8"
         live = container_env(spark.expected_environment(arm, self.node))
         problems = spark.environment_problems("dgx1", self.wanted, live, IMAGE_ENV)
-        self.assertEqual(problems, ["dgx1: extra variable VLLM_DS41_L2_PREFETCH_FFN_MB='8'"])
+        # The ring derives its cost curves per build, so the arm's curves directory differs too.
+        self.assertEqual(len(problems), 2, problems)
+        self.assertIn("dgx1: extra variable VLLM_DS41_L2_PREFETCH_FFN_MB='8'", problems)
+        self.assertTrue(any(p.startswith("dgx1: SPARK3_DSPARK_COST_DIR=") for p in problems), problems)
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             status = spark.report_doctor(problems, [], live=True)
@@ -655,7 +686,7 @@ class SiteNodesTest(unittest.TestCase):
         example = spark.json.loads((ROOT / "config" / "nodes.example.json").read_text())
         self.assertEqual(sum(node["head"] for node in example["nodes"]), 1)
         for node in example["nodes"]:
-            self.assertEqual(set(node), {"name", "rank", "management_ip", "head", "roce_peer_hcas"})
+            self.assertEqual(set(node), {"name", "rank", "management_ip", "head", "roce_peer_hcas", "roce_subnets"})
 
 
 class CoolingTest(unittest.TestCase):
@@ -782,7 +813,7 @@ class ClusterReplaceTest(unittest.TestCase):
             {"name": "dgx1", "head": True, "rank": 0, "management_ip": "1", "roce_peer_hcas": []},
             {"name": "dgx2", "head": False, "rank": 1, "management_ip": "2", "roce_peer_hcas": []},
             {"name": "dgx3", "head": False, "rank": 2, "management_ip": "3", "roce_peer_hcas": []}]}
-        cluster = {"deployment": {"launch_enabled": True}, "container": {"name": "c"}}
+        cluster = {"deployment": {"launch_enabled": True}, "container": {"name": "c", "image": "i"}}
         calls = []
         guards = set()
 
@@ -798,6 +829,8 @@ class ClusterReplaceTest(unittest.TestCase):
             mock.patch.object(spark, "configuration", return_value=(cluster, nodes, {})),
             mock.patch.object(spark, "cluster_config_path", return_value=(None, "config/cluster.json")),
             mock.patch.object(spark, "rendered_docker_command", return_value=["docker", "run"]),
+            mock.patch.object(spark, "expected_command", return_value=["--nnodes", "3"]),
+            mock.patch.object(spark, "live_engine", return_value=None),
             mock.patch.object(spark, "require_local_deployment_state", return_value="rev"),
             mock.patch.object(spark, "remote_runtime_problems", return_value=[]),
             mock.patch.object(spark, "stop_memguard",
@@ -851,3 +884,26 @@ class KernelPolicyPathTest(unittest.TestCase):
         for path in ("../policy.json", "/tmp/policy.json"):
             with self.assertRaises(ValueError):
                 spark.kernel_policy_path({"host": {"kernel_policy": path}})
+
+
+class CpusetTest(unittest.TestCase):
+    """A profile that pins serving to CPUs must run pinned, on exactly the fast cores."""
+
+    CAPACITIES = {**{c: 718 for c in range(5)}, **{c: 997 for c in range(5, 10)},
+                  **{c: 731 for c in range(10, 15)}, **{c: 1017 for c in range(15, 19)}, 19: 1024}
+
+    def test_parsing(self):
+        self.assertEqual(spark.cpu_list("5-9,15-19"), {5, 6, 7, 8, 9, 15, 16, 17, 18, 19})
+        self.assertEqual(spark.cpu_list(""), set())
+        text = "\n".join(f"/sys/devices/system/cpu/cpu{c}/cpu_capacity:{v}" for c, v in self.CAPACITIES.items())
+        self.assertEqual(spark.cpu_capacities(text), self.CAPACITIES)
+        self.assertEqual(spark.fast_cpus(self.CAPACITIES), spark.cpu_list("5-9,15-19"))
+        cluster = {"container": {"docker_run_args": ["--gpus=all", "--cpuset-cpus=5-9,15-19"]}}
+        self.assertEqual(spark.configured_cpuset(cluster), "5-9,15-19")
+        self.assertIsNone(spark.configured_cpuset({"container": {"docker_run_args": []}}))
+
+    def test_problems(self):
+        self.assertEqual(spark.cpuset_problems("n", None, "", self.CAPACITIES), [])
+        self.assertEqual(spark.cpuset_problems("n", "5-9,15-19", "15-19,5-9", self.CAPACITIES), [])
+        self.assertIn("runs on CPUs all", spark.cpuset_problems("n", "5-9,15-19", "", self.CAPACITIES)[0])
+        self.assertIn("not this node's fast cores", spark.cpuset_problems("n", "0-9", "0-9", self.CAPACITIES)[0])

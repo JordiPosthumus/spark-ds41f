@@ -1,0 +1,11 @@
+{
+  "notes": "r6n with sparknet's per-op trace, for the first-request repro (sparknet 3bc8d10 fixes the trace clock).",
+  "extends": {
+    "config": "experiments/2026-10-15-r6n/r6n-release.json"
+  },
+  "set": {
+    "environment": {
+      "SPARKNET_ROCE_TRACE": "1"
+    }
+  }
+}

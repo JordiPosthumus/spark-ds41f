@@ -10,6 +10,12 @@
       "roce_peer_hcas": {
         "1": ["rocep1s0f0", "roceP2p1s0f0"],
         "2": ["rocep1s0f1", "roceP2p1s0f1"]
+      },
+      "roce_subnets": {
+        "rocep1s0f0": "10.12.1.0/24",
+        "roceP2p1s0f0": "10.12.2.0/24",
+        "rocep1s0f1": "10.13.1.0/24",
+        "roceP2p1s0f1": "10.13.2.0/24"
       }
     },
     {
@@ -20,6 +26,12 @@
       "roce_peer_hcas": {
         "0": ["rocep1s0f1", "roceP2p1s0f1"],
         "2": ["rocep1s0f0", "roceP2p1s0f0"]
+      },
+      "roce_subnets": {
+        "rocep1s0f0": "10.23.1.0/24",
+        "roceP2p1s0f0": "10.23.2.0/24",
+        "rocep1s0f1": "10.12.1.0/24",
+        "roceP2p1s0f1": "10.12.2.0/24"
       }
     },
     {
@@ -30,6 +42,12 @@
       "roce_peer_hcas": {
         "0": ["rocep1s0f0", "roceP2p1s0f0"],
         "1": ["rocep1s0f1", "roceP2p1s0f1"]
+      },
+      "roce_subnets": {
+        "rocep1s0f0": "10.13.1.0/24",
+        "roceP2p1s0f0": "10.13.2.0/24",
+        "rocep1s0f1": "10.23.1.0/24",
+        "roceP2p1s0f1": "10.23.2.0/24"
       }
     }
   ]

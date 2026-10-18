@@ -1,0 +1,27 @@
+{
+  "experiment": "experiments/2026-10-13-tilelang-wo",
+  "run": "fused-fixed",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "profile",
+      "workloads": [
+        "code16",
+        "c8",
+        "prefill"
+      ],
+      "arms": [
+        {
+          "config": "fused-fixed.json",
+          "label": "fused"
+        },
+        {
+          "config": "r6j-fixed.json",
+          "label": "r6j"
+        }
+      ]
+    }
+  ]
+}

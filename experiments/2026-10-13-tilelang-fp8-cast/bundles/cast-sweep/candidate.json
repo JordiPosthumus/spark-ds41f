@@ -1,0 +1,22 @@
+{
+  "description": "gemm_mxfp8_cast's prefill tiles against production's cast + gemm_mxfp8 at the context-KV and WO-B shapes, 256-8192 rows, warm and cold; bits checked.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "/b/sweep_gemm_cast.py"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm__models__deepseek_v4_1__tilelang__gemm.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/gemm.py"
+    ],
+    [
+      "sweep_gemm_cast.py",
+      "/b/sweep_gemm_cast.py"
+    ]
+  ]
+}

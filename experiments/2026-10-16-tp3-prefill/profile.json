@@ -1,0 +1,29 @@
+{
+ "experiment": "experiments/2026-10-16-tp3-prefill",
+ "run": "tp3-prefill",
+ "jobs": [
+  {
+   "kind": "sync"
+  },
+  {
+   "kind": "profile",
+   "workloads": [
+    "prefill"
+   ],
+   "arms": [
+    {
+     "config": "r6n-tp3-prof.json",
+     "label": "r6n"
+    },
+    {
+     "config": "r6h-tp3-prof.json",
+     "label": "r6h"
+    },
+    {
+     "config": "r6n-tp3-prof.json",
+     "label": "r6n-again"
+    }
+   ]
+  }
+ ]
+}

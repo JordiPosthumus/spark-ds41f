@@ -1,0 +1,22 @@
+{
+  "experiment": "experiments/2026-10-15-r6n",
+  "run": "r6n-engram-test-fix",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "kernel",
+      "bundles": [
+        {
+          "node": "dgx3",
+          "bundle": "experiments/2026-10-15-r6n/bundles/engram-test-fix"
+        },
+        {
+          "node": "dgx4",
+          "bundle": "experiments/2026-10-15-r6n/bundles/engram-test-fix"
+        }
+      ]
+    }
+  ]
+}

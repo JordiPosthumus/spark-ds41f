@@ -6,7 +6,7 @@ service after every run. It replaces the copy-and-edit `runNN.sh` pattern.
 ## Windows
 
 ```sh
-scripts/lab.py window open --note "mHC screen" --production-config config/cluster-tp4.json
+scripts/lab.py window open --note "mHC screen"
 scripts/lab.py window status
 scripts/lab.py window close
 ```
@@ -45,8 +45,10 @@ cluster action in the window uses its node map: stop, sync, `doctor --live`, the
 guard and the node-map check before each boot.
 
 - `--production-config PATH` selects it on `window open`, `window close`, `run` and
-  `queue run`. The default is `config/cluster.json` (TP3 triangle). While the four-node
-  ring serves TP4, pass `config/cluster-tp4.json`.
+  `queue run`. The default is the recipe `config/cluster.json` at the site's shape
+  (`bin/spark site shape`), which is right whatever the cabling. Name another file only
+  to restore an archived release, such as a shape's previous production record while
+  the recipe's image is not yet qualified on it.
 - `open` writes it to the hold file as `production_config`. The commands that follow
   use that record: `close`, the watchdog, runs inside the window and a queue runner
   restarted by a sync job.
@@ -64,6 +66,22 @@ scripts/lab.py run scripts/lab_specs/lab1-first-window.json --dry-run
 scripts/lab.py run scripts/lab_specs/lab1-first-window.json
 ```
 
+**Arms are overlays.** An arm configuration names what it extends and holds only what it
+changes, so it cannot drift from what it is compared with:
+
+```json
+{
+  "extends": {"config": "config/cluster.json", "shape": "tp4-ring"},
+  "set": {"container": {"image": "vllm-ds41f-kkref:...-r6m"}, "environment": {"NAME": "value"}},
+  "unset": ["environment.OLD_NAME"]
+}
+```
+
+`extends` may name another arm (a dev arm extends its release arm); an arm of the recipe
+must name its shape. `set` merges into the base, `unset` removes dotted paths (an unset
+the base does not have is an error). An arm never carries the recipe's shape or
+qualifying benchmark. Older experiments keep their complete files.
+
 Over ssh, detach a long `run` or `queue run` from the session: use `setsid -f` with every
 stream redirected, or run it inside tmux. `lab.py` logs to stdout. If stdout is the session's
 pipe and the session ends, the next log line fails with a broken pipe and the runner exits.
@@ -71,14 +89,27 @@ The heartbeat then stops and the watchdog closes the window 15 minutes later.
 
 ```sh
 ssh dgx1 'cd ~/projects/spark-ds41f && setsid -f scripts/lab.py run SPEC.json \
-  --production-config config/cluster-tp4.json > results/private/lab/SPEC.log 2>&1 < /dev/null'
+  > results/private/lab/SPEC.log 2>&1 < /dev/null'
 ```
 
 A spec names the experiment directory, a run name and a list of jobs. A run opens a
 window if none of ours is open.
 
-- **`measure`:** boots each arm with `cluster start --replace`, with no stop in
-  between, and measures it.
+Specs are checked before anything boots:
+- every arm configuration and script must exist;
+- the arguments of servebench extras (`scripts/servebench_run.py`, `_engine.py`,
+  `_model.py`) must parse with servebench's own parser.
+
+`queue add` refuses a spec that fails. One whose jobs start with a `sync` is only warned
+about, because its files may arrive with the sync; the run checks again after the sync,
+before the first boot. `run --dry-run` prints the problems.
+
+- **`measure`:** boots each arm with `cluster start --replace --change-shape`, with no
+  stop in between, and measures it. The arm's node map must equal production's (below),
+  so an arm can change context or KV size but never the node set.
+  - The bench checks the live engine against the arm before it measures. A bench that
+    exits non-zero (a cluster that differs from the arm, a failed quality gate, failed
+    requests, an aborted run) ends the job before its scripts run.
   - Profile `lean`, about 2.5 min per arm:
     - bench prose and JSON with 3 samples each;
     - 1K and 16K prefill, 2 repeats each;
@@ -101,7 +132,7 @@ window if none of ours is open.
   sync before running it.
 
   ```sh
-  scripts/lab_sweep.py --base config/cluster-tp4.json --variable VLLM_L2_PREFETCH_GRID \
+  scripts/lab_sweep.py --base config/cluster.json --shape tp4-ring --variable VLLM_L2_PREFETCH_GRID \
     --values 1,2,3,6 --experiment experiments/<dir> --run <name> --streams 1,4,16
   ```
 - **`validate`:** a trace arm.
@@ -116,6 +147,59 @@ window if none of ours is open.
 - **`kernel`:** runs kernel-lab bundles on the named nodes concurrently, with the cluster
   stopped. It writes `results/private/lab/<run>/verdicts.json` and checks that the
   nodes agree.
+- **`measure` with `"suite": "<name>"`** (servebench's `screen`, `release`, `screen-tp3`
+  or `release-tp3`, or a suite file) replaces `extras`, `bench` and the profile. Each arm
+  boots and runs `bin/spark bench --suite <name> --compare none` into
+  `results/private/suites/<run>/<label>`. That brings every bench's conditions: the nodes
+  cooled, the fan performance curve running, the memory floor and temperature ceilings
+  watched (a breach stops the run), and the arm's identity in the run's `suite.json`
+  (`conditions.json` beside it records cooling, fan curve, thermal and memory). A failed
+  step lets the remaining arms run; a refused bench (exit 2: a cluster that differs from
+  its arm, no fan curve) ends the job. A suite with an engine grid step needs an arm with
+  `VLLM_SERVER_DEV_MODE=1`, which the pre-boot check enforces. Arms after
+  the first score the first arm's text in model steps. The table
+  (`scripts/servebench_suite_table.py`) compares the second arm, the reference, with
+  every other arm, and the first arm with the last as the run's own repeat. Order arms
+  candidate, reference, candidate again.
+- **Companion suites:** `"suite": ["release-tp3", "single-stream"]` runs the release suite,
+  then each further suite on the same boot of each arm, into
+  `results/private/suites/<run>-<suite>/<label>` with its own table
+  (`results/private/lab/<run>-<suite>-table.txt`). A changed suite is a new suite (servebench
+  compares only runs of the same definition), so measurements added to every release go in a
+  companion suite and the release suite and its recorded references stay unchanged. Every
+  release runs `single-stream` (one conversation at a time, concurrency 1 on distinct prompts):
+  the speed one user sees, which draft acceptance on the generated text moves, beside the
+  release suite's engine grid, the text-independent verdict on a single stream's step cost.
+- **Telemetry:** every bench and script step of a `measure` job samples, on each node:
+  - GPU SM and memory clocks, power, temperature and clock-event reasons, once a second
+    (`nvidia-smi` over SSH);
+  - the serving container's threads every 2 s: CPU use, and how much of it ran on slow
+    cores (`cpu_capacity` below the midpoint, as sparknet's "big").
+  The summary goes beside the step's output as `<output>.telemetry.json`: percentiles per
+  field, event-reason counts, the busy threads with their core share and slow-core share,
+  and the clock lock in force. Telemetry never fails a step.
+- **`"telemetry": false`** on a `measure` job turns the per-step sampling off (A/B checks
+  of its own effect).
+- **Failed steps keep their evidence:** when a script step exits non-zero, every node's
+  serving-container log tail (4,000 lines) is saved beside its output as
+  `<output>.engine-<node>.log`, before a later boot replaces the container.
+- **Arm options `memory_snapshot` and `compact_memory`:** before that arm's boot, serving
+  stops and every node's free memory by block size (`/proc/buddyinfo`) is saved to
+  `memory-<label>.json`. `compact_memory` then runs
+  `sudo -n sh -c 'sync; echo 1 > /proc/sys/vm/compact_memory'` and records the result.
+- **Placeholders:** `{label}` and `{run}` in extras arguments become each arm's label
+  and the run's name, so arms that share extras write their own outputs.
+- **Reading results:** `scripts/lab.py report RUN` prints the run's table and each
+  measured step's node telemetry: SM clock p10/p50/p90 and minimum, power, peak
+  temperature, clock-event reasons and the lock in force.
+- **`gpu_clocks`:** `{"kind": "gpu_clocks", "lock_mhz": [min, max]}` locks every node's
+  GPU SM clock (`sudo -n nvidia-smi -lgc`) for the jobs that follow, and
+  `{"kind": "gpu_clocks", "reset": true}` resets it (`-rgc`).
+  - The lock survives boots.
+  - A lock that fails on any node is reset on all of them and ends the run.
+  - While a lock is in place, `~/spark-lab/gpu-clocks-locked.json` records it.
+    Restoring production (closing the window, including the watchdog's close) resets
+    the clocks first, so production never serves locked.
 
 Jobs that stop the cluster (`validate`, `profile`, `kernel`) run
 `bin/spark --cluster-config <production profile> cluster stop --apply --parallel`. The

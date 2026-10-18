@@ -1,0 +1,130 @@
+{
+  "experiment": "experiments/2026-10-14-servebench",
+  "run": "servebench-validate",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "scripts/servebench_run.py",
+          [
+            "--mode",
+            "closed",
+            "--concurrency",
+            "16",
+            "--warmup",
+            "60",
+            "--duration",
+            "300",
+            "--extra-body",
+            "{\"chat_template_kwargs\":{\"thinking\":false}}",
+            "--label",
+            "closed-c16",
+            "--output",
+            "results/private/servebench/validate/closed-c16.json"
+          ],
+          "closed-c16"
+        ],
+        [
+          "scripts/servebench_run.py",
+          [
+            "--mode",
+            "closed",
+            "--concurrency",
+            "8",
+            "--warmup",
+            "60",
+            "--duration",
+            "300",
+            "--extra-body",
+            "{\"chat_template_kwargs\":{\"thinking\":false}}",
+            "--label",
+            "closed-c8",
+            "--output",
+            "results/private/servebench/validate/closed-c8.json"
+          ],
+          "closed-c8"
+        ],
+        [
+          "scripts/servebench_run.py",
+          [
+            "--mode",
+            "poisson",
+            "--rate",
+            "0.6",
+            "--warmup",
+            "60",
+            "--duration",
+            "300",
+            "--slo-ttft",
+            "2",
+            "--slo-tpot",
+            "100",
+            "--extra-body",
+            "{\"chat_template_kwargs\":{\"thinking\":false}}",
+            "--label",
+            "poisson-0.6",
+            "--output",
+            "results/private/servebench/validate/poisson-0.6.json"
+          ],
+          "poisson-0.6"
+        ],
+        [
+          "scripts/servebench_run.py",
+          [
+            "--mode",
+            "closed",
+            "--concurrency",
+            "16",
+            "--warmup",
+            "60",
+            "--duration",
+            "300",
+            "--extra-body",
+            "{\"chat_template_kwargs\":{\"thinking\":false}}",
+            "--label",
+            "closed-c16-again",
+            "--output",
+            "results/private/servebench/validate/closed-c16-again.json"
+          ],
+          "closed-c16-again"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "16",
+            "--samples",
+            "4",
+            "--tokens",
+            "256"
+          ],
+          "c16-distinct"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "8",
+            "--samples",
+            "4",
+            "--tokens",
+            "256"
+          ],
+          "c8-distinct"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "experiments/2026-10-13-r6i/r6h.json",
+          "label": "r6h"
+        }
+      ]
+    }
+  ]
+}

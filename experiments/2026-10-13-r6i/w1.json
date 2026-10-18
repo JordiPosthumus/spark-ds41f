@@ -1,0 +1,86 @@
+{
+  "experiment": "experiments/2026-10-13-r6i",
+  "run": "r6i-w1",
+  "jobs": [
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "experiments/2026-10-12-r6g/token_determinism_text.py",
+          [
+            "--tokens",
+            "192",
+            "--long-lines",
+            "700",
+            "--wide"
+          ],
+          "determinism"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "16",
+            "--samples",
+            "6",
+            "--tokens",
+            "256"
+          ],
+          "c16-distinct"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "8",
+            "--samples",
+            "6",
+            "--tokens",
+            "256"
+          ],
+          "c8-distinct"
+        ],
+        [
+          "scripts/distinct_streams.py",
+          [
+            "--streams",
+            "4",
+            "--samples",
+            "4",
+            "--tokens",
+            "256"
+          ],
+          "c4-distinct"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "r6i-full.json",
+          "label": "full"
+        },
+        {
+          "config": "r6h.json",
+          "label": "r6h"
+        },
+        {
+          "config": "r6i-tp4.json",
+          "label": "sparknet-main"
+        },
+        {
+          "config": "r6i-tilelang.json",
+          "label": "tilelang"
+        },
+        {
+          "config": "r6i-tlbig.json",
+          "label": "tilelang-big"
+        },
+        {
+          "config": "r6i-full.json",
+          "label": "full-again"
+        }
+      ]
+    }
+  ]
+}

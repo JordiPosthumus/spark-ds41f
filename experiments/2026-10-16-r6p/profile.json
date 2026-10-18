@@ -1,0 +1,35 @@
+{
+ "experiment": "experiments/2026-10-16-r6p",
+ "run": "r6p-tp3-profile",
+ "jobs": [
+  {
+   "kind": "sync"
+  },
+  {
+   "kind": "profile",
+   "workloads": [
+    "prefill",
+    "decode",
+    "c8"
+   ],
+   "arms": [
+    {
+     "config": "r6p-tp3-prof-pinned.json",
+     "label": "r6p"
+    },
+    {
+     "config": "r6o-tp3-prof-pinned.json",
+     "label": "r6o"
+    },
+    {
+     "config": "r6n-tp3-prof-pinned.json",
+     "label": "r6n"
+    },
+    {
+     "config": "r6p-tp3-prof-pinned.json",
+     "label": "r6p-again"
+    }
+   ]
+  }
+ ]
+}

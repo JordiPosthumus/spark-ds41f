@@ -7,8 +7,10 @@ the open levers, measured dead ends, and the lean screening routine.
 
 ## Sources of truth
 
-- `config/cluster.json` is the promoted runtime configuration.
-- `config/cluster.json` selects the promoted site topology through `nodes_config`
+- `config/cluster.json` is the promoted runtime configuration: one recipe for every
+  shape (`tp4-ring`, `tp3-triangle`, `tp3-triangle-4k`), resolved at the site's
+  cabling (`config/site.json`, `bin/spark site shape`). Never copy it per shape.
+- Each shape of `config/cluster.json` names its site node map through `nodes_config`
   (default: `config/nodes.json`). The default is git-ignored and initialized
   from `config/nodes.example.json`. Candidate profiles may select a separate map;
   `cluster sync` preserves and copies the selected site map.
@@ -21,7 +23,7 @@ the open levers, measured dead ends, and the lean screening routine.
 - `manifests/benchmarks/<baseline>.json` is that baseline's reference
   `bin/spark bench` run. It is immutable too; a new promotion adds its own.
   A profile of another topology names its own run in `benchmark_reference`
-  (`manifests/benchmarks/<baseline>-tp4.json` for `config/cluster-tp4.json`).
+  (`manifests/benchmarks/<baseline>-tp4.json` for the `tp4-ring` shape).
 - `experiments/` is the only place for unpromoted tuning.
 - `docs/inspiration.md` is a research watchlist, never a source or deployment
   authority. It names each source, what to review it for, and the adoption
@@ -56,7 +58,9 @@ for three-node direct-peer and four-node neighbour-ring profiles. A new topology
 needs its own hardware qualification before promotion.
 
 Use `bin/spark cluster sync`, `start`, and `stop` for node operations. They are
-plans unless `--apply` is supplied. Never deploy with rsync or copy a dirty
+plans unless `--apply` is supplied, and every `--apply` needs `--cluster-config`
+named: read the plan's `live:` and `shape:` lines first. Never pass
+`--change-shape` to get past a refusal unless the shape change is the intent. Never deploy with rsync or copy a dirty
 working tree: publish one commit, require clean node checkouts, and detach every
 node at that exact commit. Do not bypass the coordinated start with a one-rank
 launch script.

@@ -9,6 +9,7 @@ usage (on dgx1, from the deployment checkout):
   scripts/lab.py queue add SPEC.json      (queue a spec for the open or next window)
   scripts/lab.py queue run [--idle-minutes M] [--minutes M] [--production-config PATH]   (0: never)
   scripts/lab.py queue status
+  scripts/lab.py report RUN               (the run's table and each step's node telemetry)
   scripts/lab.py kernel-local BUNDLE_DIR [--out DIR] [--dry-run]   (on any node, cluster stopped)
   scripts/lab.py watchdog [--max-age SECONDS] [--once]
 
@@ -47,10 +48,12 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import contextlib
 import datetime as dt
 import fcntl
 import hashlib
 import importlib.machinery
+import io
 import importlib.util
 import json
 import os
@@ -88,6 +91,8 @@ HEARTBEAT_MAX_AGE = 900
 # The profile a window restores; main() sets it from --production-config or the open window's hold.
 PRODUCTION_CONFIG = spark.DEFAULT_CLUSTER_CONFIG
 TRACE_LOG_DIR = "/cache/kkref/moe-checksums"
+# Present while a gpu_clocks job has the SM clocks locked; restoring production resets them.
+GPU_CLOCKS_MARKER = LAB_HOME / "gpu-clocks-locked.json"
 
 # Measurement profiles: (script, extra arguments, output stem). The bench command is built apart.
 PROFILES = {
@@ -136,7 +141,7 @@ PROFILES["release-tp3"] = {
                    for a in PROFILES["release"]["bench_args"]],
     "extras": [extra for extra in PROFILES["release"]["extras"] if extra[2] != "c16-distinct"],
 }
-BENCH_BASE = ["--allow-mismatch", "--compare", "none", "--suites", "decode,prefill",
+BENCH_BASE = ["--compare", "none", "--suites", "decode,prefill",
               "--decode-cases", "prose,json-nothink", "--concurrency", "1", "--prefill-text", "source"]
 # Validation tiers: scenario sets for boot A and the restart (None = every scenario).
 TIERS = {
@@ -335,12 +340,47 @@ def boot(config: str, dry: bool = False) -> bool:
         return False
     log(f"start {config}")
     started, lines = time.time(), []
-    ok = spark_cli("--cluster-config", config, "cluster", "start", "--replace", "--apply", dry=dry,
-                    capture=lines) == 0
+    # Arms may change context or KV size; the node map is already pinned to production's above.
+    ok = spark_cli("--cluster-config", config, "cluster", "start", "--replace", "--change-shape", "--apply",
+                   dry=dry, capture=lines) == 0
     if not dry:
         log(f"boot {Path(config).name}: ready +{ready_seconds(lines)} s, command {time.time() - started:.0f} s"
             f"{'' if ok else ' FAILED'}")
     return ok
+
+
+def buddy_free(text: str, page_bytes: int) -> dict:
+    """/proc/buddyinfo as free GiB per block size (summed over zones) and the GiB free in
+    blocks of 2 MiB or more, the size a GPU large page needs."""
+    free: dict[int, int] = {}
+    for line in text.splitlines():
+        counts = line.split()[4:]
+        for order, count in enumerate(counts):
+            free[order] = free.get(order, 0) + int(count)
+    by_block = {f"{page_bytes * 2 ** order // 1024} KiB": round(count * page_bytes * 2 ** order / 2 ** 30, 3)
+                for order, count in sorted(free.items())}
+    large = sum(count * page_bytes * 2 ** order for order, count in free.items() if page_bytes * 2 ** order >= 2 ** 21)
+    return {"free_gib_by_block": by_block, "free_gib_2mib_blocks": round(large / 2 ** 30, 3),
+            "free_gib": round(sum(c * page_bytes * 2 ** o for o, c in free.items()) / 2 ** 30, 3)}
+
+
+def memory_before_boot(compact: bool) -> dict:
+    """With serving stopped: each node's free memory by block size, then (when asked) after
+    ``echo 1 > /proc/sys/vm/compact_memory``."""
+    nodes, out = nodes_config(), {}
+    for node in nodes["nodes"]:
+        page = int(spark.run_ssh(nodes, node, "getconf", "PAGESIZE").stdout.strip() or 4096)
+        record = {"page_bytes": page,
+                  "stopped": buddy_free(spark.run_ssh(nodes, node, "cat", "/proc/buddyinfo").stdout, page)}
+        if compact:
+            began = time.time()
+            result = spark.run_ssh(nodes, node, "sudo", "-n", "sh", "-c", "sync; echo 1 > /proc/sys/vm/compact_memory")
+            record["compact"] = {"exit": result.returncode, "seconds": round(time.time() - began, 1),
+                                 **buddy_free(spark.run_ssh(nodes, node, "cat", "/proc/buddyinfo").stdout, page)}
+        out[node["name"]] = record
+        log(f"{node['name']}: {record['stopped']['free_gib_2mib_blocks']} GiB free in blocks of 2 MiB or more"
+            + (f", {record['compact']['free_gib_2mib_blocks']} GiB after compaction" if compact else ""))
+    return out
 
 
 def stop_arguments(remove: bool = False) -> list[str]:
@@ -362,7 +402,203 @@ def production_live(problems: list | None = None) -> bool:
     return process.returncode == 0 and "live cluster matches" in process.stdout
 
 
+def set_gpu_clocks(lock: list[int] | None) -> bool:
+    """Lock every node's GPU SM clock to ``lock`` [min, max] MHz (``nvidia-smi -lgc``), or
+    reset it (``-rgc``) when ``lock`` is None. A lock that fails on any node is reset
+    everywhere, so no measurement runs with nodes at different clocks."""
+    nodes = nodes_config()
+    command = ("sudo", "-n", "nvidia-smi") + (("-lgc", f"{lock[0]},{lock[1]}") if lock else ("-rgc",))
+    ok = True
+    for node in nodes["nodes"]:
+        result = spark.run_ssh(nodes, node, *command)
+        now = spark.run_ssh(nodes, node, "nvidia-smi", "--query-gpu=clocks.sm,clocks.max.sm",
+                            "--format=csv,noheader").stdout.strip()
+        log(f"{node['name']}: GPU clocks {'locked to ' + '-'.join(map(str, lock)) if lock else 'reset'} "
+            f"(exit {result.returncode}; now {now})" + (f": {result.stderr.strip()[:200]}" if result.returncode else ""))
+        ok = ok and result.returncode == 0
+    if lock and ok:
+        write_json_atomic(GPU_CLOCKS_MARKER, {"lock_mhz": lock, "since": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    elif lock:
+        set_gpu_clocks(None)
+    elif ok:
+        GPU_CLOCKS_MARKER.unlink(missing_ok=True)
+    return ok
+
+
+TELEMETRY_FIELDS = ("clocks.sm", "clocks.mem", "power.draw", "temperature.gpu", "clocks_event_reasons.active")
+
+
+def summarize_telemetry(text: str) -> dict:
+    """``nvidia-smi --query-gpu=timestamp,<TELEMETRY_FIELDS> --format=csv,noheader,nounits``
+    lines as per-field percentiles, plus how many samples showed each clock-event reason."""
+    columns: dict[str, list[float]] = {field: [] for field in TELEMETRY_FIELDS[:-1]}
+    reasons: dict[str, int] = {}
+    samples = 0
+    for line in text.splitlines():
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 1 + len(TELEMETRY_FIELDS):
+            continue
+        samples += 1
+        for field, value in zip(TELEMETRY_FIELDS[:-1], parts[1:-1]):
+            try:
+                columns[field].append(float(value))
+            except ValueError:
+                pass
+        reasons[parts[-1]] = reasons.get(parts[-1], 0) + 1
+    out: dict = {"samples": samples, "event_reasons": reasons}
+    for field, values in columns.items():
+        if values:
+            ranked = sorted(values)
+            pick = lambda q: ranked[min(len(ranked) - 1, max(0, round(q / 100 * len(ranked)) - 1))]
+            out[field] = {"min": ranked[0], "p10": pick(10), "p50": pick(50), "p90": pick(90),
+                          "max": ranked[-1], "mean": round(sum(values) / len(values), 3)}
+    return out
+
+
+# Runs on each node (python3 - CONTAINER SECONDS): every 2 s, one JSON line with the serving
+# container's threads (name, CPU seconds, current core); the first line lists the fast cores
+# (cpu_capacity above the midpoint, as sparknet's "big"). Ends at SECONDS or a closed pipe.
+THREAD_SAMPLER = r"""
+import json, os, subprocess, sys, time
+caps = {}
+for name in os.listdir("/sys/devices/system/cpu"):
+    if name[3:].isdigit():
+        try:
+            caps[int(name[3:])] = int(open(f"/sys/devices/system/cpu/{name}/cpu_capacity").read())
+        except OSError:
+            pass
+middle = (min(caps.values()) + max(caps.values())) / 2 if caps else 0
+tick = os.sysconf("SC_CLK_TCK")
+end = time.time() + float(sys.argv[2])
+try:
+    print(json.dumps({"fast": sorted(c for c, v in caps.items() if v > middle)}), flush=True)
+    while time.time() < end:
+        pids = subprocess.run(["docker", "top", sys.argv[1], "-eo", "pid"], capture_output=True,
+                              text=True).stdout.split()[1:]
+        threads = {}
+        for pid in pids:
+            try:
+                tids = os.listdir(f"/proc/{pid}/task")
+            except OSError:
+                continue
+            for tid in tids:
+                try:
+                    stat = open(f"/proc/{pid}/task/{tid}/stat").read()
+                except OSError:
+                    continue
+                fields = stat[stat.rindex(")") + 2:].split()
+                threads[tid] = [stat[stat.index("(") + 1:stat.rindex(")")],
+                                (int(fields[11]) + int(fields[12])) / tick, int(fields[36])]
+        print(json.dumps({"t": time.time(), "threads": threads}), flush=True)
+        time.sleep(2)
+except BrokenPipeError:
+    pass
+"""
+
+
+def summarize_threads(text: str, busy_share: float = 0.10) -> dict:
+    """Thread-sampler lines as each busy thread's share of a core and how much of its CPU
+    time ran on slow cores (each interval's CPU time counted on the core seen at its end)."""
+    fast, samples = None, []
+    for line in text.splitlines():
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if "fast" in record:
+            fast = set(record["fast"])
+        elif "threads" in record:
+            samples.append(record)
+    if fast is None or len(samples) < 2:
+        return {"samples": len(samples)}
+    used: dict[str, list] = {}  # tid -> [name, cpu seconds, seconds on slow cores]
+    for before, after in zip(samples, samples[1:]):
+        for tid, (name, cpu, core) in after["threads"].items():
+            if tid in before["threads"]:
+                spent = max(0.0, cpu - before["threads"][tid][1])
+                entry = used.setdefault(tid, [name, 0.0, 0.0])
+                entry[1] += spent
+                entry[2] += spent if core not in fast else 0.0
+    window = samples[-1]["t"] - samples[0]["t"]
+    total = sum(entry[1] for entry in used.values())
+    busy = sorted(((entry[1] / window, entry[2] / entry[1] if entry[1] else 0.0, entry[0], tid)
+                   for tid, entry in used.items() if entry[1] / window >= busy_share), reverse=True)
+    return {"samples": len(samples), "window_s": round(window, 1), "fast_cores": sorted(fast),
+            "container_cores": round(total / window, 3) if window else None,
+            "slow_core_share": round(sum(e[2] for e in used.values()) / total, 3) if total else None,
+            "busy_threads": [{"name": name, "tid": tid, "core_share": round(share, 3), "slow_share": round(slow, 3)}
+                             for share, slow, name, tid in busy]}
+
+
+class Telemetry:
+    """Every node's GPU clocks, power, temperature and clock-event reasons, sampled each
+    second, and the serving container's threads (their CPU use and how much of it ran on
+    slow cores), sampled every 2 s, while a measured step runs; summarized beside its
+    output (``<out>.telemetry.json``, with the GPU clock lock in force, if any). Telemetry
+    never fails a step: a node that cannot be sampled is recorded as such."""
+
+    def __init__(self, out: str):
+        self.path = ROOT / f"{out}.telemetry.json"
+        self.processes: dict[str, subprocess.Popen] = {}
+        self.threads: dict[str, subprocess.Popen] = {}
+
+    def __enter__(self) -> "Telemetry":
+        self.started = time.time()
+        try:
+            nodes = nodes_config()
+            command = shlex.join(["timeout", "21600", "nvidia-smi", "--query-gpu=timestamp," + ",".join(TELEMETRY_FIELDS),
+                                  "--format=csv,noheader,nounits", "-lms", "1000"])
+            for node in nodes["nodes"]:
+                self.processes[node["name"]] = subprocess.Popen(
+                    ["ssh", *spark.ssh_options(), spark.ssh_target(nodes, node), command],
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, text=True)
+                sampler = subprocess.Popen(
+                    ["ssh", *spark.ssh_options(), spark.ssh_target(nodes, node), "python3", "-", CONTAINER, "21600"],
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.PIPE, text=True)
+                sampler.stdin.write(THREAD_SAMPLER)
+                sampler.stdin.close()
+                sampler.stdin = None  # sent and closed: communicate() must not flush it again
+                self.threads[node["name"]] = sampler
+        except Exception as error:  # noqa: BLE001 - telemetry is advisory
+            log(f"telemetry not started: {error}")
+        return self
+
+    def __exit__(self, *exc) -> bool:
+        lock = json.loads(GPU_CLOCKS_MARKER.read_text()) if GPU_CLOCKS_MARKER.exists() else None
+        summary: dict = {"started_utc": dt.datetime.fromtimestamp(self.started, dt.timezone.utc).isoformat(timespec="seconds"),
+                         "seconds": round(time.time() - self.started, 1), "gpu_clocks_lock": lock, "nodes": {}}
+        def collect(process: subprocess.Popen) -> str:
+            process.terminate()  # the remote command ends on its next write to the closed pipe
+            try:
+                return process.communicate(timeout=20)[0] or ""
+            except subprocess.TimeoutExpired:
+                process.kill()
+                return process.communicate()[0] or ""
+
+        for name, process in self.processes.items():
+            try:
+                summary["nodes"][name] = summarize_telemetry(collect(process))
+            except Exception as error:  # noqa: BLE001 - telemetry never fails a step
+                summary["nodes"][name] = {"error": f"{type(error).__name__}: {error}"[:200]}
+        for name, process in self.threads.items():
+            try:
+                threads = summarize_threads(collect(process))
+            except Exception as error:  # noqa: BLE001
+                threads = {"error": f"{type(error).__name__}: {error}"[:200]}
+            summary["nodes"].setdefault(name, {})["threads"] = threads
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            write_json_atomic(self.path, summary)
+        except OSError as error:
+            log(f"telemetry not saved: {error}")
+        return False
+
+
 def restore_production(dry: bool = False) -> bool:
+    if GPU_CLOCKS_MARKER.exists():
+        log("resetting the GPU clocks a lab job locked")
+        if not dry:
+            set_gpu_clocks(None)
     if not dry and production_live():
         log(f"{PRODUCTION_CONFIG} already serving")
         return True
@@ -515,12 +751,24 @@ def stop_step(job: dict) -> dict:
     return {"kind": "stop", "remove": bool(job.get("remove_stopped", False))}
 
 
+def boot_step(run: str, arm: dict, config: str) -> dict:
+    """An arm's boot; with "memory_snapshot" (or "compact_memory") serving stops first and
+    each node's free memory by block size is recorded, compacted first with "compact_memory"."""
+    step = {"kind": "boot", "config": config, "label": arm["label"]}
+    if arm.get("memory_snapshot") or arm.get("compact_memory"):
+        step.update(memory_out=f"results/private/determinism/{run}/memory-{arm['label']}.json",
+                    compact=bool(arm.get("compact_memory")))
+    return step
+
+
 def measure_steps(spec: dict, job: dict) -> list[dict]:
     experiment, run = spec["experiment"], spec["run"]
     profile = dict(PROFILES[job.get("profile", "lean")])
     if "extras" in job:  # [[script, [args...], stem], ...]: the job's own workloads
         profile["extras"] = [tuple(extra) for extra in job["extras"]]
     arms = list(job["arms"])
+    if "suite" in job:
+        return suite_steps(spec, job, arms)
     if job.get("bracket") and len(arms) > 1:
         first = dict(arms[0])
         first["label"] = f"{first['label']}-end"
@@ -529,7 +777,7 @@ def measure_steps(spec: dict, job: dict) -> list[dict]:
     for arm in arms:
         config, label = arm_config_path(experiment, arm["config"]), arm["label"]
         out = f"results/private/determinism/{run}"
-        steps.append({"kind": "boot", "config": config, "label": label})
+        steps.append(boot_step(run, arm, config))
         steps.append({"kind": "curves", "label": label, "config": config, "out": f"{out}/curves-{label}.json"})
         if job.get("bench", True):
             # "bench_args" replaces the screen's bench with the job's own (an acceptance run).
@@ -541,7 +789,9 @@ def measure_steps(spec: dict, job: dict) -> list[dict]:
                                    "--output", f"results/private/bench/{run}-{label}"]})
         for script, extra, stem in profile["extras"]:
             # A bare name is the experiment's own script; a path is repository-relative.
-            steps.append({"kind": "script", "label": label,
+            # "{label}" and "{run}" in an argument become the arm's label and the run's name.
+            extra = [str(a).replace("{label}", label).replace("{run}", run) for a in extra]
+            steps.append({"kind": "script", "label": label, "telemetry": job.get("telemetry", True),
                           "argv": [arm_config_path(experiment, script), head_url(), *extra],
                           "out": f"{out}/{stem}-{label}.jsonl"})
     table = profile.get("table", f"{experiment}/tables_arms.py")
@@ -550,6 +800,45 @@ def measure_steps(spec: dict, job: dict) -> list[dict]:
                   "curves": [f"results/private/determinism/{run}/curves-{a['label']}.json" for a in arms],
                   "summaries": [f"results/private/determinism/{run}/{stem}-{a['label']}.jsonl"
                                 for _, _, stem in profile["extras"] for a in arms]})
+    return steps
+
+
+def suite_steps(spec: dict, job: dict, arms: list[dict]) -> list[dict]:
+    """A measure job with "suite": each arm boots and runs the servebench suite through
+    bin/spark bench --suite (cooled nodes, the fan performance curve, the memory and
+    temperature watch, the arm's identity in the run) into results/private/suites/<run>/<label>;
+    arms after the first score the first arm's text in model steps; the table compares the
+    arms' suite runs. A failed step leaves the other arms to run; a refused bench ends the job.
+
+    "suite" may also be a list: the release suite first, then companion suites (such as
+    single-stream) on the same boot, each in results/private/suites/<run>-<suite>/<label> with
+    its own table, so the release suite and its recorded references stay unchanged."""
+    experiment, run = spec["experiment"], spec["run"]
+    suites = [job["suite"]] if isinstance(job["suite"], str) else list(job["suite"])
+
+    def run_of(name: str) -> str:
+        return run if name == suites[0] else f"{run}-{name}"
+
+    first = f"results/private/suites/{run}/{arms[0]['label']}/model.json.gz"
+    steps = []
+    for index, arm in enumerate(arms):
+        config, label = arm_config_path(experiment, arm["config"]), arm["label"]
+        steps.append(boot_step(run, arm, config))
+        steps.append({"kind": "curves", "label": label, "config": config,
+                      "out": f"results/private/determinism/{run}/curves-{label}.json"})
+        for name in suites:
+            argv = ["--cluster-config", config, "bench", "--suite", name, "--compare", "none",
+                    "--output", f"results/private/suites/{run_of(name)}/{label}", "--label", label]
+            if index and name == suites[0]:
+                argv += ["--corpus", first]
+            suffix = "" if name == suites[0] else f"-{name}"
+            steps.append({"kind": "cli", "label": label, "argv": argv, "suite": name,
+                          "telemetry_out": f"results/private/determinism/{run}/suite-{label}{suffix}"})
+    for name in suites:
+        steps.append({"kind": "table",
+                      "argv": ["scripts/servebench_suite_table.py", run_of(name), *[a["label"] for a in arms]],
+                      "out": f"results/private/lab/{run_of(name)}-table.txt",
+                      "curves": [f"results/private/determinism/{run}/curves-{a['label']}.json" for a in arms]})
     return steps
 
 
@@ -653,9 +942,94 @@ def fabric_steps(spec: dict, job: dict) -> list[dict]:
              "label": job.get("label", Path(job["script"]).stem), "out": f"results/private/lab/{spec['run']}"}]
 
 
+def gpu_clocks_steps(spec: dict, job: dict) -> list[dict]:
+    """Lock every node's GPU SM clock to "lock_mhz" [min, max] for the jobs that follow, or
+    reset it ("reset": true). The lock survives boots; closing the window resets it."""
+    if job.get("reset"):
+        return [{"kind": "gpu_clocks", "lock": None}]
+    low, high = (int(v) for v in job["lock_mhz"])
+    if not 0 < low <= high:
+        raise SystemExit(f"gpu_clocks lock_mhz needs 0 < min <= max, got {job['lock_mhz']}")
+    return [{"kind": "gpu_clocks", "lock": [low, high]}]
+
+
+# Lab extras that are servebench commands; their arguments are checked with its parser.
+SERVEBENCH_SHIMS = {"scripts/servebench_run.py": "run", "scripts/servebench_engine.py": "engine",
+                    "scripts/servebench_model.py": "model", "scripts/servebench_suite.py": "suite"}
+
+
+def plan_problems(steps: list[dict]) -> list[str]:
+    """What would fail only after a boot: a missing arm configuration or script, or
+    servebench arguments its parser rejects."""
+    problems = []
+    for step in steps:
+        if step["kind"] == "boot":
+            if not (ROOT / step["config"]).is_file():
+                problems.append(f"arm configuration {step['config']} does not exist")
+            else:
+                problems.extend(f"{step['config']}: {problem}" for problem in arm_problems(step["config"]))
+        if step["kind"] == "cli" and step.get("suite"):
+            problems.extend(suite_problems(step))
+        if step["kind"] not in ("script", "profile"):
+            continue
+        script, args = step["argv"][0], step["argv"][1:]
+        if not (ROOT / script).is_file():
+            problems.append(f"script {script} does not exist")
+        elif script in SERVEBENCH_SHIMS:
+            sys.path.insert(0, str(ROOT))
+            from servebench.__main__ import build_parser
+            errors = io.StringIO()
+            try:
+                with contextlib.redirect_stderr(errors):
+                    parsed = build_parser().parse_args([SERVEBENCH_SHIMS[script], *args])
+                    if SERVEBENCH_SHIMS[script] == "suite":
+                        # Every step of the suite, as the suite will run it.
+                        from servebench import suite
+                        for suite_step in suite.load(parsed.suite)["steps"]:
+                            build_parser().parse_args(suite.arguments(suite_step, parsed.url, "o.json", "l", parsed.corpus))
+            except SystemExit:
+                problems.append(f"{script} {shlex.join(args[1:])}: {errors.getvalue().strip().splitlines()[-1]}")
+            except (ValueError, OSError) as error:
+                problems.append(f"{script} {shlex.join(args[1:])}: {error}")
+    return list(dict.fromkeys(problems))
+
+
+def arm_problems(config: str) -> list[str]:
+    """The checks cluster start --apply makes on the arm before it touches a node (its
+    locks, kernel backend, topology and benchmark reference), so a refusal shows before
+    the window stops serving."""
+    cluster, nodes, upstreams = spark.configuration(argparse.Namespace(cluster_config=config))
+    return spark.local_doctor(cluster, nodes, upstreams)
+
+
+def suite_problems(step: dict) -> list[str]:
+    """A bench --suite step: the suite and every step's servebench arguments parse, and a
+    suite that times the engine grid runs on an arm with the dev-mode collective RPC."""
+    sys.path.insert(0, str(ROOT))
+    from servebench import suite
+    from servebench.__main__ import build_parser
+    config = step["argv"][step["argv"].index("--cluster-config") + 1]
+    errors = io.StringIO()
+    try:
+        definition = suite.load(step["suite"])
+        with contextlib.redirect_stderr(errors):
+            for suite_step in definition["steps"]:
+                build_parser().parse_args(suite.arguments(suite_step, "http://head:8000", "o.json", "l", None))
+    except SystemExit:
+        return [f"suite {step['suite']}: {errors.getvalue().strip().splitlines()[-1]}"]
+    except (ValueError, OSError) as error:
+        return [f"suite {step['suite']}: {error}"]
+    if (ROOT / config).is_file() and suite.needs_dev_rpc(definition):
+        if spark.read_cluster(config).get("environment", {}).get("VLLM_SERVER_DEV_MODE") != "1":
+            return [f"suite {step['suite']} times the engine grid, but {config} lacks VLLM_SERVER_DEV_MODE=1 "
+                    "(the dev-mode collective RPC)"]
+    return []
+
+
 def plan(spec: dict) -> list[dict]:
     builders = {"measure": measure_steps, "validate": validate_steps, "kernel": kernel_steps,
-                "profile": profile_steps, "sync": sync_steps, "fabric": fabric_steps, "image": image_steps}
+                "profile": profile_steps, "sync": sync_steps, "fabric": fabric_steps, "image": image_steps,
+                "gpu_clocks": gpu_clocks_steps}
     steps = []
     for job in spec["jobs"]:
         if job["kind"] not in builders:
@@ -666,7 +1040,8 @@ def plan(spec: dict) -> list[dict]:
 
 def describe_step(step: dict) -> str:
     if step["kind"] == "boot":
-        return f"boot {step['config']} ({step['label']})"
+        memory = (", compact memory first" if step.get("compact") else ", memory snapshot first") if step.get("memory_out") else ""
+        return f"boot {step['config']} ({step['label']}{memory})"
     if step["kind"] == "cli":
         return "bin/spark " + shlex.join(step["argv"])
     if step["kind"] == "script":
@@ -691,6 +1066,9 @@ def describe_step(step: dict) -> str:
         return f"fabric {step['script']} on every node ({step['config']})"
     if step["kind"] == "image":
         return f"image of {step['config']} built on {step['node']}, copied {len(step['copies'])} times"
+    if step["kind"] == "gpu_clocks":
+        lock = step["lock"]
+        return f"lock GPU SM clocks to {lock[0]}-{lock[1]} MHz on every node" if lock else "reset GPU clocks on every node"
     return step["kind"]
 
 
@@ -715,7 +1093,7 @@ def analyze(step: dict) -> dict:
     """analyze_trace4.py per node, the three nodes concurrently (cluster stopped: memory is free)."""
     if container_running():
         raise SystemExit("analysis needs the cluster stopped")
-    config = json.loads((ROOT / step["config"]).read_text())
+    config = spark.read_cluster(step["config"])
     image = config["container"]["image"]
     experiment = str(Path(step["config"]).parent)
     out = ROOT / step["out"]
@@ -741,7 +1119,7 @@ def analyze(step: dict) -> dict:
 
 def profiler_dir(config_path: str) -> str:
     """The container's torch profiler directory, from the arm's --profiler-config."""
-    args = json.loads((ROOT / config_path).read_text())["serve_args"]
+    args = spark.read_cluster(config_path)["serve_args"]
     return json.loads(args[args.index("--profiler-config") + 1])["torch_profiler_dir"]
 
 
@@ -802,7 +1180,7 @@ def profile_costs(step: dict) -> None:
     each arm against the first, rank by rank; the cluster is stopped, so memory is free."""
     if container_running():
         raise SystemExit("kernel summaries need the cluster stopped")
-    image = json.loads((ROOT / step["config"]).read_text())["container"]["image"]
+    image = spark.read_cluster(step["config"])["container"]["image"]
     experiment, out = ROOT / step["experiment"], ROOT / step["out"]
     names = [node["name"] for node in nodes_config()["nodes"]]
 
@@ -862,6 +1240,22 @@ def summary_lines(paths: list[str]) -> str:
 CURVE_POINTS = (1, 6, 12, 24, 48, 256, 1024, 2048, 4096)
 
 
+def save_engine_logs(out: str, lines: int = 4000) -> None:
+    """After a failed step: every node's serving-container log tail, beside the step's
+    output (``<out>.engine-<node>.log``), so a crash keeps its stack trace after the next
+    boot replaces the container."""
+    try:
+        nodes = nodes_config()
+        for node in nodes["nodes"]:
+            result = spark.run_ssh(nodes, node, "docker", "logs", "--tail", str(lines), CONTAINER)
+            path = ROOT / f"{out}.engine-{node['name']}.log"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(result.stdout + result.stderr)
+        log(f"saved serving logs beside {out}")
+    except Exception as error:  # noqa: BLE001 - never fail the run over its evidence
+        log(f"serving logs not saved: {error}")
+
+
 def save_curves(step: dict) -> None:
     """The boot's measured DSpark step costs (vllm-0048 log line), if the arm logs them.
 
@@ -879,7 +1273,7 @@ def save_curves(step: dict) -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
     rows = "padded"
     if step.get("config"):
-        environment = json.loads((ROOT / step["config"]).read_text()).get("environment", {})
+        environment = spark.read_cluster(step["config"]).get("environment", {})
         if environment.get("SPARK3_DSPARK_PROFILE_TOKENS") == "random":
             rows = "real"
     write_json_atomic(out, {"rows": rows, "verify": json.loads(found.group(1)),
@@ -1083,9 +1477,13 @@ def run_kernel_bundles(step: dict) -> list[dict]:
         return verdict
 
     # Same thermal starting point as a bench: every node below the cooling threshold.
+    # The site's fan policy applies here too: on a board that cannot run the fan
+    # control (host.fan_control false) cool_nodes returns without touching the fans,
+    # exactly as command_bench passes it.
     names = sorted({entry["node"] for entry in step["bundles"]})
     spark.cool_nodes(nodes, [spark.node_by_name(nodes, name) for name in names],
-                      spark.COOL_BELOW_C, spark.COOL_TIMEOUT_S)
+                      spark.COOL_BELOW_C, spark.COOL_TIMEOUT_S,
+                      fan_control=spark.fan_control_enabled(cluster))
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(step["bundles"])) as pool:
         verdicts = list(pool.map(one, step["bundles"]))
     local = ROOT / step["out"]
@@ -1105,6 +1503,19 @@ def verdicts_agree(verdicts: list[dict]) -> bool:
     return all(len(keys) == 1 for keys in by_bundle.values())
 
 
+# Returned by execute when a sync step moved this checkout to another commit: the queue
+# puts the job back and restarts on that commit, which runs the job from its start.
+RESTART_ON_NEW_COMMIT = 75
+
+
+def checkout_commit() -> str:
+    return subprocess.run(["git", "-C", str(ROOT), "rev-parse", "HEAD"], check=True,
+                          capture_output=True, text=True).stdout.strip()
+
+
+COMMIT_AT_START = checkout_commit()
+
+
 def execute(spec: dict, dry: bool, keep_open: bool, close_on_failure: bool = True) -> int:
     """Run a spec's steps in the window (opening one unless held). The window closes when
     the run ends (unless ``keep_open``), when the window itself must end (hold lost, time
@@ -1115,6 +1526,8 @@ def execute(spec: dict, dry: bool, keep_open: bool, close_on_failure: bool = Tru
         print(f"run {spec['run']}: {len(steps)} steps; production {PRODUCTION_CONFIG}")
         for index, step in enumerate(steps, 1):
             print(f"{index:3d}. {describe_step(step)}")
+        for problem in plan_problems(steps):
+            print(f"  problem: {problem}")
         return 0
     hold = read_hold()
     if not hold_is_ours(hold):
@@ -1136,6 +1549,8 @@ def execute(spec: dict, dry: bool, keep_open: bool, close_on_failure: bool = Tru
                 return
 
     threading.Thread(target=heartbeat, daemon=True).start()
+    validated = False
+    restart = False
     for step in steps:
         hold = read_hold()
         if not hold_is_ours(hold):
@@ -1147,10 +1562,18 @@ def execute(spec: dict, dry: bool, keep_open: bool, close_on_failure: bool = Tru
             break
         current["note"] = describe_step(step)
         beat(current["note"])
+        if step["kind"] != "sync" and not validated:
+            # After any sync, before the first boot: every file and servebench argument
+            # the run needs, so a mistake costs seconds rather than a boot.
+            validated = True
+            problems = plan_problems(steps)
+            if problems:
+                failed = "invalid spec: " + "; ".join(problems)
+                break
         try:
             if step["kind"] == "boot":
                 if step["config"] not in checked:
-                    config = json.loads((ROOT / step["config"]).read_text())
+                    config = spark.read_cluster(step["config"])
                     problems = fence_problems(config["container"]["mounts"], config["container"]["image"], home)
                     if problems:
                         failed = "stale overlay: " + "; ".join(problems)
@@ -1160,16 +1583,49 @@ def execute(spec: dict, dry: bool, keep_open: bool, close_on_failure: bool = Tru
                     with manifest.open("a") as handle:
                         handle.write(f"# {step['config']}\n" + "".join(l + "\n" for l in overlay_manifest(config, home)))
                     checked.add(step["config"])
+                if step.get("memory_out"):
+                    if not stop_cluster():
+                        failed = "stop before the memory snapshot failed"
+                        break
+                    snapshot = memory_before_boot(step.get("compact", False))
+                    (ROOT / step["memory_out"]).parent.mkdir(parents=True, exist_ok=True)
+                    write_json_atomic(ROOT / step["memory_out"], snapshot)
                 if not boot(step["config"]):
                     failed = f"boot of {step['config']} failed"
+                    # A boot that dies keeps its evidence: the next boot replaces the containers.
+                    save_engine_logs(f"results/private/lab/{spec['run']}/boot-{step['label']}")
                     break
             elif step["kind"] == "cli":
-                log(f"bench {step['label']} exit {spark_cli(*step['argv'])}")
+                # A bench refuses a cluster that differs from its arm; that ends the job.
+                with Telemetry(step.get("telemetry_out")
+                               or (step["argv"][step["argv"].index("--output") + 1] if "--output" in step["argv"]
+                                   else f"results/private/lab/{spec['run']}-{step['label']}-bench")):
+                    code = spark_cli(*step["argv"])
+                log(f"bench {step['label']} exit {code}")
+                if code == 1 and step.get("suite"):
+                    # A suite step failed or the run was halted: keep its other results and
+                    # measure the remaining arms.
+                    save_engine_logs(f"results/private/suites/{spec['run']}/{step['label']}")
+                elif code:
+                    failed = f"bench {step['label']} exited {code}"
+                    break
             elif step["kind"] == "script":
-                log(f"{Path(step['argv'][0]).name} {step.get('label', '')} exit {run_script(step)}")
+                with Telemetry(step["out"]) if step.get("telemetry", True) else contextlib.nullcontext():
+                    code = run_script(step)
+                log(f"{Path(step['argv'][0]).name} {step.get('label', '')} exit {code}")
+                if code:
+                    save_engine_logs(step["out"])
             elif step["kind"] == "sync":
                 if not sync_checkouts():
                     failed = "sync failed"
+                    break
+                if keep_open and checkout_commit() != COMMIT_AT_START:
+                    # The rest of the job must not run on the code this process loaded.
+                    restart = True
+                    break
+            elif step["kind"] == "gpu_clocks":
+                if not set_gpu_clocks(step["lock"]):
+                    failed = "GPU clock change failed"
                     break
             elif step["kind"] == "profile":
                 profile_workload(step)
@@ -1222,6 +1678,9 @@ def execute(spec: dict, dry: bool, keep_open: bool, close_on_failure: bool = Tru
             failed = f"{describe_step(step)} raised {type(error).__name__}: {error}"
             break
     stop_beating.set()
+    if restart:
+        log("sync moved the checkout to another commit: the job restarts on it")
+        return RESTART_ON_NEW_COMMIT
     if failed:
         log(f"run stopped: {failed}")
     if window_ending or not keep_open or (failed and close_on_failure):
@@ -1237,7 +1696,14 @@ QUEUE = ROOT / "results" / "private" / "lab" / "queue"
 
 def queue_add(spec_path: str) -> Path:
     spec = json.loads(Path(spec_path).read_text())
-    plan(spec)  # reject a malformed spec now, not when its turn comes
+    # Reject a malformed spec now, not when its turn comes after a boot. A spec that syncs
+    # first may name files this checkout does not have yet: warn, and the run checks again
+    # after its sync, before the first boot.
+    problems = plan_problems(plan(spec))
+    if problems and not any(job["kind"] == "sync" for job in spec["jobs"]):
+        raise SystemExit("not queued:\n  " + "\n  ".join(problems))
+    for problem in problems:
+        print(f"warning (checked again after the run's sync): {problem}", file=sys.stderr)
     QUEUE.mkdir(parents=True, exist_ok=True)
     target = QUEUE / f"{time.strftime('%Y%m%dT%H%M%S', time.gmtime())}-{Path(spec_path).name}"
     target.write_text(json.dumps(spec, indent=2) + "\n")
@@ -1256,7 +1722,6 @@ def queue_run(idle_minutes: int, minutes: int) -> int:
     if not hold_is_ours(read_hold()):
         return 1
     me = Path(__file__).resolve()
-    code_at_start = hashlib.sha256(me.read_bytes()).hexdigest()
     for state in ("running", "done", "failed"):
         (QUEUE / state).mkdir(parents=True, exist_ok=True)
     idle_since = None
@@ -1290,6 +1755,12 @@ def queue_run(idle_minutes: int, minutes: int) -> int:
         log(f"QUEUE job {job.name} started")
         code = execute(json.loads(running.read_text()), dry=False, keep_open=True,
                        close_on_failure=False)
+        if code == RESTART_ON_NEW_COMMIT:
+            os.replace(running, job)
+            log(f"QUEUE job {job.name} requeued; restarting on the new commit (window stays open)")
+            os.execv(sys.executable, [sys.executable, str(me), "queue", "run",
+                                      "--idle-minutes", str(idle_minutes), "--minutes", str(minutes),
+                                      "--production-config", PRODUCTION_CONFIG])
         os.replace(running, QUEUE / ("done" if code == 0 else "failed") / job.name)
         log(f"QUEUE job {job.name} {'done' if code == 0 else 'failed'}")
         if code and not hold_is_ours(read_hold()):
@@ -1299,9 +1770,9 @@ def queue_run(idle_minutes: int, minutes: int) -> int:
             # A failed job (a boot that never came up, a step that raised) costs only
             # itself: the next spec stops and boots what it needs.
             log("QUEUE continuing after the failed job")
-        if hashlib.sha256(me.read_bytes()).hexdigest() != code_at_start:
-            # A sync job brought new runner code: continue the same window on it.
-            log("QUEUE restarting on the synced runner (window stays open)")
+        if checkout_commit() != COMMIT_AT_START:
+            # A sync job moved the checkout: continue the same window on the new commit.
+            log("QUEUE restarting on the new commit (window stays open)")
             os.execv(sys.executable, [sys.executable, str(me), "queue", "run",
                                       "--idle-minutes", str(idle_minutes), "--minutes", str(minutes),
                                       "--production-config", PRODUCTION_CONFIG])
@@ -1344,13 +1815,17 @@ def bundle_mounts(bundle: Path, candidate: dict) -> list[tuple[Path, str]]:
 def bundle_command(bundle: Path, candidate: dict, out: Path) -> list[str]:
     """docker run for one kernel-lab bundle: overlay/{vllm,b12x}/... mounted at the candidate tree."""
     image = candidate["image"]
-    command = ["docker", "run", "--rm", "--gpus", "all", "--ipc=host"]
+    command = ["docker", "run", "--rm", "--gpus", "all", "--ipc=host", "--ulimit=core=0"]
     for key, value in sorted(candidate.get("env", {}).items()):
         command += ["-e", f"{key}={value}"]
     if candidate.get("display_carveout"):
         # Tests that allocate from the display carve-out get the serving container's DRM access.
         command += [f"--mount=type=bind,source={DRM_CARD},target=/dev/dri/card0",
                     "--device-cgroup-rule=c 226:* rw"]
+    if candidate.get("io_uring"):
+        # Tests of io_uring readers (disk Engram rows) get the serving container's
+        # allowance: Docker's default seccomp profile refuses io_uring.
+        command += ["--security-opt=seccomp=unconfined", "--ulimit=memlock=-1:-1"]
     overlay = bundle / "overlay"
     if overlay.is_dir():
         for path in sorted(p for p in overlay.rglob("*") if p.is_file()):
@@ -1467,6 +1942,32 @@ def kernel_local(bundle_dir: str, out_dir: str | None, dry: bool) -> int:
 
 # ---------------------------------------------------------------- CLI
 
+def report(run: str) -> str:
+    """A run's table, then each measured step's node telemetry: SM clock p10/p50/p90 (min),
+    power, peak temperature, any clock-event reasons, and the lock in force."""
+    lines = []
+    table = ROOT / "results" / "private" / "lab" / f"{run}-table.txt"
+    if table.exists():
+        lines.append(table.read_text().rstrip())
+    telemetry = sorted((ROOT / "results" / "private" / "determinism" / run).glob("*.telemetry.json"))
+    if telemetry:
+        lines.append(f"\ntelemetry ({run})")
+    for path in telemetry:
+        data = json.loads(path.read_text())
+        lock = data.get("gpu_clocks_lock")
+        lines.append(f"{path.name.removesuffix('.telemetry.json')}: {data['seconds']:.0f} s, "
+                     f"clocks {'locked to ' + '-'.join(map(str, lock['lock_mhz'])) + ' MHz' if lock else 'unlocked'}")
+        for name, node in data["nodes"].items():
+            sm, power, temp = (node.get(k, {}) for k in ("clocks.sm", "power.draw", "temperature.gpu"))
+            events = {reason: count for reason, count in node.get("event_reasons", {}).items()
+                      if reason.strip().lower() not in ("0x0000000000000000", "0x0", "not active")}
+            show = lambda value: "?" if value is None else f"{value:g}"
+            lines.append(f"  {name}: SM {show(sm.get('p10'))}/{show(sm.get('p50'))}/{show(sm.get('p90'))} MHz "
+                         f"(min {show(sm.get('min'))}), {show(power.get('p50'))} W, {show(temp.get('max'))} °C max"
+                         + (f", clock events {events}" if events else "") + ("" if node.get("samples") else " (no samples)"))
+    return "\n".join(lines) if lines else f"nothing recorded for run {run}"
+
+
 def main(argv: list[str] | None = None) -> int:
     global PRODUCTION_CONFIG
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -1494,10 +1995,15 @@ def main(argv: list[str] | None = None) -> int:
     kernel.add_argument("bundle")
     kernel.add_argument("--out")
     kernel.add_argument("--dry-run", action="store_true")
+    shown = commands.add_parser("report", help="a run's table and node telemetry")
+    shown.add_argument("run")
     dog = commands.add_parser("watchdog", parents=[production])
     dog.add_argument("--max-age", type=int, default=HEARTBEAT_MAX_AGE)
     dog.add_argument("--once", action="store_true")
     args = parser.parse_args(argv)
+    if args.command == "report":
+        print(report(args.run))
+        return 0
     if args.command != "kernel-local":
         PRODUCTION_CONFIG = resolve_production(args.production_config, read_hold())
 

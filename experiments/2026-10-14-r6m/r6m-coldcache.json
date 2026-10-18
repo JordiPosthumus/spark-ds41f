@@ -1,0 +1,11 @@
+{
+  "notes": "r6m on an empty TileLang cache on every rank (a first boot, as on a new site): reproduces the startup rank skew of the forum report and shows what compiles inside a collective phase. The cache directory is new and left on the nodes' /cache volume. Without sparknet's trace: on this image (sparknet 22c6caa) the trace clock's TileLang kernel fails every traced runtime's setup (fixed in sparknet 3bc8d10).",
+  "extends": {
+    "config": "experiments/2026-10-14-r6m/r6m-release.json"
+  },
+  "set": {
+    "environment": {
+      "TILELANG_CACHE_DIR": "/cache/kkref/jit/tilelang-cold-r6m"
+    }
+  }
+}

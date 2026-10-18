@@ -1,0 +1,91 @@
+{
+  "description": "The same tests with the three NaN fixes (vLLM kernel-contracts 0004-0006), then the fixed kernels against r6k's at the serving shapes: bits on finite inputs and time per call under CUDA graphs, warm and cold.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6k",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "-c",
+    "import subprocess, sys; TESTS = ['tests/kernels/test_deepseek_v41_tilelang_activation.py', 'tests/kernels/test_deepseek_v41_tilelang_engram.py', 'tests/kernels/test_deepseek_v41_tilelang_rope.py', 'tests/kernels/test_deepseek_v41_tilelang_mhc.py', 'tests/kernels/test_deepseek_v41_tilelang_compress.py', 'tests/kernels/test_deepseek_v41_tilelang_engram_hash.py', 'tests/kernels/attention/test_deepseek_v41_tilelang.py', 'tests/kernels/quantization/test_deepseek_v41_tilelang_linear.py', 'tests/kernels/quantization/test_deepseek_v41_tilelang_wo.py', 'tests/kernels/moe/test_deepseek_v41_tilelang_moe.py']; codes = [subprocess.call([sys.executable, '-m', 'pytest', '-q', '--noconftest', '-p', 'no:cacheprovider', '-rfEPxX', *TESTS]), subprocess.call([sys.executable, '/b/bench_nan_fixes.py'])]; print('exit codes', codes); sys.exit(max(codes))"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "tests__kernels__deepseek_v41_contracts.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/deepseek_v41_contracts.py"
+    ],
+    [
+      "tests__kernels__test_deepseek_v41_tilelang_activation.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/test_deepseek_v41_tilelang_activation.py"
+    ],
+    [
+      "tests__kernels__test_deepseek_v41_tilelang_engram.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/test_deepseek_v41_tilelang_engram.py"
+    ],
+    [
+      "tests__kernels__test_deepseek_v41_tilelang_rope.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/test_deepseek_v41_tilelang_rope.py"
+    ],
+    [
+      "tests__kernels__test_deepseek_v41_tilelang_mhc.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/test_deepseek_v41_tilelang_mhc.py"
+    ],
+    [
+      "tests__kernels__test_deepseek_v41_tilelang_compress.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/test_deepseek_v41_tilelang_compress.py"
+    ],
+    [
+      "tests__kernels__test_deepseek_v41_tilelang_engram_hash.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/test_deepseek_v41_tilelang_engram_hash.py"
+    ],
+    [
+      "tests__kernels__attention__test_deepseek_v41_tilelang.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/attention/test_deepseek_v41_tilelang.py"
+    ],
+    [
+      "tests__kernels__quantization__test_deepseek_v41_tilelang_linear.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/quantization/test_deepseek_v41_tilelang_linear.py"
+    ],
+    [
+      "tests__kernels__quantization__test_deepseek_v41_tilelang_wo.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/quantization/test_deepseek_v41_tilelang_wo.py"
+    ],
+    [
+      "tests__kernels__moe__test_deepseek_v41_tilelang_moe.py",
+      "/opt/spark3/candidate/vllm/tests/kernels/moe/test_deepseek_v41_tilelang_moe.py"
+    ],
+    [
+      "vllm__models__deepseek_v4_1__tilelang__activation.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/activation.py"
+    ],
+    [
+      "r6k_activation.py",
+      "/b/r6k_activation.py"
+    ],
+    [
+      "vllm__models__deepseek_v4_1__tilelang__engram.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/engram.py"
+    ],
+    [
+      "r6k_engram.py",
+      "/b/r6k_engram.py"
+    ],
+    [
+      "vllm__models__deepseek_v4_1__tilelang__indexer.py",
+      "/opt/spark3/candidate/vllm/vllm/models/deepseek_v4_1/tilelang/indexer.py"
+    ],
+    [
+      "r6k_indexer.py",
+      "/b/r6k_indexer.py"
+    ],
+    [
+      "kbench.py",
+      "/b/kbench.py"
+    ],
+    [
+      "bench_nan_fixes.py",
+      "/b/bench_nan_fixes.py"
+    ]
+  ]
+}

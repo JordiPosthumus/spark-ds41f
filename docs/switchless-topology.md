@@ -1,13 +1,13 @@
 # Three- and four-node switchless deployments
 
 The deployment tools accept three or four Sparks, with one GPU and one TP rank
-per node. Both layouts have a promoted profile on the r6 image:
-[config/cluster.json](../config/cluster.json) for the three-node triangle (TP3)
-and [config/cluster-tp4.json](../config/cluster-tp4.json) for the four-node
-ring (TP4, the full 1M context with 16 sequences), each with the TileLang
-kernel family and sparknet's one-shot collectives
-([r6 record](../experiments/2026-10-05-tilelang-r6/README.md)). The four-node
-profile reads the site's ring map from the git-ignored
+per node. Both layouts are shapes of one recipe,
+[config/cluster.json](../config/cluster.json): `tp3-triangle` for the
+three-node triangle and `tp4-ring` for the four-node ring (the full 1M context
+with 16 sequences), each with the TileLang kernel family and sparknet's
+one-shot collectives ([r6 record](../experiments/2026-10-05-tilelang-r6/README.md)).
+The site names its cabling with `bin/spark site shape NAME --apply`. The
+`tp4-ring` shape reads the site's ring map from the git-ignored
 `config/nodes-ring4.local.json`; start from
 [config/examples/nodes-ring4.json](../config/examples/nodes-ring4.json).
 
@@ -84,8 +84,7 @@ bin/spark --cluster-config experiments/2026-10-02-switchless-ring4/cluster.json 
 bin/spark --cluster-config experiments/2026-10-02-switchless-ring4/cluster.json render dgx4
 ```
 
-To use the 4 KiB base profile, put `--cluster-config config/cluster-4k.json`
-before `topology create`. Creating a three-node candidate preserves the base
+To use the 4 KiB base, put `--shape tp3-triangle-4k` before `topology create`. Creating a three-node candidate preserves the base
 three-node transport settings. Creation never overwrites a file and always
 sets `deployment.launch_enabled=false`; the image, model, context, KV budget
 and promoted baseline remain inherited. The baseline identifies the source
@@ -139,9 +138,8 @@ has the same revision and image. Physical recabling requires an explicit plan
 for restoring the original triangle; a watchdog cannot restore cables.
 The `scripts/lab.py` runner rejects a candidate whose node map differs from
 the window's production profile, because its automatic restoration targets
-that profile. Select the promoted four-node profile with
-`--production-config config/cluster-tp4.json`; the window records it in the
-hold file ([lab windows](lab.md#production-profile)).
+that profile. The default production profile is the recipe at the site's shape;
+the window records it in the hold file ([lab windows](lab.md#production-profile)).
 
 With serving stopped and the fabric addressed, render one probe command per
 node and run each command on the node it names, concurrently:

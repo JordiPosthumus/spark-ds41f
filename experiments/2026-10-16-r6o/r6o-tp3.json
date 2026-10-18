@@ -1,0 +1,16 @@
+{
+ "notes": "r6o on the three-node triangle: the recipe's tp3-triangle shape on r6o's image (r6n with step-aware Engram rows and checkpoint copies through anonymous memory).",
+ "extends": {
+  "config": "experiments/2026-10-16-r6s/r6n/cluster.json",
+  "shape": "tp3-triangle"
+ },
+ "set": {
+  "container": {
+   "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6o",
+   "expected_labels": {
+    "local.spark3.vllm.tree": "cfea587b469d1c62fa29c892f4d562956da9f1a5"
+   }
+  },
+  "upstreams_config": "experiments/2026-10-16-r6o/upstreams.lock.json"
+ }
+}

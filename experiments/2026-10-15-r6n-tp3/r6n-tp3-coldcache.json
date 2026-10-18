@@ -1,0 +1,11 @@
+{
+ "notes": "r6n on TP3 on an empty TileLang cache on every rank: the forum report's failure was an 83 s cold-JIT skew between TP3 ranks.",
+ "extends": {
+  "config": "experiments/2026-10-15-r6n-tp3/r6n-tp3.json"
+ },
+ "set": {
+  "environment": {
+   "TILELANG_CACHE_DIR": "/cache/kkref/jit/tilelang-cold-r6n-tp3"
+  }
+ }
+}

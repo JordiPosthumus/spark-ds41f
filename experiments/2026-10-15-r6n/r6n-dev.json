@@ -1,0 +1,11 @@
+{
+  "notes": "r6n with the engine's dev endpoints (servebench's engine grid).",
+  "extends": {
+    "config": "experiments/2026-10-15-r6n/r6n-release.json"
+  },
+  "set": {
+    "environment": {
+      "VLLM_SERVER_DEV_MODE": "1"
+    }
+  }
+}

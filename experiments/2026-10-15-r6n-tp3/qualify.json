@@ -1,0 +1,181 @@
+{
+ "experiment": "experiments/2026-10-15-r6n-tp3",
+ "run": "r6n-tp3-qualify",
+ "jobs": [
+  {
+   "kind": "sync"
+  },
+  {
+   "kind": "fabric",
+   "config": "r6n-tp3.json",
+   "script": "scripts/probe_collectives.py",
+   "label": "probe"
+  },
+  {
+   "kind": "fabric",
+   "config": "r6n-tp3.json",
+   "script": "experiments/2026-10-15-r6n/failstop.py",
+   "label": "failstop-eager",
+   "environment": {
+    "FAILSTOP_SCENARIO": "eager"
+   }
+  },
+  {
+   "kind": "fabric",
+   "config": "r6n-tp3.json",
+   "script": "experiments/2026-10-15-r6n/failstop.py",
+   "label": "failstop-graph",
+   "environment": {
+    "FAILSTOP_SCENARIO": "graph"
+   }
+  },
+  {
+   "kind": "measure",
+   "bench": false,
+   "bracket": false,
+   "telemetry": false,
+   "arms": [
+    {
+     "config": "r6n-tp3-traced.json",
+     "label": "f1"
+    }
+   ],
+   "extras": [
+    [
+     "scripts/servebench_run.py",
+     [
+      "--mode",
+      "poisson",
+      "--rate",
+      "0.3",
+      "--warmup",
+      "0",
+      "--duration",
+      "20",
+      "--extra-body",
+      "{\"chat_template_kwargs\":{\"thinking\":false}}",
+      "--label",
+      "{label}-poisson",
+      "--output",
+      "results/private/r6n-tp3/first-request/{label}-poisson.json"
+     ],
+     "poisson"
+    ],
+    [
+     "scripts/collect_node_traces.py",
+     [
+      "--out",
+      "results/private/r6n-tp3/first-request/{label}"
+     ],
+     "collect"
+    ]
+   ]
+  },
+  {
+   "kind": "measure",
+   "bench": false,
+   "bracket": false,
+   "telemetry": false,
+   "arms": [
+    {
+     "config": "r6n-tp3-traced.json",
+     "label": "f2"
+    }
+   ],
+   "extras": [
+    [
+     "scripts/servebench_run.py",
+     [
+      "--mode",
+      "poisson",
+      "--rate",
+      "0.3",
+      "--warmup",
+      "0",
+      "--duration",
+      "20",
+      "--extra-body",
+      "{\"chat_template_kwargs\":{\"thinking\":false}}",
+      "--label",
+      "{label}-poisson",
+      "--output",
+      "results/private/r6n-tp3/first-request/{label}-poisson.json"
+     ],
+     "poisson"
+    ],
+    [
+     "scripts/collect_node_traces.py",
+     [
+      "--out",
+      "results/private/r6n-tp3/first-request/{label}"
+     ],
+     "collect"
+    ]
+   ]
+  },
+  {
+   "kind": "measure",
+   "bench": false,
+   "bracket": false,
+   "telemetry": false,
+   "arms": [
+    {
+     "config": "r6n-tp3-traced.json",
+     "label": "f3"
+    }
+   ],
+   "extras": [
+    [
+     "scripts/servebench_run.py",
+     [
+      "--mode",
+      "poisson",
+      "--rate",
+      "0.3",
+      "--warmup",
+      "0",
+      "--duration",
+      "20",
+      "--extra-body",
+      "{\"chat_template_kwargs\":{\"thinking\":false}}",
+      "--label",
+      "{label}-poisson",
+      "--output",
+      "results/private/r6n-tp3/first-request/{label}-poisson.json"
+     ],
+     "poisson"
+    ],
+    [
+     "scripts/collect_node_traces.py",
+     [
+      "--out",
+      "results/private/r6n-tp3/first-request/{label}"
+     ],
+     "collect"
+    ]
+   ]
+  },
+  {
+   "kind": "measure",
+   "bench": false,
+   "bracket": false,
+   "telemetry": false,
+   "arms": [
+    {
+     "config": "r6n-tp3-coldcache.json",
+     "label": "cold"
+    }
+   ],
+   "extras": [
+    [
+     "scripts/collect_node_traces.py",
+     [
+      "--out",
+      "results/private/r6n-tp3/cold-cache/{label}"
+     ],
+     "collect"
+    ]
+   ]
+  }
+ ]
+}

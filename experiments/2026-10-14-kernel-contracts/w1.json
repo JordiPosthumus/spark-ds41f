@@ -1,0 +1,22 @@
+{
+  "experiment": "experiments/2026-10-14-kernel-contracts",
+  "run": "kernel-contracts-w1",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "kernel",
+      "bundles": [
+        {
+          "node": "dgx3",
+          "bundle": "experiments/2026-10-14-kernel-contracts/bundles/r6k"
+        },
+        {
+          "node": "dgx4",
+          "bundle": "experiments/2026-10-14-kernel-contracts/bundles/fixed"
+        }
+      ]
+    }
+  ]
+}

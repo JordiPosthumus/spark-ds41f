@@ -1,0 +1,18 @@
+{
+  "description": "The sparse MLA plan's split, decode and extend routes bit for bit at TP4/TP3 head counts, SWA-only and indexed, 1024 rows with a third at 1-8 keys; prints each kernel's exponential, reciprocal and FMA lines where they differ.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6j",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "/b/check_mla_routes.py"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "check_mla_routes.py",
+      "/b/check_mla_routes.py"
+    ]
+  ]
+}

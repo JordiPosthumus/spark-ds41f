@@ -1,0 +1,142 @@
+{
+  "experiment": "experiments/2026-10-14-servebench",
+  "run": "engine-validate",
+  "jobs": [
+    {
+      "kind": "sync"
+    },
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "scripts/servebench_engine.py",
+          [
+            "--label",
+            "r6k-grid1",
+            "--output",
+            "results/private/servebench/engine/r6k-grid1.json"
+          ],
+          "engine-grid1"
+        ],
+        [
+          "scripts/servebench_engine.py",
+          [
+            "--label",
+            "r6k-grid2",
+            "--output",
+            "results/private/servebench/engine/r6k-grid2.json"
+          ],
+          "engine-grid2"
+        ],
+        [
+          "scripts/servebench_model.py",
+          [
+            "--label",
+            "r6k",
+            "--output",
+            "results/private/servebench/model/r6k.json.gz"
+          ],
+          "model"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "engine-r6k.json",
+          "label": "r6k"
+        }
+      ]
+    },
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "scripts/servebench_engine.py",
+          [
+            "--label",
+            "r6h-grid1",
+            "--output",
+            "results/private/servebench/engine/r6h-grid1.json"
+          ],
+          "engine-grid1"
+        ],
+        [
+          "scripts/servebench_engine.py",
+          [
+            "--label",
+            "r6h-grid2",
+            "--output",
+            "results/private/servebench/engine/r6h-grid2.json"
+          ],
+          "engine-grid2"
+        ],
+        [
+          "scripts/servebench_model.py",
+          [
+            "--label",
+            "r6h",
+            "--corpus",
+            "results/private/servebench/model/r6k.json.gz",
+            "--output",
+            "results/private/servebench/model/r6h.json.gz"
+          ],
+          "model"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "engine-r6h.json",
+          "label": "r6h"
+        }
+      ]
+    },
+    {
+      "kind": "measure",
+      "bench": false,
+      "bracket": false,
+      "extras": [
+        [
+          "scripts/servebench_engine.py",
+          [
+            "--label",
+            "r6k-again-grid1",
+            "--output",
+            "results/private/servebench/engine/r6k-again-grid1.json"
+          ],
+          "engine-grid1"
+        ],
+        [
+          "scripts/servebench_engine.py",
+          [
+            "--label",
+            "r6k-again-grid2",
+            "--output",
+            "results/private/servebench/engine/r6k-again-grid2.json"
+          ],
+          "engine-grid2"
+        ],
+        [
+          "scripts/servebench_model.py",
+          [
+            "--label",
+            "r6k-again",
+            "--corpus",
+            "results/private/servebench/model/r6k.json.gz",
+            "--output",
+            "results/private/servebench/model/r6k-again.json.gz"
+          ],
+          "model"
+        ]
+      ],
+      "arms": [
+        {
+          "config": "engine-r6k.json",
+          "label": "r6k-again"
+        }
+      ]
+    }
+  ]
+}
