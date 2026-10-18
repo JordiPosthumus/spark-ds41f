@@ -77,7 +77,9 @@ bin/spark --cluster-config config/cluster-64k.json cluster start --apply
 
 Before starting, doctor naturally reports absent containers when the service
 is stopped. Kernel/module issues must be resolved before launch. The startup
-and steady memory guards remain at 5 GiB and 3 GiB respectively.
+and steady memory guards remain at 5 GiB and 3 GiB respectively, and the steady
+guard still needs three consecutive samples below its line before it stops a
+container.
 
 ## Return to the 4 KiB profile
 

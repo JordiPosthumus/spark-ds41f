@@ -49,6 +49,18 @@ esac
             "awk",
             """#!/usr/bin/env bash
 set -eu
+if [[ -n "${FAKE_MEM_SEQUENCE:-}" ]]; then
+  counter="$FAKE_STATE.calls"
+  calls=$(cat "$counter" 2>/dev/null || printf '0')
+  printf '%s\n' "$((calls + 1))" >"$counter"
+  IFS=',' read -r -a values <<<"$FAKE_MEM_SEQUENCE"
+  index=$calls
+  if ((index >= ${#values[@]})); then
+    index=$((${#values[@]} - 1))
+  fi
+  printf '%s\n' "$((values[index] * 1024 * 1024))"
+  exit 0
+fi
 printf '%s\n' "$FAKE_MEM_AVAILABLE_KIB"
 """,
         )
@@ -64,6 +76,16 @@ printf 'logger %s\n' "$*" >>"$FAKE_ACTIONS"
             """#!/usr/bin/env bash
 set -eu
 state=$(cat "$FAKE_STATE")
+if [[ -n "${FAKE_SLEEP_LIMIT:-}" ]]; then
+  counter="$FAKE_STATE.sleeps"
+  pauses=$(cat "$counter" 2>/dev/null || printf '0')
+  pauses=$((pauses + 1))
+  printf '%s\n' "$pauses" >"$counter"
+  if ((pauses >= FAKE_SLEEP_LIMIT)); then
+    printf 'false\n' >"$FAKE_STATE"
+  fi
+  exit 0
+fi
 case "$state" in
   absent) printf 'true\n' >"$FAKE_STATE" ;;
   true) printf 'false\n' >"$FAKE_STATE" ;;
@@ -94,7 +116,16 @@ fi
         command.chmod(0o755)
 
     def _run(
-        self, *, state: str, available_gib: int, wait_seconds: int
+        self,
+        *,
+        state: str,
+        available_gib: int,
+        wait_seconds: int,
+        phase: str = "startup",
+        sustained_samples: int | None = None,
+        warn_gib: int | None = None,
+        mem_sequence: list[int] | None = None,
+        sleep_limit: int | None = None,
     ) -> subprocess.CompletedProcess[str]:
         self.state.write_text(f"{state}\n", encoding="utf-8")
         environment = os.environ.copy()
@@ -104,7 +135,7 @@ fi
                 "CONTAINER_NAME": "candidate",
                 "THRESHOLD_GIB": "5",
                 "INTERVAL": "0.25",
-                "MEMGUARD_PHASE": "startup",
+                "MEMGUARD_PHASE": phase,
                 "WAIT_FOR_CONTAINER_SECONDS": str(wait_seconds),
                 "READY_FILE": str(self.ready),
                 "FAKE_STATE": str(self.state),
@@ -112,6 +143,16 @@ fi
                 "FAKE_MEM_AVAILABLE_KIB": str(available_gib * 1024 * 1024),
             }
         )
+        if sustained_samples is not None:
+            environment["MEMGUARD_SUSTAINED_SAMPLES"] = str(sustained_samples)
+        if warn_gib is not None:
+            environment["MEMGUARD_WARN_GIB"] = str(warn_gib)
+        if mem_sequence is not None:
+            environment["FAKE_MEM_SEQUENCE"] = ",".join(
+                str(value) for value in mem_sequence
+            )
+        if sleep_limit is not None:
+            environment["FAKE_SLEEP_LIMIT"] = str(sleep_limit)
         return subprocess.run(
             [str(MEMGUARD)],
             env=environment,
@@ -146,6 +187,71 @@ fi
         self.assertFalse(self.ready.exists())
         self.assertNotIn("kill --signal", self.actions.read_text())
 
+    def test_transient_pressure_keeps_the_container_running(self) -> None:
+        result = self._run(
+            state="true",
+            available_gib=4,
+            wait_seconds=0,
+            phase="steady",
+            sustained_samples=3,
+            mem_sequence=[4, 16, 16],
+            sleep_limit=3,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actions = self.actions.read_text(encoding="utf-8")
+        self.assertNotIn("kill --signal", actions)
+        self.assertIn("pressure on candidate during steady", actions)
+        self.assertIn("sample 1 of 3", actions)
+        self.assertIn("recovered above", actions)
+
+    def test_sustained_pressure_kills_on_the_configured_sample(self) -> None:
+        result = self._run(
+            state="true",
+            available_gib=4,
+            wait_seconds=0,
+            phase="steady",
+            sustained_samples=3,
+            mem_sequence=[4, 4, 4],
+            sleep_limit=5,
+        )
+
+        self.assertEqual(result.returncode, 1)
+        actions = self.actions.read_text(encoding="utf-8")
+        self.assertIn("kill kill --signal KILL candidate", actions)
+        self.assertIn("on 3 consecutive samples", actions)
+        self.assertEqual(actions.count("sample 1 of 3"), 1)
+        self.assertEqual(actions.count("sample 2 of 3"), 1)
+
+    def test_low_headroom_warns_once_per_crossing(self) -> None:
+        result = self._run(
+            state="true",
+            available_gib=6,
+            wait_seconds=0,
+            phase="steady",
+            sustained_samples=3,
+            warn_gib=8,
+            mem_sequence=[6, 6],
+            sleep_limit=2,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        actions = self.actions.read_text(encoding="utf-8")
+        self.assertNotIn("kill --signal", actions)
+        self.assertEqual(actions.count("low headroom on candidate"), 1)
+
+    def test_warn_threshold_above_the_kill_line_is_required(self) -> None:
+        result = self._run(
+            state="true",
+            available_gib=16,
+            wait_seconds=0,
+            phase="steady",
+            warn_gib=5,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("MEMGUARD_WARN_GIB must exceed THRESHOLD_GIB", result.stderr)
+
     def test_start_wrapper_confirms_protected_prelaunch_unit(self) -> None:
         environment = os.environ.copy()
         environment.update(
@@ -179,6 +285,8 @@ fi
         self.assertIn("--property=CPUWeight=1000", actions)
         self.assertIn("--setenv=INTERVAL=0.25", actions)
         self.assertIn("--setenv=WAIT_FOR_CONTAINER_SECONDS=120", actions)
+        self.assertIn("--setenv=MEMGUARD_SUSTAINED_SAMPLES=3", actions)
+        self.assertIn("--setenv=MEMGUARD_WARN_GIB=4", actions)
 
 
 if __name__ == "__main__":
