@@ -50,7 +50,7 @@ repository. Every one is an error unless marked **warn**.
 | Kernel backend | `--attention-backend`, `--linear-backend`, `--moe-backend`, the drafter's attention backend or `VLLM_DS41_KERNEL_BACKEND` disagree with `kernel_backend` (absent means B12X) |
 | Baseline | the configuration and the lock name different baselines |
 | Benchmark reference | a `benchmark_reference` is set but is not a repository-relative path to an existing report, or that report was measured on another node count, transport or `kernel_backend`; **warn** when the report does not record one of them |
-| Memory guards | a guard value is missing or not positive; the startup guard is not larger than the steady guard |
+| Memory guards | a guard value is missing or not positive; the startup guard is not larger than the steady guard; the low-headroom warning is not above the steady guard |
 | Deployment | `repository`, `path`, `ready_url` or `ready_timeout_seconds` is empty; `launch_enabled` is not true or false |
 | Sources | a revision is not a full commit SHA; a tracking ref or upstream is missing; a patch series or patch file is missing; a patch set's fingerprint differs from the source manifest; TileLang is listed without TileKernels (or the reverse) |
 | Image identity | the image's expected tree labels do not match the source manifest; a sparknet transport runs on an image without sparknet, or a sparknet image is given a B12X transport |
@@ -155,7 +155,13 @@ on every node, and refuses to launch on any failure:
 Then it arms a 5 GiB startup memory guard on every node before any container
 starts, starts the ranks, waits for the API, and switches to the 3 GiB steady
 guard. A node whose available memory falls below the guard has its container
-killed, which protects SSH and the host rather than an unready service.
+killed, which protects SSH and the host rather than an unready service. The
+steady guard acts on sustained pressure only: it kills after
+`host.memguard_sustained_samples` consecutive samples below the line (three at
+the promoted two-second interval) and logs low headroom once per crossing below
+`host.memguard_warn_gib`, so one sample of a momentary dip neither stops a
+healthy service nor goes unrecorded. The startup guard stays a launch gate and
+keeps refusing a launch into a host that is already short of memory.
 
 `bin/spark bench` also refuses to measure a cluster whose live configuration
 differs from the selected profile.

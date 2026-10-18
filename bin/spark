@@ -357,6 +357,18 @@ def local_doctor(cluster: dict, nodes: dict, upstreams: dict) -> list[str]:
         value = host.get(key)
         if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
             problems.append(f"host.{key} must be a positive integer")
+    sustained = host.get("memguard_sustained_samples", 1)
+    if not isinstance(sustained, int) or isinstance(sustained, bool) or sustained <= 0:
+        problems.append("host.memguard_sustained_samples must be a positive integer")
+    warn_gib = host.get("memguard_warn_gib", 0)
+    if not isinstance(warn_gib, int) or isinstance(warn_gib, bool) or warn_gib < 0:
+        problems.append("host.memguard_warn_gib must be a non-negative integer")
+    elif (
+        warn_gib > 0
+        and isinstance(host.get("memguard_gib"), int)
+        and warn_gib <= host["memguard_gib"]
+    ):
+        problems.append("host.memguard_warn_gib must exceed host.memguard_gib")
     if not isinstance(host.get("fan_control", True), bool):
         problems.append("host.fan_control must be a boolean")
     for key in ("memguard_interval_seconds", "startup_memguard_interval_seconds"):

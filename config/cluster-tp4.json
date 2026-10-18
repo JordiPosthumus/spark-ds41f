@@ -51,6 +51,8 @@
     "home": "/home/swank",
     "memguard_gib": 3,
     "memguard_interval_seconds": 2,
+    "memguard_sustained_samples": 3,
+    "memguard_warn_gib": 4,
     "startup_memguard_gib": 5,
     "startup_memguard_interval_seconds": 0.25,
     "startup_memguard_wait_seconds": 120,

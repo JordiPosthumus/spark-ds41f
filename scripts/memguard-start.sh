@@ -23,6 +23,8 @@ if [[ ! -f "$config_path" ]]; then
 fi
 
 name=$(jq -er '.container.name' "$config_path")
+sustained=$(jq -r '.host.memguard_sustained_samples // 1' "$config_path")
+warn_gib=$(jq -r '.host.memguard_warn_gib // 0' "$config_path")
 case "$phase" in
   startup)
     guard_gib=$(jq -er '.host.startup_memguard_gib' "$config_path")
@@ -85,13 +87,15 @@ sudo -n systemd-run --quiet \
   --setenv="CONTAINER_NAME=$name" \
   --setenv="MEMGUARD_PHASE=$phase" \
   --setenv="WAIT_FOR_CONTAINER_SECONDS=$wait_seconds" \
+  --setenv="MEMGUARD_SUSTAINED_SAMPLES=$sustained" \
+  --setenv="MEMGUARD_WARN_GIB=$warn_gib" \
   --setenv="READY_FILE=$ready_file" \
   "$repo_root/scripts/memguard.sh"
 
 for _ in {1..50}; do
   if [[ -f "$ready_file" ]]; then
     rm -f -- "$ready_file"
-    echo "$phase memguard active for $name (threshold ${guard_gib} GiB, interval ${interval}s, mode $mode)"
+    echo "$phase memguard active for $name (threshold ${guard_gib} GiB, interval ${interval}s, sustained ${sustained} samples, warn ${warn_gib} GiB, mode $mode)"
     exit 0
   fi
   if ! sudo -n systemctl is-active --quiet "$unit"; then
