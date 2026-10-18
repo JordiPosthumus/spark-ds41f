@@ -6,6 +6,8 @@ set -euo pipefail
 : "${INTERVAL:?INTERVAL is required}"
 : "${MEMGUARD_PHASE:=steady}"
 : "${WAIT_FOR_CONTAINER_SECONDS:=0}"
+: "${MEMGUARD_SUSTAINED_SAMPLES:=1}"
+: "${MEMGUARD_WARN_GIB:=0}"
 : "${READY_FILE:=}"
 
 if ! [[ "$THRESHOLD_GIB" =~ ^[1-9][0-9]*$ ]]; then
@@ -20,11 +22,26 @@ if ! [[ "$WAIT_FOR_CONTAINER_SECONDS" =~ ^[0-9]+$ ]]; then
   echo "WAIT_FOR_CONTAINER_SECONDS must be a non-negative integer" >&2
   exit 2
 fi
+if ! [[ "$MEMGUARD_SUSTAINED_SAMPLES" =~ ^[1-9][0-9]*$ ]]; then
+  echo "MEMGUARD_SUSTAINED_SAMPLES must be a positive integer" >&2
+  exit 2
+fi
+if ! [[ "$MEMGUARD_WARN_GIB" =~ ^[0-9]+$ ]]; then
+  echo "MEMGUARD_WARN_GIB must be a non-negative integer" >&2
+  exit 2
+fi
+if ((MEMGUARD_WARN_GIB > 0 && MEMGUARD_WARN_GIB <= THRESHOLD_GIB)); then
+  echo "MEMGUARD_WARN_GIB must exceed THRESHOLD_GIB" >&2
+  exit 2
+fi
 
 threshold_kib=$((THRESHOLD_GIB * 1024 * 1024))
+warn_kib=$((MEMGUARD_WARN_GIB * 1024 * 1024))
 deadline=$((SECONDS + WAIT_FOR_CONTAINER_SECONDS))
 observed_running=false
 ready=false
+breaches=0
+warned=false
 
 while true; do
   inspectable=true
@@ -58,15 +75,35 @@ while true; do
     exit 1
   fi
   if ((available_kib < threshold_kib)); then
-    if [[ "$running" == "true" ]]; then
-      logger -t spark-memguard \
-        "killing $CONTAINER_NAME during $MEMGUARD_PHASE: MemAvailable ${available_kib} KiB below ${threshold_kib} KiB"
-      docker kill --signal KILL "$CONTAINER_NAME" >/dev/null
-    else
+    if [[ "$running" != "true" ]]; then
       logger -t spark-memguard \
         "refusing to wait for $CONTAINER_NAME during $MEMGUARD_PHASE: MemAvailable ${available_kib} KiB below ${threshold_kib} KiB"
+      exit 1
     fi
-    exit 1
+    breaches=$((breaches + 1))
+    if ((breaches >= MEMGUARD_SUSTAINED_SAMPLES)); then
+      logger -t spark-memguard \
+        "killing $CONTAINER_NAME during $MEMGUARD_PHASE: MemAvailable ${available_kib} KiB below ${threshold_kib} KiB on ${breaches} consecutive samples"
+      docker kill --signal KILL "$CONTAINER_NAME" >/dev/null
+      exit 1
+    fi
+    logger -t spark-memguard \
+      "pressure on $CONTAINER_NAME during $MEMGUARD_PHASE: MemAvailable ${available_kib} KiB below ${threshold_kib} KiB (sample ${breaches} of ${MEMGUARD_SUSTAINED_SAMPLES}; container kept running)"
+  else
+    if ((breaches > 0)); then
+      logger -t spark-memguard \
+        "$CONTAINER_NAME during $MEMGUARD_PHASE recovered above ${threshold_kib} KiB after ${breaches} consecutive samples"
+    fi
+    breaches=0
+    if ((warn_kib > 0)) && ((available_kib < warn_kib)); then
+      if [[ "$warned" == "false" ]]; then
+        logger -t spark-memguard \
+          "low headroom on $CONTAINER_NAME during $MEMGUARD_PHASE: MemAvailable ${available_kib} KiB below ${warn_kib} KiB"
+        warned=true
+      fi
+    elif [[ "$warned" == "true" ]]; then
+      warned=false
+    fi
   fi
 
   if [[ "$ready" == "false" ]]; then
