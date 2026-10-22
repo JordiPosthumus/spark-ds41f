@@ -1,0 +1,18 @@
+$ image vllm-ds41f-kkref:19f2c20ed4d6-r6x sha256:4a5469f35da5d98d1591eefd5403b25b0059c5c46341136268884a911af22d9d
+$ mounts: -v /home/acermax/scratch-dsv41fix/exp/bundles/tokenizer-tests/tests_tokenizers__test_deepseek_v41.py:/opt/spark3/candidate/vllm/tests/tokenizers_/test_deepseek_v41.py:ro
+$ python3 -m pytest -q -rfE -p no:cacheprovider --noconftest -p tests.parser.engine.conftest tests/parser/engine/test_deepseek_v4.py tests/parser/engine/test_deepseek_v41.py tests/tokenizers_/test_deepseek_v4.py tests/tokenizers_/test_deepseek_v41.py tests/tokenizers_/test_deepseek_v41_effort.py
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[True-user]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[True-text_part]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[True-system]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[True-reasoning]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[True-tool_result]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[True-arguments_escaped]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[True-tool_description]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[False-user]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[False-text_part]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[False-system]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[False-tool_result]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[False-arguments_escaped]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_control_spellings_in_request_text_stay_plain_text[False-tool_description]
+FAILED tests/tokenizers_/test_deepseek_v41.py::test_renderer_tokenizes_so_control_spellings_stay_text
+14 failed, 240 passed in 3.19s

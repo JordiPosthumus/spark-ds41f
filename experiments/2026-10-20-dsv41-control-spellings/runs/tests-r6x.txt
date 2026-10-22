@@ -1,0 +1,4 @@
+$ image vllm-ds41f-kkref:19f2c20ed4d6-r6x sha256:4a5469f35da5d98d1591eefd5403b25b0059c5c46341136268884a911af22d9d
+$ mounts: none
+$ python3 -m pytest -q -rfE -p no:cacheprovider --noconftest -p tests.parser.engine.conftest tests/parser/engine/test_deepseek_v4.py tests/parser/engine/test_deepseek_v41.py tests/tokenizers_/test_deepseek_v4.py tests/tokenizers_/test_deepseek_v41.py tests/tokenizers_/test_deepseek_v41_effort.py
+235 passed in 1.91s

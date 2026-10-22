@@ -1,0 +1,23 @@
+{
+  "notes": "r6x TP3 with the candidate V4.1 tokenizer and renderer (0222) as runtime overlays; no test code.",
+  "extends": {
+    "config": "config/cluster.json",
+    "shape": "tp3-triangle"
+  },
+  "set": {
+    "container": {
+      "mounts": [
+        [
+          "{home}/projects/spark-ds41f/experiments/2026-10-20-dsv41-control-spellings/bundles/tokenizer-tests/vllm_tokenizers_deepseek_v41.py",
+          "/opt/spark3/candidate/vllm/vllm/tokenizers/deepseek_v41.py",
+          "ro"
+        ],
+        [
+          "{home}/projects/spark-ds41f/experiments/2026-10-20-dsv41-control-spellings/bundles/tokenizer-tests/vllm_renderers_deepseek_v41.py",
+          "/opt/spark3/candidate/vllm/vllm/renderers/deepseek_v41.py",
+          "ro"
+        ]
+      ]
+    }
+  }
+}

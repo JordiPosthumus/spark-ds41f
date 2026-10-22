@@ -1,0 +1,27 @@
+{
+  "description": "Isolated candidate tests on r6x; source base r6x series, candidate 0222. Production files stay in the image; CPU only.",
+  "image": "vllm-ds41f-kkref:19f2c20ed4d6-r6x",
+  "env": {
+    "HF_HUB_OFFLINE": "1"
+  },
+  "workdir": "/opt/spark3/candidate/vllm",
+  "argv": [
+    "-c",
+    "import subprocess,sys\nsys.exit(subprocess.run([sys.executable,'-m', 'pytest', '-q', '-rfEs', '-p', 'no:cacheprovider', '--noconftest', '-p', 'tests.parser.engine.conftest', 'tests/parser/engine/test_deepseek_v4.py', 'tests/parser/engine/test_deepseek_v41.py', 'tests/tokenizers_/test_deepseek_v4.py', 'tests/tokenizers_/test_deepseek_v41.py', 'tests/tokenizers_/test_deepseek_v41_effort.py'],timeout=900).returncode)"
+  ],
+  "verdict": "exit",
+  "mounts": [
+    [
+      "vllm_tokenizers_deepseek_v41.py",
+      "/opt/spark3/candidate/vllm/vllm/tokenizers/deepseek_v41.py"
+    ],
+    [
+      "vllm_renderers_deepseek_v41.py",
+      "/opt/spark3/candidate/vllm/vllm/renderers/deepseek_v41.py"
+    ],
+    [
+      "tests_tokenizers__test_deepseek_v41.py",
+      "/opt/spark3/candidate/vllm/tests/tokenizers_/test_deepseek_v41.py"
+    ]
+  ]
+}
