@@ -16,7 +16,7 @@ shape on one image; a shape changes only its cabling and its memory sizing.
 | Sparks | Cabling | Shape | Context | Sequences | KV per rank | Kernel | Memory saver |
 | --- | --- | --- | ---: | ---: | ---: | --- | --- |
 | 3 | triangle | `tp3-triangle-4k` | 262,144 | 8 | 2.2 GiB | stock 4 KiB | not needed |
-| 3 | triangle | `tp3-triangle` | 524,288 | 8 | 3.5 GiB | 64 KiB | required |
+| 3 | triangle | `tp3-triangle` | 1,048,576 | 8 | 4.91 GiB | 64 KiB | required |
 | 4 | ring | `tp4-ring` | 1,048,576 | 16 | 10.5 GiB | 64 KiB | required |
 | 2 | — | — | — | — | — | — | — |
 
@@ -26,7 +26,7 @@ unless given `--unqualified-shape`. Two Sparks are not supported.
 
 **Two Sparks** cannot hold this model with useful context. At three Sparks,
 the head node already runs within about 3 GiB of its memory guard during a
-500K prefill, and two would each hold half as much again of the weights.
+1M prefill, and two would each hold half as much again of the weights.
 
 **The 4 KiB profile is the shortest path to a running service**: it needs no
 kernel change and no out-of-tree module. The 64 KiB profiles recover about
@@ -123,7 +123,7 @@ sudo systemctl disable --now display-manager.service   # host-recovery apply doe
 
 **What you gain:** the desktop's processes and GPU buffers come out of the
 same unified memory as the model. At TP3 the head node runs within about
-3 GiB of its steady memory guard during a 500K-token prefill, so a desktop
+3 GiB of its steady memory guard during a 1M-token prefill, so a desktop
 session can push a long prefill into the guard, which kills the container.
 `scripts/host-recovery apply` also disables Bluetooth, CUPS, snapd, fwupd's
 refresh timer and the DGX Dashboard, whose update checks peak near 850 MiB.
