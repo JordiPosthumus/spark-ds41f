@@ -202,6 +202,41 @@ heap, CPython arenas, glibc thread arenas, large single mappings, files), which 
 allocator high-water from live objects. Each arm's two boots also give the start-up peak's
 attribution by phase (allocator trace against the engine log) on four nodes.
 
+**Result (2026-10-23 17:15-19:50 CET, run `next-memory-tp4`).** Both arms served the same load
+without an error: 554 agent turns (20 restarts of a session, prompts up to 966,014 tokens, 270M
+prompt tokens) and about 310 chat requests. dgx1, where the API server and engine core run:
+
+| Process | Plain: soak start -> 10 min -> 75 min (high) | Malloc pinned |
+| --- | --- | --- |
+| API server | 1.76 -> 2.84 -> 2.92 GiB (3.19) | 1.67 -> 1.95 -> 2.02 GiB (2.28) |
+| engine core | 1.51 -> 1.64 -> 1.67 GiB | 1.44 -> 1.55 -> 1.61 GiB |
+| lowest MemAvailable during the soak | 17.10 GiB | 18.11 GiB |
+
+By mapping kind, the plain API server's growth is glibc's per-thread arenas: 79 MiB in 19 arena
+mappings at the start, 1,158 MiB in 36 at the end (+1,078 of its +1,159 MiB); the brk heap, CPython's
+arenas and file mappings barely move. It is a high-water mark, not a leak: the API server reaches
+it within ten minutes and holds it (2.72-2.99 GiB from 20 to 75 minutes). Each request thread that
+parses, renders and tokenizes a million-token conversation frees its buffers into its own arena,
+and glibc keeps an arena's freed memory; glibc also raises its mmap threshold after a large free,
+so later large buffers come from the arenas instead of mmap. With two arenas and a fixed 1 MiB
+threshold the API server grows 0.35 GiB, nearly all in the first ten minutes (1.95 GiB at 10
+minutes, 2.02 at 75). The engine core's smaller growth (+0.16 GiB) is the same in both arms.
+#439's three hours of ordinary use (API server +0.76 GiB, engine core +0.54 GiB) fit this.
+
+The fix is the two settings in the recipe's environment (`MALLOC_ARENA_MAX=2`,
+`MALLOC_MMAP_THRESHOLD_=1048576`), for every process of the container; candidate 2 carries them and
+its release comparison checks that they cost nothing.
+
+**Start-up on the ring: nothing to cut.** Each arm's boot was traced (allocator totals every
+0.1 s against the engine log; [analyze_startup.py](memory/analyze_startup.py)). dgx1 reaches API
+readiness with 19.15 and 19.32 GiB available, 14 GiB above the 5 GiB guard; the lows after that
+(18.93, 18.69 GiB) come with the soak's first minute, not the boot. torch's reserve only grows
+through the boot (72.9 GiB weights, 77.7 with the KV pool, 88.1 after preparation, 91.0 after graph
+capture; nothing is released and reallocated), and MemAvailable falls as the page cache gives way
+to the GPU's memory. The 0.5-1.2 GiB released late after TP3 boots (2026-10-22, four boots) does
+not occur at TP4; attributing it needs the triangle cabled. What TP3's guard was short of in #439 is
+steady headroom on the head node, which the arena fix returns (about 1 GiB at the soak's load).
+
 ### A 24,576 budget ([budget24-tp4.json](budget24-tp4.json))
 
 Suggested to the owner on 2026-10-23: try 24K. [budget-24576-tp4.json](budget-24576-tp4.json) is
@@ -210,6 +245,24 @@ candidate 1 at 24,576 (threshold 24,480); the sweep is the 16,384 one's suite, 2
 a smaller step than 8K -> 16K (the per-step overhead is already amortized over twice the tokens,
 and the CED skip trims fewer nonfinal chunks), about three times 8K's stall step, and about
 3 GiB more peak memory.
+
+**Result (2026-10-23 19:50-20:29 CET, run `next-budget24-tp4`).** Verdicts 16,384 -> 24,576
+against the 24,576 repeat:
+
+| Metric | 16,384 | 24,576 | Change |
+| --- | --- | --- | --- |
+| prefill 32,768, tok/s | 6,733 | 6,907 | +2.6% |
+| prefill 131,072, tok/s | 6,733 | 6,865 | +2.0% |
+| prefill 524,288, tok/s | 5,805 | 5,902 | +1.7% |
+| prefill 1,000,000 (one cold run), tok/s | 4,893 | 4,962 / 4,981 | +1.4-1.8% |
+| prefill 131,072 under 15 decoding streams, tok/s | 6,311 | 6,531 | +3.5% |
+| those streams' decode step during it, p50 / p99 | 2.36 / 2.61 s | 1.63 / 3.74 s | -31% / +43% |
+| their worst wait | 4.10 s | 6.04 s | same (interval ±100%) |
+| lowest MemAvailable (dgx1) | 18.0 GiB | 15.4 GiB | -2.6 GiB |
+
+The second step is a third of the first (8,192 -> 16,384 gave +5.4-6.3%): 2% more prefill for
+steps up to 43% longer at p99 beside a long prompt and 2.6 GiB less headroom. The release stays at
+16,384 (owner, 2026-10-23: "do 16").
 
 ### Draft acceptance ([acceptance/](acceptance))
 
@@ -229,6 +282,26 @@ temperature 0, four categories (prose; reproduce a source file; the file with a 
 every `def`; an edit tool call whose old_string is a copied function), DSpark's tokens a step from
 the spec-decode counters, and a suffix drafter simulated on the exact token ids the server
 returns. Queued as [copy-tp4.json](acceptance/copy-tp4.json) in the same window.
+
+**Result (2026-10-23 20:29-20:37 CET, run `next-copy-tp4`, candidate 1).** Twelve requests a category,
+no errors; DSpark's tokens a step from the counters, a suffix drafter simulated on the same token ids:
+
+| Category | Output tokens | DSpark | Suffix, 8-token match, up to 16 | 16-token match | 8-token match, up to 8 |
+| --- | --- | --- | --- | --- | --- |
+| prose | 4,464 | 2.24 | 2.24 | 2.24 | 2.24 |
+| reproduce a file | 18,177 | 4.96 | 15.9 | 16.3 | 8.4 |
+| the file with comments added | 18,310 | 5.10 | 14.9 | 14.9 | 8.2 |
+| an edit tool call | 2,122 | 5.41 | 7.1 | 7.3 | 6.1 |
+
+DSpark already takes about 5 of its 6 possible tokens a step on copied text: the transcripts
+study's flat 2.25 overstated the gap. What a suffix drafter adds is length: 16 tokens instead of
+DSpark's block of 5, three times the tokens a step on long copies, a third more on tool calls,
+nothing on prose. Weighted by the agent proxy's copy share (38% of output tokens, 19% if hidden
+reasoning copies like prose), with DSpark at about 5 on copies and 2.25 elsewhere, that is
+roughly +7-17% tokens a step at one stream, before the cost of verifying 17-row blocks. Building
+it is a hybrid drafter (per request, a suffix proposal when one matches, DSpark otherwise),
+variable-length block verification and graphs for the wider blocks: the next release's work, not
+this one's.
 
 ### spark-ds41f-1022's recipe frozen ([1022/](1022))
 
