@@ -1,0 +1,35 @@
+{
+  "status": "complete",
+  "question": "Why does qeval json_count answer 11 (want 10) at temperature 0 on the recipe (receipt 2026-10-17-site-tp4-4k-1017)?",
+  "conclusion": "model behaviour shared with DeepSeek's reference implementation; no serving defect",
+  "runs": [
+    "runs/production-r6v.json",
+    "runs/ref-woa1.json",
+    "runs/ref-woa1-fp64.json",
+    "runs/ref-woa0.json",
+    "runs/ref-woa1-run1.json"
+  ],
+  "summary": {
+    "prompt_ids_match_reference_encoding": true,
+    "number_step_logprob": {
+      "production_r6v": {"11": -0.501, "10": -1.293, "12": -2.248},
+      "reference_fp32": {"11": -0.471, "10": -1.337, "12": -2.299},
+      "reference_fp64": {"11": -0.544, "10": -1.111, "12": -2.629},
+      "reference_without_wo_a_input_quant": {"11": -0.724, "10": -0.806, "12": -3.302}
+    },
+    "greedy_reply": {
+      "production_r6v": "{\"vowels\": 11}",
+      "reference_fp32": "{\"vowels\": 11}",
+      "reference_fp64": "{\"vowels\": 11}",
+      "reference_without_wo_a_input_quant": "{\"vowels\": 11}",
+      "production_r6v_thinking_on": "{\"vowels\": 10}"
+    },
+    "prompt_token_abs_delta_logprob_vs_reference_fp32": {
+      "production_r6v": {"median": 0.056, "mean": 0.364, "max": 2.538},
+      "reference_fp64": {"median": 0.087, "mean": 0.395, "max": 3.133}
+    },
+    "reference_runs": {"seconds": [460.4, 468.9, 491.6, 463.7], "gib_read": 152.5, "host": "dgx4 CPU, cores 0-4,10-14, 6 GiB cap"},
+    "minimum_host_mem_available_gib": 20.8,
+    "request_failures": 0
+  }
+}

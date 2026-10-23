@@ -1,0 +1,62 @@
+number step: log-probability of each answer after '{"vowels": '
+  run                                                                     9       10       11       12       13   greedy reply
+  production r6v                                                     -4.457   -1.293   -0.501   -2.248   -6.494   {"vowels": 11}
+  ref-woa1.json (WO-A input quant on, float32 accumulation)          -4.529   -1.337   -0.471   -2.299   -6.650   {"vowels": 11}
+  ref-woa1-fp64.json (WO-A input quant on, float64 accumulation)     -4.110   -1.111   -0.544   -2.629   -6.857   {"vowels": 11}
+  ref-woa0.json (WO-A input quant off, float32 accumulation)         -3.496   -0.806   -0.724   -3.302   -7.713   {"vowels": 11}
+  ref-woa1-run1.json (WO-A input quant on, float32 accumulation)     -4.529   -1.337   -0.471   -2.299   -6.650   {"vowels": 11}
+
+ref-woa1.json (WO-A input quant on, float32 accumulation) against production
+  prompt tokens (38): |delta logprob| mean 0.364, median 0.056, max 2.538; top-1 agrees at 34/38
+  reply step 0: top-1 24313 (-0.076) / 24313 (-0.340); top-5 shared 5, |delta| max 1.506
+  reply step 1: top-1 88 (0.000) / 88 (-0.000); top-5 shared 5, |delta| max 2.462
+  reply step 2: top-1 119906 (-0.000) / 119906 (0.000); top-5 shared 4, |delta| max 2.108
+  reply step 3: top-1 3362 (0.000) / 3362 (-0.000); top-5 shared 5, |delta| max 0.981
+  reply step 4: top-1 223 (-0.000) / 223 (-0.000); top-5 shared 5, |delta| max 0.750
+  reply step 5: top-1 779 (-0.501) / 779 (-0.471); top-5 shared 5, |delta| max 0.156
+  reply step 6: top-1 95 (-0.000) / 95 (-0.000); top-5 shared 5, |delta| max 1.393
+  reply step 7: top-1 1 (0.000) / 1 (0.000); top-5 shared 5, |delta| max 1.071
+
+ref-woa1-fp64.json (WO-A input quant on, float64 accumulation) against production
+  prompt tokens (38): |delta logprob| mean 0.350, median 0.128, max 2.880; top-1 agrees at 34/38
+  reply step 0: top-1 24313 (-0.076) / 24313 (-0.143); top-5 shared 5, |delta| max 0.742
+  reply step 1: top-1 88 (0.000) / 88 (-0.000); top-5 shared 5, |delta| max 1.363
+  reply step 2: top-1 119906 (-0.000) / 119906 (-0.000); top-5 shared 5, |delta| max 0.173
+  reply step 3: top-1 3362 (0.000) / 3362 (0.000); top-5 shared 5, |delta| max 0.519
+  reply step 4: top-1 223 (-0.000) / 223 (-0.000); top-5 shared 5, |delta| max 1.613
+  reply step 5: top-1 779 (-0.501) / 779 (-0.544); top-5 shared 5, |delta| max 0.380
+  reply step 6: top-1 95 (-0.000) / 95 (-0.000); top-5 shared 5, |delta| max 0.988
+  reply step 7: top-1 1 (0.000) / 1 (0.000); top-5 shared 5, |delta| max 0.573
+
+ref-woa0.json (WO-A input quant off, float32 accumulation) against production
+  prompt tokens (38): |delta logprob| mean 0.359, median 0.143, max 2.601; top-1 agrees at 35/38
+  reply step 0: top-1 24313 (-0.076) / 24313 (-0.276); top-5 shared 5, |delta| max 1.335
+  reply step 1: top-1 88 (0.000) / 88 (-0.000); top-5 shared 5, |delta| max 2.328
+  reply step 2: top-1 119906 (-0.000) / 119906 (0.000); top-5 shared 4, |delta| max 1.695
+  reply step 3: top-1 3362 (0.000) / 3362 (0.000); top-5 shared 5, |delta| max 0.642
+  reply step 4: top-1 223 (-0.000) / 223 (-0.000); top-5 shared 5, |delta| max 0.741
+  reply step 5: top-1 779 (-0.501) / 779 (-0.724); top-5 shared 5, |delta| max 1.219
+  reply step 6: top-1 95 (-0.000) / 95 (-0.000); top-5 shared 5, |delta| max 0.622
+  reply step 7: top-1 1 (0.000) / 1 (0.000); top-5 shared 5, |delta| max 0.846
+
+ref-woa1-fp64.json (WO-A input quant on, float64 accumulation) against ref-woa1.json
+  prompt tokens (38): |delta logprob| mean 0.395, median 0.087, max 3.133; top-1 agrees at 34/38
+  reply step 0: top-1 24313 (-0.340) / 24313 (-0.143); top-5 shared 5, |delta| max 1.162
+  reply step 1: top-1 88 (-0.000) / 88 (-0.000); top-5 shared 5, |delta| max 1.956
+  reply step 2: top-1 119906 (0.000) / 119906 (-0.000); top-5 shared 4, |delta| max 0.913
+  reply step 3: top-1 3362 (-0.000) / 3362 (0.000); top-5 shared 5, |delta| max 1.259
+  reply step 4: top-1 223 (-0.000) / 223 (-0.000); top-5 shared 5, |delta| max 1.287
+  reply step 5: top-1 779 (-0.471) / 779 (-0.544); top-5 shared 5, |delta| max 0.419
+  reply step 6: top-1 95 (-0.000) / 95 (-0.000); top-5 shared 5, |delta| max 1.258
+  reply step 7: top-1 1 (0.000) / 1 (0.000); top-5 shared 5, |delta| max 1.720
+
+ref-woa0.json (WO-A input quant off, float32 accumulation) against ref-woa1.json
+  prompt tokens (38): |delta logprob| mean 0.344, median 0.125, max 2.611; top-1 agrees at 37/38
+  reply step 0: top-1 24313 (-0.340) / 24313 (-0.276); top-5 shared 5, |delta| max 1.493
+  reply step 1: top-1 88 (-0.000) / 88 (-0.000); top-5 shared 5, |delta| max 1.519
+  reply step 2: top-1 119906 (0.000) / 119906 (0.000); top-5 shared 5, |delta| max 0.960
+  reply step 3: top-1 3362 (-0.000) / 3362 (0.000); top-5 shared 5, |delta| max 0.345
+  reply step 4: top-1 223 (-0.000) / 223 (-0.000); top-5 shared 5, |delta| max 1.028
+  reply step 5: top-1 779 (-0.471) / 779 (-0.724); top-5 shared 5, |delta| max 1.063
+  reply step 6: top-1 95 (-0.000) / 95 (-0.000); top-5 shared 5, |delta| max 0.891
+  reply step 7: top-1 1 (0.000) / 1 (0.000); top-5 shared 5, |delta| max 1.258

@@ -47,6 +47,9 @@ SGLang = MiaAI-Lab DeepSeek-v4.1-Flash-DGX-Sparks production line (cad252b, TP4/
 Losses: one reproducible extra qeval miss (`json_count`: 11 for 10); at C16, coding / math / format 1-7% below SGLang in
 both runs. The two spark-ds41f runs agree within 0.4% on decode and produce identical qeval text (temperature 0).
 
+Follow-up (2026-10-18): DeepSeek's reference implementation answers `json_count` with 11 as well, and production
+matches it; see [2026-10-18-json-count](../2026-10-18-json-count/README.md).
+
 Limits: one boot per engine, no confidence intervals, no soak or agent workload; the battery is this site's own, not
 `bin/spark bench` (no fan-floor control installed); run 2's v41bench prefill cells hit the prefix cache and are not used -
 the salted sweep is the prefill comparison.
