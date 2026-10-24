@@ -110,3 +110,79 @@ nothing else. The gate: the TileLang sampler's per-block maxima and argmaxes equ
 bit across seeds, positions, temperatures (0, 1, 0.6, 1.3), FP32 and FP64 draws, drafting and
 target streams, and logits with ties, infinities and NaN; then the full-model determinism gate at
 temperature 0 and a seeded temperature-1 run identical to the previous release.
+
+## The sampling family in TileLang (vLLM branch `tilelang-sampling`, 2026-10-24)
+
+Two commits on release-next's 174a746f4 (0265): a module commit with the kernels, their tests
+and benchmark (`vllm/v1/worker/gpu/sample/tilelang_sampling.py`), and a switch commit that
+points the call sites at them. The Triton kernels stay as the tests' reference.
+
+| TileLang kernel | Replaces | Contract |
+| --- | --- | --- |
+| `gumbel_sample_kernel` | `gumbel._gumbel_sample_kernel` | target, drafting and logits-cache variants; per-block maxima and indices bit for bit |
+| `temperature_kernel` | `gumbel._temperature_kernel` | `div.full.f32`, in place |
+| `sink_candidates_kernel` | `sink._sink_candidates_kernel` | four argmax passes per block over the same noise |
+| `sink_policy_kernel` | `sink._sink_policy_kernel` | every output and every state buffer it touches |
+| `partial_argmax_kernel` | `greedy._partial_argmax`, `_partial_argmax_logits` | 16-byte reads where the rows allow them, as Triton's aligned specialization |
+| `finish_argmax_kernel` | `greedy._finish_argmax_pair`, `_finish_argmax` | |
+| `select_first_argmax_kernel` | `greedy._select_first_argmax` | |
+| `greedy_rejection_kernel` | `greedy_verification._greedy_rejection_kernel` | |
+
+- **The random stream.** Philox-4x32 with ten rounds and Triton 3.5's seed and counter
+  layout; the FP32 noise as Triton compiles it, with libdevice's `log1pf` and `logf` from
+  Triton's bundled libdevice (flush-to-zero FMAs) carried as inline PTX in one shared header.
+  CUDA 13's own libdevice is another implementation, so calling `log1pf` from CUDA C would not
+  give Triton's bits. Instruction for instruction the header matches the PTX Triton 3.5 emits
+  for sm_121a; the test compares the noise on all 2**32 Philox words.
+- **The reduction order.** A comparison with NaN is false, so which index a block with NaN
+  reports depends on the order. The sampler and the candidates follow Triton's order at four
+  warps: elements `t + 128 j` in sequence within a thread, then XOR shuffles 16 to 1, lane 0
+  of each warp, then threads 0-3 at distances 2 and 1. The greedy reductions use DSpark's
+  total-order combine (NaN first, then the maximum, then the lowest index), so any order gives
+  the same pair.
+- **Declarations.** Each owner declares the calls it launches where it registered the Triton
+  warmups. That includes probabilistic drafting and the full-vocabulary greedy draft, which
+  compiled at first launch under Triton. After the kernel cache freezes, a missing
+  declaration raises instead of compiling.
+- **Not ported: the FP64 draw.** `use_fp64_gumbel` is off in this deployment, and its path
+  would add libdevice's double-precision `log` as another hundred lines of PTX. The runner now
+  rejects it at startup.
+- **Still Triton in the sampled-request path** (their own inventory, a temperature-1 profile):
+  the block-verification and resampling kernels in `rejection_sampler_utils.py` (which inline
+  the Triton Gumbel functions), vocabulary-parallel drafting, logprobs, penalties, top-k/top-p,
+  min-p, the thinking budget and `_get_num_sampled_and_rejected_kernel`.
+
+The bundle `bundles/sampling` (in spec `ports-kernels.json` with the other ports' bundles, one node each) runs the bit-equality
+tests, the existing sink, Gumbel and greedy contract tests through the switched call sites,
+and the paired per-call benchmark at DeepSeek V4.1's serving shapes (`--gate`: no shape slower
+than Triton by more than 1%). The full-model gate follows in a serving arm: temperature-0
+outputs and a seeded temperature-1 run identical to the previous release.
+
+## The port bundles' first GPU run (candidate 4's window, 2026-10-24 12:50 CET)
+
+- **Benchmarks never ran.** Every port benchmark failed with `No module named
+  vllm.models.deepseek_v4_1`. The bundles' `PYTHONPATH=/b` replaced the image's
+  `/opt/spark-ds41f/candidate/vllm:/opt/spark-ds41f/candidate/b12x`. Pytest still worked, because
+  `-m pytest` puts the working directory on the path; the scripts did not. The bundles now keep
+  the image's path after `/b`.
+- **Embedding and confidence head:** 85 passed.
+- **Runner inputs:** 48 failed, all from the tests (`tilelang-runner-inputs` 9cb3eb1b9 and 6bda32b34):
+  - the slot-mapping test ran a prefill chunk past the 16384-token positions buffer when the
+    step started past row 0;
+  - the staged-write test staged overlapping writes with different values, which Triton itself
+    applies in no defined order (the same seed gave different winners per dtype);
+  - the boundary-restore test's stand-in model state predates release-next's
+    `get_recurrent_checkpoint_fresh` (efcd03d6a, 2026-09-23), so it fails on release-next too.
+  - The TileLang staged write, lowered, makes exactly Triton's guarded element stores.
+- **mHC:** 18 failed. About 1 in 70,000 values differed from TileKernels in its bits.
+  - TileKernels writes `post * x + comb[0] * r[0] + ...`. Of the first addition's two products,
+    nvcc fuses the left one, so TileKernels rounds stream 0's product, not `post * x`. In PTX that
+    is `mul.f32 comb[0,n]*r0`, then `fma post[n],x`, then streams 1-3 by `fma`, then
+    `cvt.rn.bf16`.
+  - The port rounded `post * x` instead. It now spells TileKernels' sequence out with explicit
+    FMAs (`tilelang-mhc-post` 08c6ce4e7), so nvcc's choice no longer decides it.
+  - A dataflow trace matches every output's chain to TileKernels', operand for operand, and an
+    exact emulation reproduces the GPU's 0x3400 vs 0x3401. The collapse already matched.
+  - The order-of-operations test's expected values had assumed the wrong order; they are
+    corrected, with a case that tells the two apart (83b073cec also sorts the declared-calls
+    test by factory).
