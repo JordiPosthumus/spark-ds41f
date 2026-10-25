@@ -1,8 +1,7 @@
 # spark-ds41f
 
 Reproducible Docker/vLLM deployment, tuning, and benchmarks for DeepSeek V4.1
-Flash on a switchless three-node DGX Spark fabric, and the same deployment on
-a four-node ring.
+Flash on a switchless three-node or four-node DGX Spark fabric.
 
 Production is **spark-ds41f-1025**, serving DeepSeek-V4.1-Flash-1017 on the four-node TP4 1M
 profile on the ring ([release record](experiments/2026-10-25-spark-ds41f-candidate/README.md),
