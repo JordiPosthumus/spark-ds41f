@@ -102,6 +102,16 @@ def load_spark():
     return spark
 
 
+def host_mounts(cluster: dict) -> dict:
+    """``cluster`` with its mount sources as the paths the nodes get. The recipe names its
+    cache ``{checkout}/cache`` (2026-10-26), the path the archived arms write out under
+    ``{home}``: their ``deployment.path`` is ``{home}/projects/spark-ds41f``."""
+    out = json.loads(json.dumps(cluster))
+    host_path = load_spark().host_path
+    out["container"]["mounts"] = [[host_path(out, source), *rest] for source, *rest in out["container"]["mounts"]]
+    return out
+
+
 class RecipeTest(unittest.TestCase):
     def setUp(self):
         self.recipe = load("config/cluster.json")
@@ -168,6 +178,7 @@ class RecipeTest(unittest.TestCase):
             budget = {"tp4-ring": ("16384", "16288"), "tp3-triangle": ("8192", "8144")}[shape]
             for flag, value in zip(("--max-num-batched-tokens", "--long-prefill-token-threshold"), budget):
                 args[args.index(flag) + 1] = value
+            resolved, released = host_mounts(resolved), host_mounts(released)
             self.assertEqual({k: v for k, v in resolved.items() if k not in naming},
                              {k: v for k, v in released.items() if k not in naming}, shape)
         self.assertEqual(self.recipe["container"]["image"], "spark-ds41f:19f2c20ed4d6-next-6")
@@ -175,11 +186,26 @@ class RecipeTest(unittest.TestCase):
     def test_the_ring_is_candidate_6s_arm(self):
         """Promotion runs what the release measured: tp4-ring resolves to candidate 6's arm,
         apart from the baseline, lock and reference that name it."""
-        resolved = recipe.resolve(self.recipe, "tp4-ring")
-        released = load_spark().read_cluster("experiments/2026-10-25-spark-ds41f-candidate/rc6/rc-tp4.json")
+        resolved = host_mounts(recipe.resolve(self.recipe, "tp4-ring"))
+        released = host_mounts(load_spark().read_cluster("experiments/2026-10-25-spark-ds41f-candidate/rc6/rc-tp4.json"))
         naming = ("promoted_baseline", "upstreams_config", "benchmark_reference", "shape", "notes")
         self.assertEqual({k: v for k, v in resolved.items() if k not in naming},
                          {k: v for k, v in released.items() if k not in naming})
+
+    def test_the_image_cap_arm_changes_only_the_cap(self):
+        """experiments/2026-10-26-site-landmines measures 4-32 images a request on one boot: the
+        recipe at tp3-triangle with 32 images a prompt and nothing else changed. Regenerate the arm
+        (make_arms.py) when the recipe's triangle changes."""
+        arm = load_spark().read_cluster("experiments/2026-10-26-site-landmines/image-cap-32-tp3.json")
+        base = recipe.resolve(self.recipe, "tp3-triangle")
+        args = list(base["serve_args"])
+        self.assertEqual(args[args.index("--limit-mm-per-prompt") + 1], '{"image":4}')
+        args[args.index("--limit-mm-per-prompt") + 1] = '{"image":32}'
+        self.assertEqual(arm["serve_args"], args)
+        # An arm carries neither the recipe's shape nor its qualifying benchmark.
+        skip = ("serve_args", "shape", "benchmark_reference")
+        self.assertEqual({k: v for k, v in arm.items() if k not in skip},
+                         {k: v for k, v in base.items() if k not in skip})
 
     def test_the_recipe_keeps_no_old_live_name(self):
         """No old name is left."""
