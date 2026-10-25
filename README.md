@@ -115,13 +115,6 @@ context with 16 sequences, benchmarked at those limits, see
 1,048,576-token context with 8 sequences since r6x). The shapes differ only in their
 cabling (node map, transport, NCCL settings) and their memory sizing.
 
-Named [TP3/TP4 transport tuning profiles](experiments/2026-10-03-transport-profiles/README.md)
-keep B12X's measured RoCEnante limits and NCCL settings together.
-`bin/spark tuning show tp4` shows the B12X TP4 recipe; `tuning create`
-generates a complete B12X configuration for a site node map, with launch
-disabled. The promoted TileLang configuration is the recipe
-[config/cluster.json](config/cluster.json).
-
 This repository is being promoted from a forensic capture of the running cluster
 into its only operational source of truth. Until the transition checklist is
 complete, files are explicit about whether they describe observed state, desired
@@ -671,8 +664,7 @@ frozen recipes (spark-ds41f-1022's is `experiments/2026-10-23-next-release/1022`
 The tools read either label prefix and source root, and their guards recognise
 either container. Each node keeps `cache/kkref` as a link to `cache/spark-ds41f`,
 so those recipes keep their warm caches. Experiments, manifests and patches are
-records and keep their names, as do the hosts' RoCE marker
-(`/usr/local/libexec/spark3-roce-marker`) and Local Inference Lab's
+records and keep their names, as does Local Inference Lab's
 `integration/karmic-kraken-beta` branch.
 
 Lab windows also honour holds and requests written as `~/spark3-hold.json`
