@@ -486,3 +486,273 @@ Rollback: `bin/spark --cluster-config config/cluster.json cluster stop --apply -
 and `doctor --live` with that profile; it reads its caches through `cache/kkref`. Remove the kept
 `dsv41-karmic-kraken` containers only once the rollback is no longer wanted, and keep the
 `cache/kkref` link while any recipe names it.
+
+## Candidate 6 on the triangle (prepared 2026-10-25, CET)
+
+The owner scoped this release to the ring; afterwards the cluster is re-cabled as the triangle
+and TP3 is qualified quickly on the same image. Until it passes, the triangle serves
+spark-ds41f-1022.
+
+**The triangle's budget: 8,192 if it fits, else 6,144.** Owner, 2026-10-25, first "I would
+qualify at the larger amount" (6,144 against the recipe's 4,096), then: "when we get around to
+trying the triangle, if 8k fits for max_num_batched_tokens (especially since our glibc and wasted
+memory fixes), we should." The evidence is [below](#the-triangles-budget-owner-2026-10-25).
+- [cluster.json](cluster.json) sets `tp3-triangle`'s `max_num_batched_tokens` to 8,192 (the
+  threshold follows: 8,192 - 8 x 6 = 8,144). The KV pool is unchanged.
+- `tp4-ring` keeps 16,384.
+- `tp3-triangle-4k`, which extends the triangle, names its own 4,096: it has no Memory Saver, and
+  the larger budgets were measured with it at 1M only.
+- If 8,192 does not fit, the 6,144 arms below qualify instead, and the promotion sets
+  tp3-triangle to 6,144.
+- `tests/test_recipe.py` pins all three budgets and that the 6,144 arm is the recipe at 6,144.
+
+**Arms.**
+- [rc6/rc-tp3.json](rc6/rc-tp3.json) is [rc6/rc-tp4.json](rc6/rc-tp4.json) at `tp3-triangle`:
+  - the same image, vLLM tree label and lock;
+  - the recipe's TP3 sizing: 1,048,576 tokens, eight streams, the 8,192-token budget, the
+    4.90625 GiB pool, the embedding and head in the display carve-out.
+- [rc6/rc-tp3-dev.json](rc6/rc-tp3-dev.json) adds the dev-mode RPC.
+- The fallback: [rc6/rc-tp3-6144.json](rc6/rc-tp3-6144.json) is rc-tp3.json at 6,144
+  (threshold 6,096), and [rc6/rc-tp3-6144-dev.json](rc6/rc-tp3-6144-dev.json) adds the RPC.
+- `tests/test_recipe.py` pins that the TP3 arm is the ring arm at the other shape.
+
+The ring is the only shape where 1022's successors have run. Beside the TileLang completion and
+the new budget, the triangle meets these recipe changes for the first time:
+- the JIT monitor off;
+- the 21 inert settings removed;
+- glibc malloc pinned (`MALLOC_ARENA_MAX=2`, a fixed 1 MiB `MALLOC_MMAP_THRESHOLD_`; #439's fix,
+  [2026-10-23-next-release](../2026-10-23-next-release/README.md#memory-439s-growth-and-the-start-up-peak-memory));
+- prompt-cache usage details;
+- the renamed container, labels, variables and JIT caches.
+
+**Specs.** None of them builds an image or runs the release tests: candidate-6-tp4 builds
+`spark-ds41f:19f2c20ed4d6-next-6` onto every node, and its release tests belong to the image.
+Each spec at 8,192 has a twin at 6,144 (the same jobs on the 6,144 arms, run names ending
+`-6144`).
+1. **The fit check:** [rc6/prefill-tp3.json](rc6/prefill-tp3.json), run
+   `candidate-6-prefill-tp3`, about 30 min; twin
+   [rc6/prefill-tp3-6144.json](rc6/prefill-tp3-6144.json). It runs the 2026-10-19 budget
+   sweep's suite ([suite.json](../2026-10-19-prefill-budget-tp3/suite.json)) under the bench's
+   memory watch:
+   - cold prefill at 32K-500K, three repeats;
+   - the stall: what seven decoding streams wait while a cold 131K prompt prefills, three
+     repeats;
+   - three cold 1M prefills.
+   The release-tp3 suite prefills only to 500,000 tokens and has no stall step, and at 1M the
+   steady guard is TP3's binding constraint (#439). The sweep's arms at the same budget are the
+   reference for every number.
+2. **The qualification:** [rc6/candidate-tp3.json](rc6/candidate-tp3.json), run
+   `candidate-6-tp3`, about 40 min; twin [rc6/candidate-tp3-6144.json](rc6/candidate-tp3-6144.json).
+   It is the measure job of [rc6/candidate-tp4.json](rc6/candidate-tp4.json) at three nodes:
+   - the determinism gate, `--wide` with and without logprobs, with 8 and 4 distinct streams.
+     TP3 serves eight streams, so there is no 16-stream run (release-tp3 drops it too);
+   - the qualification battery: control spellings, the controls probe, the TTFT trace, memory,
+     the sink counters, and the probes on dgx1-dgx3;
+   - the generation-control digests with logprob ids, prompt logprobs, seeded sampling, images
+     and the startup lines.
+3. **The release comparison:** [rc6/release-tp3.json](rc6/release-tp3.json), run
+   `candidate-6-release-tp3`, about 4 h; twin [rc6/release-tp3-6144.json](rc6/release-tp3-6144.json).
+   - The suites are `release-tp3`, `single-stream` and `sampled`.
+   - The arms are candidate 6, spark-ds41f-1022's TP3 dev arm, then candidate 6 again. 1022's arm
+     is [spark-ds41f-1022-tp3-dev.json](../2026-10-22-spark-ds41f-1022/spark-ds41f-1022-tp3-dev.json),
+     1022 as it ships at 4,096.
+   - The prefill rows therefore measure the release and the budget together.
+
+**The container fixes.**
+- `mem_snapshot.py` is #586's version: it reads the running serving container, and records it
+  and its image.
+- `probes.py` takes `--container` (default unchanged), and the TP3 specs pass `spark-ds41f`.
+- Both scripts read `dsv41-karmic-kraken` by a constant. During a candidate's boot that is the
+  stopped production container, which the lab keeps. So the probes' rank lines and the memory
+  snapshot's KV excerpt described 1022's last boot.
+- [rc6/candidate-tp4.json](rc6/candidate-tp4.json) ran with the old scripts, so its rank lines
+  and KV excerpt are production's. Read its rank lines from the candidate's log.
+
+### Run order
+
+**Done (2026-10-25):**
+- Candidate 6 is promoted on the ring as spark-ds41f-1025 (#596, deployed in #597). So
+  `config/cluster.json` is candidate 6's recipe, and its `tp3-triangle` carries no
+  `benchmark_reference` (and 4,096) until this qualification passes.
+- The owner re-cabled the triangle:
+  - dgx1's and dgx3's `40-cx7.yaml` are readdressed to 10.13.x from LLDP;
+  - every path direction passes a jumbo ping;
+  - GID index 3 is RoCE v2 IPv4 on every port;
+  - dgx4 is out.
+- `bin/spark site shape tp3-triangle --apply` has run, and dgx1-dgx3 are synced.
+- Production on the triangle is spark-ds41f-1022 at TP3, from 1022's frozen recipe.
+
+**The production profile is 1022 frozen in every lab command.** It is
+`experiments/2026-10-23-next-release/1022/cluster.json`. The default, `config/cluster.json` at
+the triangle, is not what serves. A window records its profile when it opens, restores it when
+it closes, and refuses a different one later. So the runner below opens the window with the
+frozen profile, and the other commands pass it too, so that they agree.
+`scripts/lab_idle_start.sh` hard-codes `config/cluster.json`, so do not use it here; it would
+fail to open the window, because `doctor --live` fails on that profile.
+
+1. This branch is in main: the lab runs only origin/main's specs, and its `sync` job moves the
+   node checkouts there.
+2. On dgx1-dgx3, `docker image inspect spark-ds41f:19f2c20ed4d6-next-6 --format '{{.Id}}'` gives
+   candidate-6-tp4's image ID.
+3. `bin/spark --cluster-config experiments/2026-10-23-next-release/1022/cluster.json doctor --live`
+   passes. `bin/spark workload --duration 15` shows no foreign requests.
+4. Dry-run each spec with the profile (5, 20 and 19 steps, the same for the twins, no
+   problems), for example:
+
+```bash
+python3 scripts/lab.py run experiments/2026-10-25-spark-ds41f-candidate/rc6/prefill-tp3.json --dry-run --production-config experiments/2026-10-23-next-release/1022/cluster.json
+```
+
+5. **The fit check at 8,192.** Queue it alone:
+
+```bash
+python3 scripts/lab.py queue add experiments/2026-10-25-spark-ds41f-candidate/rc6/prefill-tp3.json --production-config experiments/2026-10-23-next-release/1022/cluster.json
+```
+
+   Then start the queue runner on dgx1, detached, with the profile:
+
+```bash
+ssh dgx1 'cd ~/projects/spark-ds41f && setsid -f python3 scripts/lab.py queue run --production-config experiments/2026-10-23-next-release/1022/cluster.json >> results/private/lab/queue-tp3.log 2>&1 < /dev/null'
+```
+
+   On dgx1, read the boot's KV line:
+   `docker logs spark-ds41f 2>&1 | grep -m1 'GPU KV cache size'`. Read the memory lines in the
+   suite's output. **8,192 fits** if all of these hold:
+   - the boot passes dgx1's 5 GiB startup guard;
+   - dgx1's lowest MemAvailable through the three cold 1M prefills is at least 4.5 GiB, 1.5 GiB
+     above its 3 GiB running guard, and the bench never halts at its 4 GiB floor;
+   - the KV line reads 4,009,281 tokens (below).
+
+   The guards stay 5/3 GiB.
+6. **If it fits:** queue the qualification:
+
+```bash
+python3 scripts/lab.py queue add experiments/2026-10-25-spark-ds41f-candidate/rc6/candidate-tp3.json --production-config experiments/2026-10-23-next-release/1022/cluster.json
+```
+
+   Once its two determinism hash pairs equal 1022's, queue the comparison:
+
+```bash
+python3 scripts/lab.py queue add experiments/2026-10-25-spark-ds41f-candidate/rc6/release-tp3.json --production-config experiments/2026-10-23-next-release/1022/cluster.json
+```
+
+   Every boot at 8,192 must pass the startup guard: the fit check, the qualification and the
+   comparison's two candidate boots. dgx1's start-up low varies by up to 0.76 GiB between boots
+   of one build, so a later failure also means 8,192 does not fit.
+7. **If it does not fit:**
+   - Report to the owner: dgx1's lowest MemAvailable, the shortfall to 4.5 GiB, and the pool that
+     would cover it. A full 1M context is 4,142 blocks, 0.88 GiB of pool.
+   - The owner chooses between 8,192 with a smaller pool (a recipe change and a new fit check)
+     and 6,144 at this pool. Nothing shrinks the pool without that choice.
+   - The 6,144 path needs no new work. Queue `rc6/prefill-tp3-6144.json`, which passes on the
+     same criteria with the KV line at 4,354,971 tokens. Then queue `rc6/candidate-tp3-6144.json`
+     and, once its hashes equal 1022's, `rc6/release-tp3-6144.json`. Each takes
+     `--production-config experiments/2026-10-23-next-release/1022/cluster.json`.
+
+An empty queue keeps the window held, so each spec starts once it is queued. When the queue is
+done, `scripts/lab.py window close` restores 1022 at TP3. It takes the same `--production-config`;
+the hold's record wins anyway. In total: about 5 h 10 min at 8,192, 30 min more through the
+fallback.
+
+After a pass, the TP3 promotion carries two things into `config/cluster.json`'s `tp3-triangle`:
+the budget that qualified (8,192, or 6,144) and the candidate arm's release-tp3 run as
+`benchmark_reference`. Until then production on the triangle stays the frozen 1022.
+
+**The first boot compiles.** The triangle has not booted any build since the JIT caches moved
+to `/cache/spark-ds41f/jit`. It has not run the completion's TP3-shaped kernels or an 8,192
+chunk either. So the fit check's boot fills the TileLang, Triton and CUDA caches, and its boot
+time includes those compiles. On #503, `-next-4` booted on a triangle in 141.7 s cold and 105.6 s
+warm. Kernels are prepared before the KV pool is allocated, so the compiles should come before the
+start-up low (graph capture). Later boots are warm, and each boot's ready time is in the lab log. #503 also saw
+the first long prefill after a budget change run far slower. If the fit check's 32K interval is
+wide, its first sample is that.
+
+### Pass criteria
+
+The last column is the triangle's earlier measurements: spark-ds41f-1022's gate (gate-1022-4-tp3,
+2026-10-22), r6x's TP3 1M record, and the 2026-10-19 budget sweep (r6x with the CED skip).
+
+| Step | Pass | Earlier on the triangle |
+| --- | --- | --- |
+| fit check: boot | passes dgx1's 5 GiB startup guard | the sweep's `b8192`: booted past it before the malloc pinning and the completion |
+| fit check: three cold 1M prefills | nothing failed or halted; dgx1's lowest MemAvailable at least 4.5 GiB | `b8192`: 3,907 tok/s, dgx1 lowest 4.57 GiB; `b6144`: 3,797, 5.03; `b4096`: 3,569, 5.26 |
+| fit check: 32K-500K and the stall | a first look against the sweep's arm at the same budget | `b8192`: 5,473 / 5,543 / 5,253 / 4,749 tok/s, median step beside a cold 131K prefill 1.444 s; `b6144`: 5,309 / 5,338 / 5,068 / 4,588, 1.143 s |
+| KV line (the boot's `GPU KV cache size`) | 4,009,281 tokens at 8,192 (4,354,971 at 6,144). #586's arithmetic reproduces every logged figure to the token, so another figure means the sizing is not what was planned: read the boot log before going on | 1022 at 4,096: 4,765,898 tokens |
+| determinism, with and without log probabilities | `identical: true`, 0 token and 0 log-probability differences in all six scenarios; hashes `62313cb5` / `9742ac2c` with log probabilities, `4d143977` / `12fd8257` as text. The budget does not change outputs: on the ring, 1024's hashes were identical at 16,384 and 8,192 | 1022: the same hashes (the TP3 path's since 1017) |
+| 8 and 4 distinct streams | a first look; the comparison judges | r6x's TP3 gate: 147.6 / 112.5 tok/s |
+| control spellings | every location keeps the neutral request's control sequence | 1022: pass in all eight |
+| controls probe | all four pass | (not in 1022) |
+| TTFT trace | no foreign requests; p50 at four and eight streams and isolated mean a first look (the comparison's TTFT rows judge) | 1022: 265.8 / 355.2 ms; 147.7 ms |
+| memory once serving | above the 3 GiB guard on every node, each line naming `spark-ds41f` and the candidate's image; compared with 1022's | 1022: dgx1 6.54, dgx2 7.93, dgx3 8.14 GiB |
+| sink counters, ordinary text / probes | 0 flags / `Say hi.`, `Thanks!` and `ok` flagged, nothing collapsed, the three rank lines (spark-ds41f's log) equal | 1022: 0 / the same three, 8 rows a rank |
+| generation-control digests | no failure: only the by-design 400s for min-p and logit bias under speculative decoding; logprob ids succeed alone and at eight streams | not runnable on 1022 (logprob ids return 500 under DSpark) |
+| prompt logprobs | succeed, one digest alone and at eight streams | not runnable on 1022 (the request crashes its engine) |
+| seeded temperature 1 | `again` identical to alone; eight at once may differ (the seeded penalties variation, as at TP4) | |
+| images | one digest alone and at four | |
+| startup lines | 0 B12X preparation, temporary KV block, B12X progress, JIT monitor and JIT report lines; TileLang calls and init time recorded | |
+| every boot | ready under the unchanged 5/3 GiB guards | 1022: 80.4 s |
+| release comparison | no verdict worse than spark-ds41f-1022 against the candidate's own repeat; greedy responses identical, teacher-forced KL 0 | |
+
+The digests of controls, sampling and images measured here become the triangle's references for
+the next build. No TileLang-complete build has run at TP3 before, and digests do not carry across
+shapes: the determinism hashes already differ between the ring and the triangle.
+
+After a pass, the owner decides the promotion. The candidate arm's release-tp3 run becomes
+tp3-triangle's `benchmark_reference` (`manifests/suites/<baseline>-tp3`, with its single-stream
+run beside it; [docs/release-benchmark.md](../../docs/release-benchmark.md#4-promotion)). It is
+measured at the budget that ships.
+
+### The triangle's budget (owner, 2026-10-25)
+
+The evidence is JordiPosthumus on #503 (2026-10-24/25), #439, #586's KV analysis, and our
+2026-10-19 sweep. On #503, `-next-4` ran on their triangles at 1M with the same sizing; their SM
+clock is capped at 2200 MHz, their site overlay differs, and their head node starts about 1.8 GiB
+lower than ours (about 4.8 against 1022's 6.54-6.70 GiB serving). The sweep is [2026-10-19-prefill-budget-tp3](../2026-10-19-prefill-budget-tp3/README.md):
+r6x with the CED skip, three repeats, before the malloc pinning and the completion.
+
+| Against 4,096 with the skip | 6,144 | 8,192 |
+| --- | --- | --- |
+| prefill 32K-500K, our sweep | +7.5 to +8.8% | +11.3 to +12.9% |
+| prefill 32K-262K, #503 | +6.1 to +6.7% | +5.3 to +6.8% |
+| cold 1M prefill, our sweep (three runs) | +6.4% (3,797 tok/s) | +9.5% (3,907; +3% over 6,144) |
+| cold 1M prefill, #503 (one run) | +6.3% | +9.0% |
+| decode alone (closed loops; our step without a prefill) | level | level (0.100 s at every budget) |
+| seven streams' median step beside a cold 131K prefill, our sweep | 1.143 against 0.857 s (+33%) | 1.444 s (+68%) |
+| dgx1's lowest MemAvailable at 1M, our sweep | 5.03 against 5.26 GiB | 4.57 GiB |
+| head node's lowest at 1M, #503 (one run) | 4.03 against 3.87 GiB | 3.48 GiB |
+| vLLM's startup KV line | 4,354,971 tokens (4.15x; 4,096: 4,765,898, 4.55x) | 4,009,281 tokens (3.82x) |
+| what the pool holds (#586) | 5 full 1M contexts (5.24; 4,096: 5.35) | 5 full 1M contexts (5.12) |
+
+Against production's 4,096 without the skip, which is what 1022 serves, 8,192 with the skip
+measured +21.5% at 1M (3,907 against 3,216 tok/s). The stall step there was 1.444 against
+0.949 s.
+
+What 8,192 buys and costs:
+- **Prefill:** about +12% over 4,096 below 1M and +3% over 6,144 at 1M.
+- **The stall:** decode alone is level, but the other streams' step is about 1.7 times as long
+  while a long prompt prefills. On the ring the owner took the same kind of trade at 16,384
+  (stall step +78%).
+- **Memory, the question the fit check answers:**
+  - Before the fixes, dgx1 kept 4.57 GiB through three 1M prefills at 8,192, 1.57 above the
+    3 GiB guard: just over the 1.5 GiB margin.
+  - r6x's 8,192 probe without the skip kept 4.49 GiB.
+  - Since then the malloc pinning holds the API server's high-water about 0.9 GiB lower under
+    1M-token prompts (2.92 against 2.02 GiB in the next-release soak).
+  - The completion drops the MTP buffer: `max_num_batched_tokens` x 40 KiB a rank, 335 MB at
+    8,192.
+  - On the ring, candidate 5 left dgx1 1.8 GiB more than candidate 4 at the same budget.
+  - So 8,192 should clear the margin, but this was never measured on the triangle.
+- **KV capacity: unchanged in practice.**
+  - vLLM's startup line falls to 3.82x, because it charges every request two prefill chunks.
+  - #586 shows that only the prompt being filled carries them. The pool holds 5 full 1M
+    contexts at every budget (5.35, 5.24 and 5.12 at 4,096, 6,144 and 8,192).
+  - At 8,192 all eight sequences fit at once up to 666,880 tokens each (697,600 at 4,096).
+  - Candidate 6's image does not carry #586's vLLM 0491, so its line still prints the lower
+    figure.
+- **#439, the steady guard first at 1M:** their heads reached the 3 GiB guard hours after boot,
+  from the high-water marks of the API server's and the engine core's glibc arenas. Candidate 6
+  brings that fix to the triangle for the first time. On their triangle it held 4.89 GiB through
+  a sweep, and at least 4.33 GiB over ten hours at 6,144.
+
+Not changed: the pool and the 5/3 GiB guards. The arena fix addresses the growth, and the pool is
+a capacity choice. A smaller pool at 8,192 is the owner's choice if the fit check falls short.
