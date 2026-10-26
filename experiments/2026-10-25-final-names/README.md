@@ -52,14 +52,19 @@ Every remaining line belongs to a class below.
      every 0.25 s from the start command to ready (docs/lab.md). The loader spec below needs it.
      It does the `MemAvailable` part of one-off watchers such as
      `2026-10-23-next-release/memory/watch.sh` inside the lab.
+   - New arm key **`serve_options`** (#594, branch `direct-loader`, after this pass): the value of
+     a flag the base's `serve_args` passes once, so an arm that changes one serving option no
+     longer copies the whole list (`set` replaces a list whole). The loader arms use it.
 3. **Upstreams.**
    - `docs/upstreams.md` drew r6's chain and image (`vllm-ds41f-kkref:04c30fa98e79-r6`). It now
      names the sources, points at the lock and the recipe for revisions and image, and gives
      B12X its 1025 role.
    - The lock's `b12x` role says the same.
 4. **vLLM** (local branch, patch in [vllm/](vllm/)): the indexer's split check is
-   `SPARK_DS41F_INDEXER_SPLIT_CHECK`.
-5. **This record:** the inventory, the loader plan, and the loader's lab spec in [loader/](loader/).
+   `SPARK_DS41F_INDEXER_SPLIT_CHECK`. Branch `direct-loader` adds the weight digest and the
+   direct loader (patches in [loader/vllm/](loader/vllm/)).
+5. **This record:** the inventory, the loader plan, and the loader's lab spec in [loader/](loader/),
+   with the bundles and arms on branch `direct-loader`.
 
 ## Every remaining reference class
 
@@ -230,18 +235,231 @@ does. Concretely, as vLLM patches on the next release's base:
    `liburing` stays: vLLM's Engram reader uses it. That is a new image, so it is a release
    candidate of its own.
 
+### The direct loader: implemented, checked on one node (2026-10-25, CET)
+
+Items 1 and 2 are the vLLM branch `direct-loader` on 26382f5cf (worktree
+~/projects/vllm-direct-loader; local, not pushed, like the other research branches). The
+patches and a series are in [loader/vllm/](loader/vllm/): candidate 6's series with
+[0498](loader/vllm/0498-Model-loading-a-weight-digest-on-every-rank-SPARK_DS.patch) and
+[0499](loader/vllm/0499-Model-loading-load-format-direct-B12X-s-bounce-mode-.patch). Both apply on
+candidate 6's tree (6f8e062f) and on each branch of 0491-0497 (KV capacity, drafter window,
+conditionals, final names).
+
+- **0498, the weight digest** (9b04f1797). `BaseModelLoader.load_model` hashes every
+  parameter's bytes in name order (a shared parameter once) right after `load_weights`,
+  before post-load processing turns them into kernel layouts, so it covers the loader's
+  bytes and every loader's arm carries it (B12X's plugin class runs the same
+  `load_model`). Each rank logs
+  `weight digest rank <r> <sha256> <model class>: <n> parameters, <GB> GB in <s> s`; the
+  DSpark drafter loads through the same loader and logs a second line. The bytes pass
+  through one 64 MiB host buffer and the CPU's SHA-256 adds some tens of seconds per rank,
+  which "Loading weights took" excludes and the API-ready time of every arm includes. Unset,
+  it reads the variable once at import.
+- **0499, `--load-format direct`** (6d5881d9c):
+  - `vllm/model_executor/model_loader/direct_loader.py` is the in-tree `B12xModelLoader`
+    without GDS, the shared read group, the IPC allocations and the progress panel. It
+    refuses a device without host page tables before opening a session and logs one line,
+    `Direct loader: weights loaded, <GB> GB of checkpoint payload in <s> s ...`, which
+    loader_report.py matches.
+  - `direct_io/` holds `DirectWeightSession`'s bounce path (`_checkpoint.py`), the build
+    (`_native.py`) and B12X's `_storage.c`, `_direct.c`, `_batch.c`, `_bounce.c` and
+    `_cuda_range.h`. The C differs from B12X only in the module and capsule names, the PLE
+    reader's removal and the `#ifdef`s without liburing: liburing is required, so the build
+    refuses to run without it. Every ported file names its B12X source and what changed.
+  - The session's descriptor planning moved into functions (`view_offset`, `view_records`,
+    `scratch_chunks`) so it can be tested without a GPU. The records they produce are
+    B12X's.
+  - The helper builds at first use into `$XDG_CACHE_HOME/vllm/direct_io/<digest>`
+    (`/cache/spark-ds41f/jit/vllm/direct_io` in serving), as the Engram reader does.
+- **Tested** on the laptop (no GPU: macOS, torch 2.14.1, the tree from source, pytest
+  `--noconftest`): 55 tests pass. They cover the digest, and the descriptors for TP shards,
+  padded and transposed destinations, expert slices, byte casts, E8M0 views, scalars and
+  BF16 expansion, executed on host memory with `_batch.c`'s semantics and compared with
+  Torch's copies. They also cover the scratch reads, refused views, header checks, selection
+  and coalesced metadata reads, the loader's registration, options and refusal, the Engram
+  file-backed descriptors in mixed and table-only shards, and the helper's build into the
+  XDG cache. The rest of `tests/model_executor/model_loader/` still passes (168; the tests
+  that need the conftest's fixtures do not run without it).
+- **GPU tests:** the 38 tests in `test_direct_loader_cuda.py` are B12X's `test_direct.py`
+  for the bounce ring, the helper's capabilities, a loader-routed module whose digest equals
+  a Torch copy's, and file-backed tables beside routed weights. They write under
+  `DIRECT_IO_TEST_DIR` (default `/cache/direct-io-test`), because O_DIRECT needs a real
+  filesystem. They ran on dgx4 (below). Never run them beside a serving container.
+
+### Single-node checks on dgx4 (2026-10-25, CET)
+
+The owner opened dgx4 (uncabled, serving nothing) to sub-agents' GPU tests on 2026-10-25.
+dgx1-dgx3 were not touched. Both checks are kernel-lab bundles (docs/lab.md,
+`kernel-local`), written by [make_kernel_bundles.py](loader/make_kernel_bundles.py):
+- they mount bundles/direct (vLLM 6d5881d9c, 0498-0499) over candidate 6's image,
+  `spark-ds41f:19f2c20ed4d6-next-6` (`sha256:82b071b57485`);
+- they ran from this branch at e3def993, checked out in `~/spark-lab/agents/direct-loader/spark-ds41f`;
+- the command was `scripts/lab.py kernel-local experiments/2026-10-25-final-names/loader/kernel/<bundle> --out ~/spark-lab/agents/direct-loader/out/<bundle>`;
+- their output.txt and verdict.json are in [loader/runs/2026-10-25-dgx4/](loader/runs/2026-10-25-dgx4/).
+
+| Check | Bundle | Finished | Verdict |
+| --- | --- | --- | --- |
+| The branch's loader tests: test_direct_loader_cuda.py, test_direct_loader.py, test_weight_digest.py | [kernel/gpu-tests](loader/kernel/gpu-tests/) | 20:02 (12 s, after 52 min queued for the GPU lock) | **pass**: 93 passed, 0 skipped. The 14 warnings are Torch's `torch.jit` deprecation. |
+| One TP4 rank's share of DeepSeek-V4.1-Flash-1017, the direct loader against B12X's | [kernel/rank-load](loader/kernel/rank-load/) | 20:15 (149 s) | **pass**: equal digests, tensors, descriptors and samples |
+| What `VLLM_PLUGINS` loads in the image (branch at aae32888) | [kernel/plugins](loader/kernel/plugins/) | 23:25 (16 s) | **pass**: empty loads no plugin (next section) |
+
+The helper built at first use, as serving would, into the bundle's XDG cache
+(`~/.cache/spark-lab/compile/xdg-direct-loader/vllm/direct_io/ca191a8547dad4fe7b46d9b9`).
+
+**rank-load** ([rank_load.py](loader/kernel/rank-load/rank_load.py),
+[rank_compare.py](loader/kernel/rank-load/rank_compare.py)) loads a stand-in for a TP4
+rank's shard set, not the model's own shard set: the model cannot be built without every
+rank.
+- **The plan:** rank 0's quarter of every 2-D tensor whose dimensions both divide, by rows
+  or by columns (every other name), and the rest whole.
+  - BF16 vectors are expanded to FP32 and FP32 tensors converted to BF16.
+  - The Engram tables become descriptors.
+- **The path:** each loader's own weights iterator (`DirectModelLoader`, and B12X's
+  `B12xModelLoader` with its bounce-mode session) and `copy_weight`, as weight loaders call
+  it. Each load runs in a process of its own.
+- **Outputs:** per-tensor SHA-256 lists on dgx4,
+  `~/spark-lab/agents/direct-loader/out/rank-load/tensors-{direct,b12x}-tp4-rank0.json`.
+
+| | direct | B12X |
+| --- | ---: | ---: |
+| tensors loaded / Engram descriptors | 96,081 / 4 | 96,081 / 4 |
+| loaded (GPU) | 71.585 GiB | 71.585 GiB |
+| weight digest | `a4893a5e…290c6fd` | `a4893a5e…290c6fd` |
+| tensors whose SHA-256 differ | 0 | |
+| sample checked against safetensors' reads | 89/89 equal | 89/89 equal |
+| load, routing 96,081 tensors included | 23.71 s | 23.89 s |
+| ring execution | 17.38 s | 17.21 s |
+| payload, physical reads | 76.88 GB, 191.86 GB | 76.88 GB, 191.86 GB |
+| strided copies, BF16 expansion, GPU scratch | 38.06 GB, 1.5 MB, 42.4 MB | the same |
+| MemAvailable before, lowest | 116.10, 43.82 GiB | 117.04, 44.48 GiB |
+| loader overhead (MemAvailable drop beyond Torch's 71.60 GiB reserved) | 0.68 GiB | 0.96 GiB |
+| lowest MemFree | 17.61 GiB | 18.07 GiB |
+| page cache before, highest, after | 25.730, 25.732, 25.732 GiB | 25.924, 25.928, 25.927 GiB |
+| weight digest time | 33.6 s | 33.5 s |
+
+Reading the table:
+- **The same reads:** reads, submissions within 1%, batches and descriptors are equal.
+  The direct loader is B12X's loader in bits, reads and speed.
+- **No page cache:** the page cache grows by under 5 MiB while 77 GB is read.
+- **Memory:** the overhead counts this script's Python objects for 96,081 tensors as well as
+  the loader's 16 MiB ring and 8 MiB scratch. The direct loader's is the smaller of the two,
+  so it adds nothing B12X does not to the 5 GiB startup guard on dgx1-dgx3.
+- **The digest's cost:** about 34 s per TP4 rank on the CPU, the time `SPARK_DS41F_WEIGHT_DIGEST=1`
+  adds to every boot of the loader spec (all arms alike, after "Loading weights took").
+- **Read amplification:** physical reads are 2.5 times the payload in both loaders. When a
+  strided shard's row is narrower than 4 KiB, B12X's ring packs rows into one read that
+  spans the full stride, so a column shard of a narrow-row tensor reads the other ranks'
+  columns too (`_bounce.c`, slot rows). Half of this plan's 2-D tensors are column shards.
+  Production's ratio depends on the model's own column shards; the loader spec's bytes-read
+  figure measures it. This is not something the port changes: it is the same bytes in both.
+
+### For the next candidate (2026-10-25, 23:30 CET)
+
+The candidate includes the direct loader fifth, in the cleanup group, as the first step of
+retiring B12X.
+
+- **vLLM:** branch `direct-loader` (local, on 26382f5cf), head 6d5881d9c. Two commits, in
+  order: 9b04f1797 (0498, the weight digest), then 6d5881d9c (0499, `--load-format direct`).
+  - **Replay in the candidate's order:** on `next-candidate` (e0ccc837d), after 0492,
+    0500-0503, the softmax fix (53b741efc) and 0491, both apply without conflicts.
+  - **The next cleanup step conflicts:** the conditionals' first commit (a9b9addd2) conflicts
+    with 0501-0503 (kv-zeroing) in `vllm/models/deepseek_v4_1/attention.py`. 0498-0499 do
+    not touch that file.
+- **The recipe change** is two values:
+  - `serve_args`: `--load-format b12x` becomes `--load-format direct`;
+  - `environment.VLLM_PLUGINS`: `b12x_loader` becomes `""` (empty), not removed.
+
+  **Why empty, not removed:** while B12X is installed, an unset `VLLM_PLUGINS` loads every
+  general plugin in the image ([kernel/plugins](loader/kernel/plugins/), below).
+  - That is B12X's `b12x_fp6` and `b12x_loader` and vLLM's two LoRA resolvers.
+  - Every vLLM process then imports 64 B12X modules. Production's `b12x_loader` imports 54.
+  - An empty value loads none. Remove it once B12X leaves the image.
+
+  `SPARK_DS41F_WEIGHT_DIGEST` stays unset in production. Nothing else changes:
+  - the helper builds at each node's first boot into `XDG_CACHE_HOME`
+    (`/cache/spark-ds41f/jit`), with the compiler, liburing, pkg-config and CUDA headers that
+    B12X's build checks already require in the image;
+  - the serving container already runs with `--ulimit=memlock=-1:-1`, `IPC_LOCK` and
+    `seccomp=unconfined`, as B12X's ring needs.
+- **B12X cannot leave this candidate's image.** After the conditionals removal (0493-0496)
+  and the direct loader, DS4.1 serving still needs it for two things:
+  1. **The packed BF16 LM head** (`VLLM_DS41_PACKED_BF16_LM_HEAD=1`).
+     - `PackedBf16LmHeadMethod` (`model_executor/layers/quantization/online/packed_bf16.py`)
+       packs the head at load with `b12x.gemm.packed_bf16_vocab_projection.pack` and checks
+       its `is_supported`. That is B12X's local patch 0012: about 980 lines, its Triton
+       packing kernels included.
+     - Its `PackedBf16Weight` goes to the logits processor and the TileLang vocabulary
+       projection.
+     - Without B12X, `vocab_parallel_embedding` refuses the packed head.
+  2. **Engram** (`models/deepseek_v4_1/common/engram.py`).
+     - It imports `b12x.preparation.PreparedCall` and `b12x.sequence.engram` at module level.
+     - Disk tables (the recipe's) still call B12X's `build_compressed_token_map`,
+       `build_geometry` (which uses `b12x.sequence.ple_hash.reference.is_prime_64`) and
+       `Caps`, about 80 lines of Python. They also register a B12X preparation provider.
+     - Resident tables (device or RAM) use B12X's planned lookup.
+
+  Not in the recipe:
+  - `--load-format mxfp4_csf` (`b12x.moe.fused_moe`);
+  - the in-tree `b12x_loader.py` (the A/B's B12X arm uses the B12X package's plugin, not
+    this copy).
+
+  `vllm/utils/b12x.py` imports about 25 B12X modules whenever B12X is installed. Every DS4.1
+  TileLang path tolerates their absence (`has_b12x()`, the preparation coordinator, the
+  kernel getters).
+
+  **Once 1 and 2 are ported into vLLM,** the image change is:
+  - docker/Dockerfile:
+    - drop B12X's source copy, install, `PYTHONPATH` entry and `local.spark-ds41f.b12x.*`
+      labels;
+    - its loader-helper build check becomes the direct helper's (`_build()` under
+      `LIBRARY_PATH=/usr/local/cuda/lib64/stubs`, `liburing.so` linked).
+  - The recipe: `local.spark-ds41f.b12x.tree` leaves `expected_labels`, and `VLLM_PLUGINS`
+    goes.
+  - bin/spark: `b12x` leaves the build projects, parts, contexts and image tag.
+  - The lock's `b12x` source, and validate.yml's series job.
+  - The lab's B12X bundle support and `workdir` default.
+  - The "keep B12X" text in AGENTS.md and CONTRIBUTING.md.
+
+  `liburing` stays: the Engram reader and the direct loader use it.
+- **spark-ds41f:** PR #594, branch `direct-loader`, rebased onto main after #590 merged
+  (c24c7217, 2026-10-26).
+  - Records: this README, `loader/vllm` (patches and series), `bundles/`, the arms,
+    `loader/kernel` and `loader/runs`.
+  - Lab tooling: the arm key `serve_options` (scripts/recipe.py, tests/test_recipe.py,
+    docs/lab.md).
+  - Release tests: `config/release-tests.json` gates the loader's three test files, and the
+    release bundle sets `DIRECT_IO_TEST_DIR=/c/direct-io-test` (scripts/release_tests.py,
+    tests/test_release_tests.py).
+  - No recipe or image change. The candidate's own arms carry the recipe change above.
+  - Its commits merge cleanly with every open PR branch.
+- **Verified on dgx4 (above):** the GPU tests, a one-rank load bit-identical to B12X's, and
+  the plugin settings.
+- **Needs the cluster:** the serving boot A/B (loader-tp3/-tp4). It compares weight digests
+  across boots and loaders and temperature-0 digests, and measures the startup guard, load
+  time and API time.
+
 ### Lab spec ([loader/](loader/))
 
 Queued only; nothing runs during the freeze.
 
-- **Prerequisite:** the vLLM branch `direct-loader` from items 1-2 above, on the release's
-  base. Its first commit is the weight digest.
-- **Arms:** `loader/make_arms.py ~/projects/vllm-ds41-tl-ports --shape tp3-triangle` (or
+- **Prerequisite:** the vLLM branch `direct-loader` above. Its first commit is the weight
+  digest.
+- **Arms:** `loader/make_arms.py ~/projects/vllm-direct-loader --shape tp3-triangle` (and
   `tp4-ring`) writes the overlay bundles from that branch and three arms over the recipe at
-  that shape:
-  - `b12x-<tp>`: production's loader, with the digest;
+  that shape. The bundles and both shapes' arms are committed (from 6d5881d9c). Their mounts
+  name `{checkout}`, as the recipe's cache mount does since #604:
+  - `b12x-<tp>`: B12X's loader (`--load-format b12x`, `VLLM_PLUGINS=b12x_loader`), with the
+    digest;
   - `direct-<tp>`: the direct loader, with the digest;
   - `safetensors-<tp>`: vLLM's own loader, with the digest (the evidence arm).
+
+  Each arm names its load format in the new overlay key `serve_options` (docs/lab.md), so it
+  follows every other serving argument of the recipe at run time: a copy of `serve_args`
+  would have kept main's 1022 arguments after spark-ds41f-1025's promotion
+  (`--enable-prompt-tokens-details` and `--jit-monitor-mode off` differ). Over both
+  recipes, main's and 1025's, each arm differs from its shape only by the load format, the
+  digest variable, `VLLM_PLUGINS` and its bundle mounts. The bundles mount over
+  `/opt/spark-ds41f/candidate/vllm`, so the arms need 1025's image or a later one.
 
   The overlays are Python plus the C source, so the screen needs no image build.
 - **[loader-tp3.json](loader/loader-tp3.json)** (or loader-tp4.json): six boots, alternating
@@ -274,7 +492,11 @@ Queued only; nothing runs during the freeze.
   - c1 and c8 are within the boots' spread.
 - **Queue it** after the freeze, with the cluster cabled as the spec's shape, behind the
   release work. Then the direct loader goes into the next candidate's series. Its serving
-  check is the candidate's own gate.
+  check is the candidate's own gate. All four specs dry-run clean on branch `direct-loader`
+  (2026-10-25, 17:35 CET).
+- **If gate 1 fails:** the digest is one hash per rank, and it also covers parameter bytes no
+  loader writes (padding a weight loader leaves unfilled). Find the parameter with a
+  per-parameter listing before suspecting the reads.
 
 ## GPU verification (queued, not run)
 
@@ -288,6 +510,8 @@ Queued only; nothing runs during the freeze.
 - **vLLM:** the variable rename changes nothing while the variable is unset. It goes into the
   next candidate's series, and that candidate's gate (temperature-0 digests equal to 1025's)
   covers it.
+- **The direct loader:** its GPU tests and a one-rank load against B12X's passed on dgx4
+  (above). The loader spec needs the cluster.
 
 ## Follow-ups
 
@@ -299,8 +523,9 @@ Queued only; nothing runs during the freeze.
    - transport_profiles.py, model_layout.py and `bin/spark tuning`;
    - probe_collectives.py's B12X branch;
    - their tests and docs, and the RoCE marker reference.
-2. **The direct loader** (items 1-3 of the recommendation), then the loader spec, then the
-   image without B12X (item 4).
+2. **The direct loader:** items 1 and 2 are implemented (vLLM 0498-0499), and its GPU tests
+   and a one-rank load equal to B12X's passed on dgx4. Next the loader spec (the cluster),
+   then the recipe (item 3), then the image without B12X (item 4).
 3. **dgx-spark-networking's AGENTS.md** still says `~/spark3-hold.json`. Once it says
    `~/spark-hold.json` (it is a public repository: the owner's call), lab.py's legacy hold and
    request names can go.
