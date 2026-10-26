@@ -51,7 +51,7 @@ kept as row bases and 4-bit codes (exact, about 2.1 GiB a rank freed), and a DSp
 budget that is a rule of the inputs (row cost 0.035), so nothing is timed at boot. Outputs
 are identical to r6v's; against r6v decode steps are 2.5% faster and 16 and 8 streams 3.6%
 and 3.8% faster, prefill level. The three-node TP3 profile served r6x at 1M context from
-2026-10-19 (4.55 full 1M contexts of KV, from the memory the scale codes freed;
+2026-10-19 (KV for five full 1M contexts at once, from the memory the scale codes freed;
 [experiments/2026-10-19-r6x-tp3-1m](experiments/2026-10-19-r6x-tp3-1m/README.md)). r6v's recipe and lock are frozen
 in `experiments/2026-10-18-r6x/r6v`.
 
@@ -263,9 +263,11 @@ differs only in cabling, transport and memory sizing):
   the one-shot RoCE all-reduce (205 tokens);
 - mutating custom ops read their argument schema once per call, not once per
   argument as torch does;
-- 1,048,576-token per-request limit, eight admitted sequences, and 4,765,898
-  KV tokens (4.55 full 1M windows) in a 4.90625 GiB-per-rank cache;
-- one concurrent prefill, 4,096 batched tokens, and fail-closed 5 GiB startup
+- 1,048,576-token per-request limit, eight admitted sequences, and a 4.90625
+  GiB-per-rank cache that holds five full 1M contexts at once, or all eight
+  sequences at up to 666,880 tokens (spark-ds41f-1025's startup line: 4,009,281
+  tokens, 3.82x; [KV capacity](docs/memory-profiles.md#kv-capacity));
+- one concurrent prefill, 8,192 batched tokens, and fail-closed 5 GiB startup
   and 3 GiB steady memory guards;
 - FlashInfer autotune disabled (`--no-enable-flashinfer-autotune`): only the
   sampler uses FlashInfer, and the pass saved no configs.
@@ -352,7 +354,7 @@ stops at 500K; one cold 1,000,000-token prefill was measured on its own.
 | Decode, 4 streams | 111.5 | 116.0 (**+4.0%** ±1.9) |
 | Poisson arrivals at 0.42 req/s, output (tok/s) | 117.6 | 118.3 (+0.7% ±22) |
 | One conversation at a time (tok/s, `single-stream`) | 57.0 | 59.7 (+4.7% ±6.3) |
-| KV pool | 2,845,543 tokens (5.43x 512K) | 4,765,898 tokens (4.55x 1M) |
+| KV pool, startup line (4,096 batched tokens) | 2,845,543 tokens (5.43x 512K; holds 7 at once) | 4,765,898 tokens (4.55x 1M; holds 5 at once) |
 
 All 256 greedy responses are identical to r6v's. During the cold 1M prefill dgx1's
 lowest MemAvailable was 5.93 GiB, above its 3 GiB steady guard.
@@ -570,7 +572,7 @@ Four nodes (TP4 1M recipe, 16 sequences at 1,048,576 tokens):
 | One-stream prose / code step time | 34.00 / 37.72 ms | **31.79 / 34.75 ms** |
 | Source-text prefill, 32K / 256K (tok/s) | 5,117 ± 1.7% / 4,873 ± 2.5% | **5,836 ± 4.2% / 5,471 ± 3.1%** |
 | Source-text prefill, 500K / 1M | 4,645 ± 1.7% / 4,026 ± 0.9% | **5,072 ± 1.3% / 4,370 ± 0.6%** |
-| KV capacity | 8,580,566 tokens in 10.5 GiB per rank | same |
+| KV capacity, 10.5 GiB per rank | 11 full 1M contexts at once (the startup line at 8,192 batched tokens: 8,580,566 tokens) | same |
 | Lowest MemAvailable | 20.4 GiB (dgx1) | 19.35 GiB (dgx1) |
 
 TileLang is never behind: it is ahead on single-stream step time, at eight
@@ -630,7 +632,7 @@ With reasoning off (the answer itself), aggregate tok/s at 1/2/4/8 streams:
 | Prefix-cache replay, 32K prompt | 6.47 s cold, 0.24 s warm |
 | Four concurrent 64K contexts | all admitted without preemption, peak KV use 20%, 13.1 tok/s per stream |
 | Four concurrent 180K contexts (r5k) | all admitted without preemption, peak KV use 36%, 11.9 tok/s per stream |
-| KV capacity | 1,348,708 tokens in 2.2 GiB per rank (5.1 full 256K contexts) |
+| KV capacity | all eight sequences at 262,144 tokens at once in 2.2 GiB per rank (vLLM's startup line: 1,348,708 tokens, 5.1 full 256K contexts) |
 | Host memory headroom | dgx1 at least 6.38 GiB MemAvailable under load (3 GiB guard); startup passes the 5 GiB guard |
 
 The quick default takes three or four samples per decode point, about ±2-12%
