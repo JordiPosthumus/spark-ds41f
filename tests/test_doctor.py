@@ -991,3 +991,84 @@ class CpusetTest(unittest.TestCase):
         self.assertEqual(spark.cpuset_problems("n", "5-9,15-19", "15-19,5-9", self.CAPACITIES), [])
         self.assertIn("runs on CPUs all", spark.cpuset_problems("n", "5-9,15-19", "", self.CAPACITIES)[0])
         self.assertIn("not this node's fast cores", spark.cpuset_problems("n", "0-9", "0-9", self.CAPACITIES)[0])
+
+
+class GLPTest(unittest.TestCase):
+    """GLP steering in a profile: the dual-serving candidate's glp block, and its file on a node."""
+
+    GLP = ("/home/swank/.cache/huggingface/hub/models--msuiche--DeepSeek-V4.1-Flash-1017-abliterated-cyber-GLP-39-L1-39-a0.75"
+           "/snapshots/2715ffd51f59899115853e1118db080536966c44/glp.deepseek-v41-flash-1017-GLP-39-L1-39-a0.75.gguf")
+    DOWNLOAD = ("hf download msuiche/DeepSeek-V4.1-Flash-1017-abliterated-cyber-GLP-39-L1-39-a0.75 "
+                "glp.deepseek-v41-flash-1017-GLP-39-L1-39-a0.75.gguf --revision 2715ffd51f59899115853e1118db080536966c44")
+    SHA256 = "9c66d47701e0ceb42c33906f2d3789c0f1f16b21e7d97185f20f7f3f09fbf5cf"
+
+    def cluster(self) -> dict:
+        cluster = spark.read_cluster("experiments/2026-10-28-glp-dual-serving/rc-tp4.json")
+        cluster["host"]["home"] = "/home/swank"
+        return cluster
+
+    def node(self, cluster: dict, returncode: int, stdout: str = "", stderr: str = "") -> list[str]:
+        calls = []
+
+        def run_ssh(nodes, node, *argv):
+            calls.append(argv)
+            return spark.subprocess.CompletedProcess(argv, returncode, stdout, stderr)
+
+        original, spark.run_ssh = spark.run_ssh, run_ssh
+        try:
+            problems = spark.node_glp_problems(cluster, {}, {"name": "dgx2"})
+        finally:
+            spark.run_ssh = original
+        self.assertEqual(calls, [("sha256sum", self.GLP)])
+        return problems
+
+    def test_the_candidate_passes(self) -> None:
+        cluster = self.cluster()
+        self.assertEqual(spark.served_model_names(cluster),
+                         ["deepseek-v4.1-flash", "deepseek-v4.1-flash-weightless"])
+        self.assertEqual(spark.glp_problems(cluster), [])
+
+    def test_a_profile_without_steering_passes(self) -> None:
+        self.assertEqual(spark.glp_problems(spark.read_cluster("config/cluster.json")), [])
+
+    def test_steering_by_hand_is_reported(self) -> None:
+        cluster = spark.read_cluster("config/cluster.json")
+        cluster["environment"]["WEIGHTLESS_STEER_PATH"] = "/glp/vector.gguf"
+        self.assertIn("without a glp block", spark.glp_problems(cluster)[0])
+
+    def test_malformed_fields_are_reported(self) -> None:
+        cluster = self.cluster()
+        cluster["glp"].update(revision="main", sha256="9c66d477", repo="no-owner", file="vector.bin")
+        problems = spark.glp_problems(cluster)
+        self.assertEqual(sorted(problem.split(" ")[0] for problem in problems),
+                         ["glp.file", "glp.repo", "glp.revision", "glp.sha256"])
+
+    def test_the_steered_name_must_follow_the_stock_name(self) -> None:
+        for names in (["deepseek-v4.1-flash"],
+                      ["deepseek-v4.1-flash-weightless", "deepseek-v4.1-flash"],
+                      ["deepseek-v4.1-flash", "deepseek-v4.1-flash-weightless", "deepseek-v4.1-flash-weightless"]):
+            cluster = self.cluster()
+            args = cluster["serve_args"]
+            at = args.index("--served-model-name") + 1
+            args[at:at + 2] = names
+            with self.subTest(names=names):
+                self.assertIn("after the stock name", spark.glp_problems(cluster)[0])
+
+    def test_a_node_with_the_file_passes(self) -> None:
+        self.assertEqual(self.node(self.cluster(), 0, f"{self.SHA256}  {self.GLP}\n"), [])
+
+    def test_a_missing_file_names_its_download(self) -> None:
+        problems = self.node(self.cluster(), 1, stderr="No such file or directory")
+        self.assertEqual(len(problems), 1)
+        self.assertIn("dgx2: GLP steering file is missing", problems[0])
+        self.assertIn(self.DOWNLOAD, problems[0])
+
+    def test_a_file_with_other_contents_is_reported(self) -> None:
+        problems = self.node(self.cluster(), 0, f"{'0' * 64}  {self.GLP}\n")
+        self.assertIn(f"not glp.sha256 {self.SHA256}", problems[0])
+        self.assertIn(self.DOWNLOAD, problems[0])
+
+    def test_an_unreachable_node_is_not_reported_as_missing_the_file(self) -> None:
+        problems = self.node(self.cluster(), 255, stderr="ssh: connect to host dgx2 port 22: Connection refused\n")
+        self.assertEqual(problems, ["dgx2: cannot check the GLP steering file: "
+                                    "ssh: connect to host dgx2 port 22: Connection refused"])
