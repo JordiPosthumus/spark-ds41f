@@ -1,5 +1,5 @@
 {
- "notes": "Candidate 10's image on the triangle: built on ring2's head and copied to the other two nodes of each ring.",
+ "notes": "Candidate 10's image on the triangle: built on one node and copied to the other two, then checked to be one image on all three.",
  "extends": {
   "config": "experiments/2026-10-26-spark-ds41f-candidate/rc10/rc-tp3.json"
  }
